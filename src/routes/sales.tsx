@@ -320,13 +320,18 @@ function SalesPage() {
                   )}
                   <button
                     type="button"
-                    className="btn-icon size-9 text-bad"
+                    className={`btn-icon size-9 ${inv.isApproved ? "text-muted cursor-not-allowed" : "text-bad"}`}
                     onClick={() => {
+                      if (inv.isApproved) {
+                        toast.error("لا يمكن حذف فاتورة معتمدة");
+                        return;
+                      }
                       if (confirm("حذف الفاتورة وعكس أثرها؟")) {
                         deleteInvoice(inv.id);
                         toast.success("تم الحذف");
                       }
                     }}
+                    disabled={inv.isApproved}
                   >
                     <Trash2 className="size-4" />
                   </button>

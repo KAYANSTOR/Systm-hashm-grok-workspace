@@ -107,6 +107,20 @@ function PartiesPage() {
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [statementId, transactions]);
 
+  const statementOpeningBalance = useMemo(() => {
+    if (!statementId || !statementParty) return 0;
+    const partyTxns = statementRows;
+    if (partyTxns.length === 0) return statementParty.balance;
+    const isCustomer = "address" in statementParty;
+    const netChange = partyTxns.reduce((sum, t) => {
+      if (isCustomer) {
+        return sum + (t.debit || 0) - (t.credit || 0);
+      }
+      return sum + (t.credit || 0) - (t.debit || 0);
+    }, 0);
+    return statementParty.balance - netChange;
+  }, [statementId, statementParty, statementRows]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -293,22 +307,34 @@ function PartiesPage() {
               phone: "phone" in statementParty ? statementParty.phone : "",
               address: "address" in statementParty ? statementParty.address : "",
               periodFrom: statementRows.length
-                ? new Date(statementRows[statementRows.length - 1].date).toLocaleDateString("en-GB")
+                ? new Date(statementRows[0].date).toLocaleDateString("en-GB")
                 : "",
               periodTo: statementRows.length
-                ? new Date(statementRows[0].date).toLocaleDateString("en-GB")
+                ? new Date(statementRows[statementRows.length - 1].date).toLocaleDateString("en-GB")
                 : "",
               entries: statementRows.map((r) => ({
                 id: r.id,
                 date: new Date(r.date).toLocaleDateString("en-GB"),
-                transactionType: r.description,
+                transactionType: r.documentType === "invoice"
+                  ? r.documentNumber?.startsWith("PUR")
+                    ? "فاتورة مشتريات"
+                    : "فاتورة مبيعات"
+                  : r.documentType === "voucher"
+                    ? r.documentNumber?.startsWith("PAY")
+                      ? "سند صرف"
+                      : r.documentNumber?.startsWith("REC")
+                        ? "سند قبض"
+                        : "سند"
+                    : r.documentType === "expense"
+                      ? "مصروف"
+                      : r.description,
                 documentNumber: r.documentNumber,
                 description: r.description,
                 debit: r.debit || undefined,
                 credit: r.credit || undefined,
-                documentType: r.documentNumber?.startsWith("INV") ? "فاتورة" : "سند",
+                documentType: r.documentType,
               })),
-              openingBalance: 0,
+              openingBalance: statementOpeningBalance,
             }}
             company={{
               name: useStore.getState().settings.name,

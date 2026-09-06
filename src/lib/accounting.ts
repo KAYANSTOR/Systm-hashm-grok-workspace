@@ -61,16 +61,18 @@ export function applyInvoice(state: AppData, invoice: Invoice, sign: 1 | -1): Ap
   if (!invoice.isApproved) return state;
 
   let next = state;
-  if (sign === -1) next = dropDocTransactions(next, invoice.id);
+  if (sign === -1) {
+    next = dropDocTransactions(next, invoice.id);
+  }
 
   const isSale = invoice.type === "sale";
-  const debit = isSale ? invoice.total : invoice.paidAmount;
-  const credit = isSale ? invoice.paidAmount : invoice.total;
-  const cashIn = isSale ? invoice.paidAmount : 0;
-  const cashOut = isSale ? 0 : invoice.paidAmount;
-  const balanceChange = isSale ? debit - credit : credit - debit;
+  const isService = invoice.invoiceType === "SERVICE";
 
   if (sign === 1) {
+    const debit = isSale ? invoice.total : invoice.paidAmount;
+    const credit = isSale ? invoice.paidAmount : invoice.total;
+    const cashIn = isSale ? invoice.paidAmount : 0;
+    const cashOut = isSale ? 0 : invoice.paidAmount;
     const trx: Transaction = {
       id: uid("trx"),
       date: invoice.date,
@@ -83,9 +85,9 @@ export function applyInvoice(state: AppData, invoice: Invoice, sign: 1 | -1): Ap
       credit,
       cashIn,
       cashOut,
-      paymentMethod: "cash",
+      paymentMethod: isService ? "cash" : invoice.paymentType === "cash" ? "cash" : invoice.paymentType,
       description:
-        invoice.invoiceType === "SERVICE"
+        isService
           ? "فاتورة خدمة تطريز"
           : isSale
             ? "فاتورة مبيعات"
@@ -94,6 +96,9 @@ export function applyInvoice(state: AppData, invoice: Invoice, sign: 1 | -1): Ap
     next = { ...next, transactions: [trx, ...next.transactions] };
   }
 
+  const balanceChange = isSale
+    ? invoice.total - invoice.paidAmount
+    : invoice.paidAmount - invoice.total;
   next = patchPartyBalance(
     next,
     isSale ? "customer" : "supplier",
@@ -101,7 +106,7 @@ export function applyInvoice(state: AppData, invoice: Invoice, sign: 1 | -1): Ap
     balanceChange * sign,
   );
 
-  if (invoice.invoiceType !== "SERVICE") {
+  if (!isService) {
     for (const line of invoice.items) {
       const qtyChange = isSale ? -line.quantity : line.quantity;
       next = patchInventory(next, line.inventoryItemId, qtyChange * sign);

@@ -117,6 +117,10 @@ export const useStore = create<Store>()(
         const id = uid("inv");
         const invoice: Invoice = { ...i, id, createdAt: new Date().toISOString() };
         set((s) => {
+          const exists = s.invoices.some((inv) => inv.invoiceNumber === invoice.invoiceNumber);
+          if (exists) {
+            return s;
+          }
           let next: AppData = { ...s, invoices: [invoice, ...s.invoices] };
           next = applyInvoice(next, invoice, 1);
           return next;
@@ -125,10 +129,13 @@ export const useStore = create<Store>()(
       },
       updateInvoice: (id, data) => {
         const old = get().invoices.find((x) => x.id === id);
-        if (!old) return;
-        if (old.isApproved) return;
+        if (!old || old.isApproved) return;
         const updated: Invoice = { ...old, ...data, id };
         set((s) => {
+          const exists = s.invoices.some((inv) => inv.invoiceNumber === updated.invoiceNumber && inv.id !== id);
+          if (exists) {
+            return s;
+          }
           let next: AppData = { ...s };
           next = applyInvoice(next, old, -1);
           next = {
@@ -141,7 +148,7 @@ export const useStore = create<Store>()(
       },
       deleteInvoice: (id) => {
         const old = get().invoices.find((x) => x.id === id);
-        if (!old) return;
+        if (!old || old.isApproved) return;
         set((s) => {
           let next: AppData = { ...s };
           next = applyInvoice(next, old, -1);
@@ -154,6 +161,10 @@ export const useStore = create<Store>()(
         if (!old || old.isApproved) return;
         const updated: Invoice = { ...old, isApproved: true };
         set((s) => {
+          const exists = s.invoices.some((inv) => inv.invoiceNumber === updated.invoiceNumber && inv.id !== id);
+          if (exists) {
+            return s;
+          }
           let next: AppData = {
             ...s,
             invoices: s.invoices.map((x) => (x.id === id ? updated : x)),
@@ -167,6 +178,10 @@ export const useStore = create<Store>()(
         const id = uid("v");
         const voucher: Voucher = { ...v, id, createdAt: new Date().toISOString() };
         set((s) => {
+          const exists = s.vouchers.some((vch) => vch.voucherNumber === voucher.voucherNumber);
+          if (exists) {
+            return s;
+          }
           let next: AppData = { ...s, vouchers: [voucher, ...s.vouchers] };
           next = applyVoucher(next, voucher, 1);
           return next;

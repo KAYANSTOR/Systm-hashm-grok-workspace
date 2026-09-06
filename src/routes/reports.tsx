@@ -63,6 +63,25 @@ function ReportsPage() {
 
   const stockValue = inventory.reduce((s, i) => s + i.quantity * i.costPrice, 0);
 
+  const periodTransactions = useMemo(() => {
+    return transactions.filter((t) => {
+      const matchFrom = !from || t.date >= from;
+      const matchTo = !to || t.date <= to;
+      return matchFrom && matchTo;
+    });
+  }, [transactions, from, to]);
+
+  const periodExpenses = useMemo(() => {
+    return expenses.filter((e) => {
+      const matchFrom = !from || e.date >= from;
+      const matchTo = !to || e.date <= to;
+      return matchFrom && matchTo;
+    });
+  }, [expenses, from, to]);
+
+  const periodCashIn = periodTransactions.reduce((s, t) => s + (t.cashIn || 0), 0);
+  const periodCashOut = periodTransactions.reduce((s, t) => s + (t.cashOut || 0), 0);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -196,9 +215,13 @@ function ReportsPage() {
           </div>
           <div className="card p-4">
             <h3 className="mb-2 font-black">رصيد الصندوق</h3>
-            <p className="text-3xl font-black tabular-nums">{formatCurrency(cashBalance(transactions))}</p>
+            <p className="text-3xl font-black tabular-nums">{formatCurrency(cashBalance(periodTransactions))}</p>
+            <div className="mt-1 flex gap-4 text-sm text-muted">
+              <span>قبض الفترة: {formatCurrency(periodCashIn)}</span>
+              <span>صرف الفترة: {formatCurrency(periodCashOut)}</span>
+            </div>
             <p className="mt-1 text-sm text-muted">
-              مصروفات الفترة: {formatCurrency(expenses.filter((e) => e.date >= from && e.date <= to).reduce((s, e) => s + e.amount, 0))}
+              مصروفات الفترة: {formatCurrency(periodExpenses.reduce((s, e) => s + e.amount, 0))}
             </p>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { INVOICE_PREFIX, methodLabel, VOUCHER_PREFIX } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -70,3 +71,5 @@ export function invoiceStatus(
   if (paid >= total) return "paid";
   return "partial";
 }
+
+export { INVOICE_PREFIX, methodLabel, VOUCHER_PREFIX };
