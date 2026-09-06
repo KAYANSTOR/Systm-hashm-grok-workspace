@@ -19,9 +19,11 @@ import pg from "pg";
 import { pendingMigrations } from "./migration-plan.mjs";
 
 const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
+const hasCloudSql = !!(process.env.SQL_HOST && process.env.SQL_USER && process.env.SQL_PASSWORD && process.env.SQL_DB_NAME);
+
+if (!databaseUrl && !hasCloudSql) {
   console.log(
-    "[migrate] DATABASE_URL not set — skipping (the PGLite fallback migrates itself).",
+    "[migrate] DATABASE_URL or SQL_HOST not set — skipping (the PGLite fallback migrates itself).",
   );
   process.exit(0);
 }
@@ -42,7 +44,14 @@ async function main() {
     return;
   }
 
-  const pool = new pg.Pool({ connectionString: databaseUrl, max: 1 });
+  const poolConfig = hasCloudSql ? {
+    host: process.env.SQL_HOST,
+    user: process.env.SQL_USER,
+    password: process.env.SQL_PASSWORD,
+    database: process.env.SQL_DB_NAME,
+    max: 1,
+  } : { connectionString: databaseUrl, max: 1 };
+  const pool = new pg.Pool(poolConfig);
   const client = await pool.connect();
   try {
     await client.query(

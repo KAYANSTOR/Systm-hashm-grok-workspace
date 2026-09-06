@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowDownRight, ArrowUpRight, Plus, Printer, Receipt, Search, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { Modal } from "@/components/modal";
@@ -33,11 +33,11 @@ function VouchersPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [description, setDescription] = useState("");
 
-  const partyName = (v: Voucher) => {
+  const partyName = useCallback((v: Voucher) => {
     if (v.partyType === "customer") return customers.find((c) => c.id === v.partyId)?.name || "—";
     if (v.partyType === "supplier") return suppliers.find((s) => s.id === v.partyId)?.name || "—";
     return "أخرى";
-  };
+  }, [customers, suppliers]);
 
   const filtered = useMemo(
     () =>
@@ -49,7 +49,7 @@ function VouchersPage() {
             v.description.includes(q) ||
             partyName(v).includes(q),
         ),
-    [vouchers, filter, q, customers, suppliers],
+    [vouchers, filter, q, partyName],
   );
 
   const openNew = (t: VoucherType) => {

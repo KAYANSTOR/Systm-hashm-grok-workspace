@@ -211,7 +211,9 @@ function tokenIdentityKey(token: string): string {
             .digest("base64url");
         }
       }
-    } catch {}
+    } catch {
+      // Ignore invalid JWT, fallback to hashing the token directly.
+    }
   }
   return createHash("sha256").update(token).digest("base64url");
 }
