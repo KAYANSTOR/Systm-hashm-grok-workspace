@@ -13,13 +13,14 @@ import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { Modal } from "@/components/modal";
 import InvoicePrintTemplate from "@/components/print/InvoicePrintTemplate";
-import { paymentTypeLabel, statusLabel, unitLabel } from "@/lib/labels";
+import { methodLabel, paymentTypeLabel, statusLabel, unitLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type {
   Invoice,
   InvoiceKind,
   InvoiceLine,
   InvoiceSalesType,
+  PaymentMethod,
   PaymentType,
 } from "@/lib/types";
 import { formatCurrency, formatDate, invoiceStatus, nextNumber, todayIso, uid } from "@/lib/utils";
@@ -52,6 +53,7 @@ function SalesPage() {
   const [discount, setDiscount] = useState("0");
   const [paidAmount, setPaidAmount] = useState("0");
   const [paymentType, setPaymentType] = useState<PaymentType>("cash");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [notes, setNotes] = useState("");
 
   const [itemId, setItemId] = useState("");
@@ -91,6 +93,7 @@ function SalesPage() {
     setDiscount("0");
     setPaidAmount("0");
     setPaymentType("cash");
+    setPaymentMethod("cash");
     setNotes("");
     setOpen(true);
   };
@@ -109,6 +112,7 @@ function SalesPage() {
     setDiscount(String(inv.discount));
     setPaidAmount(String(inv.paidAmount));
     setPaymentType(inv.paymentType);
+    setPaymentMethod(inv.paymentMethod || "cash");
     setNotes(inv.notes || "");
     setOpen(true);
   };
@@ -181,6 +185,7 @@ function SalesPage() {
       total,
       paidAmount: paid,
       paymentType,
+      paymentMethod,
       remainingAmount: remaining,
       status,
       isApproved: approved,
@@ -311,6 +316,18 @@ function SalesPage() {
                         <CheckCircle2 className="size-4" />
                         اعتماد
                       </button>
+                      <button
+                        type="button"
+                        className="btn-icon size-9 text-bad"
+                        onClick={() => {
+                          if (confirm("حذف الفاتورة؟")) {
+                            deleteInvoice(inv.id);
+                            toast.success("تم الحذف");
+                          }
+                        }}
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
                     </>
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2 text-xs font-bold text-good">
@@ -318,18 +335,6 @@ function SalesPage() {
                       معتمدة
                     </span>
                   )}
-                  <button
-                    type="button"
-                    className="btn-icon size-9 text-bad"
-                    onClick={() => {
-                      if (confirm("حذف الفاتورة وعكس أثرها؟")) {
-                        deleteInvoice(inv.id);
-                        toast.success("تم الحذف");
-                      }
-                    }}
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
                 </div>
               </article>
             );
@@ -459,13 +464,29 @@ function SalesPage() {
               <option value="partial">جزئي</option>
             </select>
           </label>
+          {paymentType !== "deferred" && (
+            <label>
+              <span className="label">عبر</span>
+              <select
+                className="input-field"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+              >
+                {Object.entries(methodLabel).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {paymentType === "partial" ? (
             <label>
               <span className="label">المدفوع</span>
               <input className="input-field" inputMode="decimal" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} />
             </label>
           ) : (
-            <div />
+            <div className="hidden sm:block" />
           )}
         </div>
         <label className="mt-3 block">

@@ -69,6 +69,7 @@ export interface Invoice {
   total: number;
   paidAmount: number;
   remainingAmount: number;
+  paymentMethod?: PaymentMethod;
   status: InvoiceStatus;
   isApproved: boolean;
   notes?: string;

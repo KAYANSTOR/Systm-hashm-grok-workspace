@@ -1,4 +1,6 @@
-import { create } from "zustand";
+import fs from 'fs';
+
+const code = `import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { applyExpense, applyInvoice, applyVoucher } from "./accounting";
 import { makeSeed } from "./seed";
@@ -42,14 +44,6 @@ export const useStore = create<Store>()(
       
       fetchFromDb: async () => {
         const data = await fetchAllData();
-        
-        // Auto-migration
-        if (data.isDbEmpty && (get().invoices.length > 0 || get().customers.length > 0)) {
-           console.log("Legacy data detected, syncing to database...");
-           await get().syncLegacyDb();
-           return;
-        }
-
         set({
            customers: (data.parties || []).filter((p: any) => p.type === 'customer' || p.type === 'retail' || p.type === 'wholesale'),
            suppliers: (data.parties || []).filter((p: any) => p.type === 'supplier'),
@@ -57,19 +51,7 @@ export const useStore = create<Store>()(
            invoices: data.invoices || [],
            vouchers: data.vouchers || [],
            expenses: data.expenses || [],
-           transactions: (data.transactions || []).map((t: any) => ({
-             id: t.id,
-             date: t.created_at,
-             documentId: t.reference_id,
-             documentNumber: t.reference_id,
-             documentType: t.reference_type === 'invoice' ? 'invoice' : t.reference_type === 'voucher' ? 'voucher' : 'expense',
-             partyId: t.party_id,
-             debit: Number(t.debit),
-             credit: Number(t.credit),
-             cashIn: t.account_id === 'cash' ? Number(t.debit) : 0,
-             cashOut: t.account_id === 'cash' ? Number(t.credit) : 0,
-             description: t.description
-           }))
+           transactions: data.transactions || []
         });
       },
       
@@ -167,7 +149,7 @@ export const useStore = create<Store>()(
           next = applyInvoice(next, invoice, 1);
           return next;
         });
-        (async () => { await saveInvoice({ data: invoice }); await get().fetchFromDb(); })().catch(console.error);
+        saveInvoice({ data: invoice }).then(() => get().fetchFromDb()).catch(console.error);
         return id;
       },
       
@@ -182,7 +164,7 @@ export const useStore = create<Store>()(
           next = applyInvoice(next, updated, 1);
           return next;
         });
-        (async () => { await saveInvoice({ data: updated }); await get().fetchFromDb(); })().catch(console.error);
+        saveInvoice({ data: updated }).then(() => get().fetchFromDb()).catch(console.error);
       },
       
       deleteInvoice: (id) => {
@@ -198,7 +180,7 @@ export const useStore = create<Store>()(
           next = { ...next, invoices: next.invoices.filter((x) => x.id !== id) };
           return next;
         });
-        (async () => { await deleteInvoiceApi({ data: { id } }); await get().fetchFromDb(); })().catch(console.error);
+        deleteInvoiceApi({ data: { id } }).then(() => get().fetchFromDb()).catch(console.error);
       },
       
       approveInvoice: (id) => {
@@ -210,7 +192,7 @@ export const useStore = create<Store>()(
           next = applyInvoice(next, updated, 1);
           return next;
         });
-        (async () => { await saveInvoice({ data: updated }); await get().fetchFromDb(); })().catch(console.error);
+        saveInvoice({ data: updated }).then(() => get().fetchFromDb()).catch(console.error);
       },
       
       addVoucher: (v) => {
@@ -221,7 +203,7 @@ export const useStore = create<Store>()(
           next = applyVoucher(next, voucher, 1);
           return next;
         });
-        (async () => { await saveVoucher({ data: voucher }); await get().fetchFromDb(); })().catch(console.error);
+        saveVoucher({ data: voucher }).then(() => get().fetchFromDb()).catch(console.error);
         return id;
       },
       
@@ -234,7 +216,7 @@ export const useStore = create<Store>()(
           next = { ...next, vouchers: next.vouchers.filter((x) => x.id !== id) };
           return next;
         });
-        (async () => { await deleteVoucherApi({ data: { id } }); await get().fetchFromDb(); })().catch(console.error);
+        deleteVoucherApi({ data: { id } }).then(() => get().fetchFromDb()).catch(console.error);
       },
       
       addExpense: (e) => {
@@ -245,7 +227,7 @@ export const useStore = create<Store>()(
           next = applyExpense(next, expense, 1);
           return next;
         });
-        (async () => { await saveExpense({ data: expense }); await get().fetchFromDb(); })().catch(console.error);
+        saveExpense({ data: expense }).then(() => get().fetchFromDb()).catch(console.error);
         return id;
       },
       
@@ -258,7 +240,7 @@ export const useStore = create<Store>()(
           next = { ...next, expenses: next.expenses.filter((x) => x.id !== id) };
           return next;
         });
-        (async () => { await deleteExpenseApi({ data: { id } }); await get().fetchFromDb(); })().catch(console.error);
+        deleteExpenseApi({ data: { id } }).then(() => get().fetchFromDb()).catch(console.error);
       }
     }),
     {
@@ -279,7 +261,8 @@ export const useStore = create<Store>()(
 );
 
 if (typeof window !== "undefined") {
-  useStore.persist.rehydrate().then(() => {
-    useStore.getState().fetchFromDb().catch(console.error);
-  });
+  void useStore.persist.rehydrate();
 }
+`;
+
+fs.writeFileSync('src/lib/store.ts', code);

@@ -83,7 +83,7 @@ export function applyInvoice(state: AppData, invoice: Invoice, sign: 1 | -1): Ap
       credit,
       cashIn,
       cashOut,
-      paymentMethod: "cash",
+      paymentMethod: invoice.paymentMethod || "cash",
       description:
         invoice.invoiceType === "SERVICE"
           ? "فاتورة خدمة تطريز"

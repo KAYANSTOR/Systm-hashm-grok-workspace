@@ -30,6 +30,7 @@ export interface Sql {
     text: string,
     params?: unknown[],
   ): Promise<T[]>;
+  transaction<T>(callback: (tx: Sql) => Promise<T>): Promise<T>;
 }
 
 /**
@@ -96,10 +97,29 @@ function createNeonSql(): Promise<Sql> {
       max: 10,
     } : { connectionString: databaseUrl };
     const pool = new Pool(poolConfig);
-    return toSql(async <T>(text: string, params: unknown[]) => {
+    const sql = toSql(async <T>(text: string, params: unknown[]) => {
       const res = await pool.query(text, params);
       return res.rows as T[];
     });
+    sql.transaction = async <T>(cb: (tx: Sql) => Promise<T>) => {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const txSql = toSql(async <U>(text: string, params: unknown[]) => {
+          const res = await client.query(text, params);
+          return res.rows as U[];
+        });
+        const result = await cb(txSql);
+        await client.query('COMMIT');
+        return result;
+      } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+      } finally {
+        client.release();
+      }
+    };
+    return sql;
   })().catch((err) => {
     globalRef.__pgSqlPromise__ = undefined;
     throw err;
@@ -163,10 +183,20 @@ async function createPgliteSql(): Promise<Sql> {
   globalRef.__pgliteMigrateChain__ = pass;
   await pass;
 
-  return toSql(async <T>(text: string, params: unknown[]) => {
+  const sql = toSql(async <T>(text: string, params: unknown[]) => {
     const result = await pg.query<T>(text, params);
     return result.rows;
   });
+  sql.transaction = async <T>(cb: (tx: Sql) => Promise<T>) => {
+    return pg.transaction(async (tx) => {
+      const txSql = toSql(async <U>(text: string, params: unknown[]) => {
+        const result = await tx.query<U>(text, params);
+        return result.rows;
+      });
+      return cb(txSql);
+    });
+  };
+  return sql;
 }
 
 let sqlPromise: Promise<Sql> | null = null;
