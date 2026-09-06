@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
+import { motion, AnimatePresence } from "motion/react";
 import {
   ArrowRight,
   ArrowUp,
@@ -54,10 +55,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [fabOpen, setFabOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
 
+  const [isHydrated, setIsHydrated] = useState(false);
+
   useEffect(() => {
-    if (!useStore.persist.hasHydrated()) {
+    const unsub = useStore.persist.onFinishHydration(() => setIsHydrated(true));
+    if (useStore.persist.hasHydrated()) {
+      setIsHydrated(true);
+    } else {
       void useStore.persist.rehydrate();
     }
+    return unsub;
   }, []);
 
   useEffect(() => {
@@ -69,6 +76,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     () => inventory.filter((i) => i.quantity <= (i.minQuantity || 0)),
     [inventory],
   );
+
+  if (!isHydrated) {
+    return (
+      <div className="min-h-dvh bg-canvas text-ink flex items-center justify-center">
+        <div className="size-10 animate-spin rounded-full border-4 border-brand border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh bg-canvas text-ink">
@@ -133,37 +148,48 @@ export function AppShell({ children }: { children: ReactNode }) {
                     </span>
                   ) : null}
                 </button>
-                {notesOpen ? (
-                  <>
-                    <button
-                      type="button"
-                      className="fixed inset-0 z-30 cursor-default"
-                      aria-label="إغلاق التنبيهات"
-                      onClick={() => setNotesOpen(false)}
-                    />
-                    <div className="absolute right-0 top-12 z-40 w-72 overflow-hidden rounded-2xl border border-line bg-paper shadow-xl">
-                      <div className="border-b border-line bg-canvas px-3 py-2">
-                        <p className="text-sm font-black">تنبيهات المخزن</p>
-                      </div>
-                      <div className="max-h-60 overflow-y-auto">
-                        {lowStock.length === 0 ? (
-                          <p className="p-4 text-center text-sm text-muted">لا توجد تنبيهات</p>
-                        ) : (
-                          lowStock.map((item) => (
-                            <Link
-                              key={item.id}
-                              to="/inventory"
-                              className="block border-b border-line px-3 py-2.5 text-right last:border-0 hover:bg-canvas"
-                            >
-                              <p className="text-sm font-bold">{item.name}</p>
-                              <p className="text-xs text-bad">المتبقي: {item.quantity}</p>
-                            </Link>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  </>
-                ) : null}
+                <AnimatePresence>
+                  {notesOpen && (
+                    <>
+                      <motion.button
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        type="button"
+                        className="fixed inset-0 z-30 cursor-default"
+                        aria-label="إغلاق التنبيهات"
+                        onClick={() => setNotesOpen(false)}
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-0 top-12 z-40 w-72 origin-top-right overflow-hidden rounded-2xl border border-line bg-paper shadow-xl"
+                      >
+                        <div className="border-b border-line bg-canvas px-3 py-2">
+                          <p className="text-sm font-black">تنبيهات المخزن</p>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto">
+                          {lowStock.length === 0 ? (
+                            <p className="p-4 text-center text-sm text-muted">لا توجد تنبيهات</p>
+                          ) : (
+                            lowStock.map((item) => (
+                              <Link
+                                key={item.id}
+                                to="/inventory"
+                                className="block border-b border-line px-3 py-2.5 text-right last:border-0 hover:bg-canvas"
+                              >
+                                <p className="text-sm font-bold">{item.name}</p>
+                                <p className="text-xs text-bad">المتبقي: {item.quantity}</p>
+                              </Link>
+                            ))
+                          )}
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
             <div className="flex items-center gap-2 text-left">
@@ -179,33 +205,62 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-32 pt-2 lg:px-8 lg:pb-10">{children}</main>
+          <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-32 pt-2 lg:px-8 lg:pb-10">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={pathname}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+              >
+                {children}
+              </motion.div>
+            </AnimatePresence>
+          </main>
         </div>
       </div>
 
-      {fabOpen ? (
-        <div className="no-print fixed inset-0 z-40 bg-ink/20 lg:hidden" onClick={() => setFabOpen(false)} />
-      ) : null}
+      <AnimatePresence>
+        {fabOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="no-print fixed inset-0 z-40 bg-ink/20 lg:hidden"
+            onClick={() => setFabOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
-      {fabOpen ? (
-        <div className="no-print fixed bottom-24 left-1/2 z-50 flex w-52 -translate-x-1/2 flex-col gap-2 lg:hidden">
-          {QUICK.map((q) => {
-            const Icon = q.icon;
-            return (
-              <Link
-                key={q.to}
-                to={q.to}
-                className="flex items-center justify-between rounded-2xl border border-line bg-paper px-4 py-3 shadow-lg"
-              >
-                <span className="text-sm font-bold">{q.label}</span>
-                <span className={cn("rounded-xl p-2", q.tone)}>
-                  <Icon className="size-5" />
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      ) : null}
+      <AnimatePresence>
+        {fabOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ duration: 0.2, type: "spring", bounce: 0 }}
+            className="no-print fixed bottom-24 left-1/2 z-50 flex w-52 -translate-x-1/2 flex-col gap-2 lg:hidden"
+          >
+            {QUICK.map((q) => {
+              const Icon = q.icon;
+              return (
+                <Link
+                  key={q.to}
+                  to={q.to}
+                  className="flex items-center justify-between rounded-2xl border border-line bg-paper px-4 py-3 shadow-lg"
+                >
+                  <span className="text-sm font-bold">{q.label}</span>
+                  <span className={cn("rounded-xl p-2", q.tone)}>
+                    <Icon className="size-5" />
+                  </span>
+                </Link>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <nav className="no-print fixed inset-x-0 bottom-0 z-50 border-t border-line bg-paper pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(20,50,58,0.06)] lg:hidden">
         <div className="relative mx-auto flex h-20 max-w-lg items-center justify-around px-2">

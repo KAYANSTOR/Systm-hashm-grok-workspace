@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { Modal } from "@/components/modal";
+import { CustomerStatementPreview } from "@/components/print/CustomerStatementPreview";
+import { X } from "lucide-react";
 import { customerTypeLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { Customer, CustomerType, Supplier } from "@/lib/types";
@@ -275,52 +277,49 @@ function PartiesPage() {
         </div>
       </Modal>
 
-      <Modal
-        open={!!statementParty}
-        title={`كشف حساب — ${statementParty?.name ?? ""}`}
-        onClose={() => setStatementId(null)}
-        wide
-        footer={
-          <button type="button" className="btn-primary" onClick={() => window.print()}>
-            طباعة
-          </button>
-        }
-      >
-        {statementParty ? (
-          <div className="print-section space-y-3">
-            <p className="text-sm text-muted">الرصيد الحالي: {formatCurrency(statementParty.balance)}</p>
-            {statementRows.length === 0 ? (
-              <p className="text-sm text-muted">لا توجد حركات.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-canvas text-muted">
-                      <th className="px-2 py-2 text-right">التاريخ</th>
-                      <th className="px-2 py-2 text-right">البيان</th>
-                      <th className="px-2 py-2 text-left">مدين</th>
-                      <th className="px-2 py-2 text-left">دائن</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {statementRows.map((r) => (
-                      <tr key={r.id} className="border-b border-line">
-                        <td className="px-2 py-2">{formatDate(r.date)}</td>
-                        <td className="px-2 py-2">
-                          {r.description}
-                          <span className="mr-1 text-xs text-muted">{r.documentNumber}</span>
-                        </td>
-                        <td className="px-2 py-2 text-left tabular-nums">{r.debit || "—"}</td>
-                        <td className="px-2 py-2 text-left tabular-nums">{r.credit || "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+      {statementParty ? (
+        <div className="fixed inset-0 z-[100] flex flex-col overflow-auto bg-canvas">
+          <div className="sticky top-0 z-10 flex justify-end border-b border-line bg-paper/80 p-4 backdrop-blur-sm no-print">
+            <button className="btn-ghost" onClick={() => setStatementId(null)}>
+              <X className="size-5" /> إغلاق
+            </button>
           </div>
-        ) : null}
-      </Modal>
+          <CustomerStatementPreview
+            statement={{
+              statementNumber: Date.now().toString().slice(-6),
+              date: new Date().toLocaleDateString("en-GB"),
+              customerName: statementParty.name,
+              customerNumber: statementParty.id.slice(0, 8),
+              phone: "phone" in statementParty ? statementParty.phone : "",
+              address: "address" in statementParty ? statementParty.address : "",
+              periodFrom: statementRows.length
+                ? new Date(statementRows[statementRows.length - 1].date).toLocaleDateString("en-GB")
+                : "",
+              periodTo: statementRows.length
+                ? new Date(statementRows[0].date).toLocaleDateString("en-GB")
+                : "",
+              entries: statementRows.map((r) => ({
+                id: r.id,
+                date: new Date(r.date).toLocaleDateString("en-GB"),
+                transactionType: r.description,
+                documentNumber: r.documentNumber,
+                description: r.description,
+                debit: r.debit || undefined,
+                credit: r.credit || undefined,
+                documentType: r.documentNumber?.startsWith("INV") ? "فاتورة" : "سند",
+              })),
+              openingBalance: 0,
+            }}
+            company={{
+              name: useStore.getState().settings.name,
+              location: useStore.getState().settings.location,
+              phone1: useStore.getState().settings.phone1,
+              phone2: useStore.getState().settings.phone2,
+              logoSrc: "/logo.svg",
+            }}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

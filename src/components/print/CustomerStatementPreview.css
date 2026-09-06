@@ -1,0 +1,28 @@
+.statement-preview {
+  min-height: 100vh;
+  padding: 16px;
+  direction: rtl;
+}
+
+.statement-actions {
+  width: min(210mm, 100%);
+  margin: 0 auto 14px;
+  display: flex;
+  gap: 8px;
+}
+
+.statement-actions button {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 20px;
+  background: #087583;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@media print {
+  .statement-preview { padding: 0 !important; }
+  .statement-actions { display: none !important; }
+}

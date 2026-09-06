@@ -12,7 +12,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { Modal } from "@/components/modal";
-import { InvoicePrint } from "@/components/print-docs";
+import InvoicePrintTemplate from "@/components/print/InvoicePrintTemplate";
 import { paymentTypeLabel, statusLabel, unitLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type {
@@ -489,7 +489,19 @@ function SalesPage() {
         </div>
       </Modal>
 
-      {printing ? <InvoicePrint invoice={printing} onClose={() => setPrintId(null)} /> : null}
+      {printing ? (
+        <InvoicePrintTemplate
+          invoice={printing}
+          partyName={
+            printing.partyId
+              ? customers.find((c) => c.id === printing.partyId)?.name ||
+                suppliers.find((s) => s.id === printing.partyId)?.name ||
+                "نقدي"
+              : "نقدي"
+          }
+          onClose={() => setPrintId(null)}
+        />
+      ) : null}
     </div>
   );
 }

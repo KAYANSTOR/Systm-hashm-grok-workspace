@@ -1,0 +1,472 @@
+@font-face {
+  font-family: "ReceiptArabic";
+  src: url("/fonts/Cairo-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "ReceiptArabic";
+  src: url("/fonts/Cairo-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "ReceiptArabic";
+  src: url("/fonts/Cairo-Black.woff2") format("woff2");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+.receipt-print-page {
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+
+  padding: 24px;
+
+  background: #eeeeee;
+
+  font-family: "ReceiptArabic", "Cairo", Arial, sans-serif;
+  color: #000;
+}
+
+.receipt {
+  width: 210mm;
+  height: 100mm;
+
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+
+  background: #fff;
+
+  border: 0.65mm solid #208480;
+  border-radius: 6mm;
+
+  direction: rtl;
+
+  font-family: "ReceiptArabic", "Cairo", Arial, sans-serif;
+}
+
+/* ================================================================
+   HEADER
+   ================================================================ */
+
+.receipt-header {
+  position: relative;
+
+  height: 32mm;
+
+  box-sizing: border-box;
+
+  border-bottom: 0.55mm solid #208480;
+}
+
+.receipt-company {
+  position: absolute;
+
+  top: 3mm;
+  right: 45mm;
+  left: 5mm;
+
+  text-align: center;
+
+  white-space: nowrap;
+}
+
+.receipt-company-name {
+  font-size: 7mm;
+  line-height: 8mm;
+  font-weight: 900;
+  letter-spacing: -0.1mm;
+}
+
+.receipt-company-address {
+  margin-top: 1.5mm;
+
+  font-size: 4.4mm;
+  line-height: 5.2mm;
+  font-weight: 700;
+}
+
+.receipt-company-phone {
+  margin-top: 1.8mm;
+
+  font-family: Arial, sans-serif;
+  font-size: 4.8mm;
+  line-height: 5mm;
+  font-weight: 900;
+}
+
+.receipt-logo {
+  position: absolute;
+
+  top: 1.5mm;
+  right: 5mm;
+
+  width: 37mm;
+  height: 28mm;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.receipt-logo img {
+  display: block;
+
+  width: 100%;
+  height: 100%;
+
+  object-fit: contain;
+}
+
+/* ================================================================
+   TITLE BAR
+   ================================================================ */
+
+.receipt-title-bar {
+  position: relative;
+
+  height: 12mm;
+
+  box-sizing: border-box;
+
+  border-bottom: 0.55mm solid #208480;
+}
+
+.receipt-meta {
+  position: absolute;
+
+  top: 0;
+
+  height: 12mm;
+
+  display: flex;
+  align-items: center;
+
+  font-size: 4mm;
+  font-weight: 700;
+}
+
+.receipt-meta strong {
+  margin-right: 3mm;
+  font-weight: 700;
+}
+
+.receipt-meta-number {
+  left: 8mm;
+  width: 47mm;
+  justify-content: flex-start;
+}
+
+.receipt-meta-date {
+  right: 7mm;
+  width: 46mm;
+  justify-content: flex-start;
+}
+
+.receipt-title {
+  position: absolute;
+
+  left: 50%;
+  top: -0.1mm;
+
+  transform: translateX(-50%);
+
+  width: 73mm;
+  height: 12mm;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  box-sizing: border-box;
+
+  background: #208480;
+  color: #fff;
+
+  font-size: 7mm;
+  line-height: 12mm;
+  font-weight: 900;
+
+  clip-path: polygon(
+    8% 0%,
+    92% 0%,
+    100% 50%,
+    92% 100%,
+    8% 100%,
+    0% 50%
+  );
+}
+
+/* ================================================================
+   BODY
+   ================================================================ */
+
+.receipt-body {
+  height: 40mm;
+
+  box-sizing: border-box;
+
+  padding: 2mm 6mm 0;
+
+  font-size: 4mm;
+  font-weight: 700;
+}
+
+.receipt-line {
+  width: 100%;
+  min-height: 8.5mm;
+
+  display: flex;
+  align-items: center;
+
+  box-sizing: border-box;
+
+  white-space: nowrap;
+}
+
+.receipt-label {
+  flex: 0 0 auto;
+
+  font-weight: 900;
+}
+
+.receipt-dotted-value {
+  min-width: 0;
+  flex: 1;
+
+  height: 7mm;
+
+  display: flex;
+  align-items: center;
+
+  padding: 0 2mm;
+
+  box-sizing: border-box;
+
+  border-bottom: 0.6mm dotted #000;
+
+  overflow: hidden;
+
+  font-weight: 700;
+}
+
+.receipt-amount {
+  flex: 0 0 40mm;
+  justify-content: center;
+  font-weight: 900;
+}
+
+.receipt-currency {
+  margin-right: 2mm;
+}
+
+.receipt-amount-words {
+  display: none;
+}
+
+/* ================================================================
+   TRANSFER LINE
+   ================================================================ */
+
+.receipt-transfer-line {
+  width: 100%;
+  min-height: 9mm;
+
+  display: flex;
+  align-items: center;
+
+  box-sizing: border-box;
+
+  gap: 1.2mm;
+
+  white-space: nowrap;
+
+  font-size: 3.45mm;
+}
+
+.receipt-small-label {
+  font-size: 3.45mm;
+  font-weight: 900;
+}
+
+.receipt-small-field {
+  min-width: 19mm;
+  height: 7mm;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0 1.2mm;
+
+  box-sizing: border-box;
+
+  border-bottom: 0.6mm dotted #000;
+
+  font-size: 3.55mm;
+  font-weight: 700;
+}
+
+.receipt-network {
+  min-width: 25mm;
+}
+
+.receipt-transfer-date {
+  min-width: 23mm;
+}
+
+.receipt-money-mark {
+  font-size: 3.4mm;
+}
+
+/* ================================================================
+   LAST LINE
+   ================================================================ */
+
+.receipt-last-line {
+  min-height: 9mm;
+}
+
+.receipt-purpose {
+  flex: 1;
+}
+
+.receipt-remaining-label {
+  margin-right: 3mm;
+}
+
+.receipt-remaining {
+  flex: 0 0 40mm;
+  justify-content: center;
+}
+
+/* ================================================================
+   FOOTER
+   ================================================================ */
+
+.receipt-footer {
+  position: absolute;
+
+  left: 6mm;
+  right: 6mm;
+  bottom: 3mm;
+
+  height: 14mm;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+
+  box-sizing: border-box;
+}
+
+.receipt-signature {
+  width: 55mm;
+
+  text-align: center;
+}
+
+.receipt-signature-title {
+  font-size: 4.2mm;
+  line-height: 5mm;
+  font-weight: 900;
+}
+
+.receipt-signature-line {
+  height: 6mm;
+
+  margin-top: 1.5mm;
+
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+
+  border-bottom: 0.6mm dotted #000;
+
+  font-size: 3.8mm;
+  line-height: 5mm;
+  font-weight: 700;
+}
+
+.receipt-receiver {
+  margin-right: 0;
+}
+
+/* ================================================================
+   PRINT
+   ================================================================ */
+
+@page { size: 210mm 100mm; margin: 0; }
+@media print {
+
+  @page {
+    size: 210mm 100mm;
+    margin: 0;
+  }
+
+  html,
+  body {
+    width: 210mm;
+    height: 100mm;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
+    background: #fff !important;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .receipt-print-page {
+    width: 210mm;
+    height: 100mm;
+
+    min-height: 100mm;
+
+    margin: 0;
+    padding: 0;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    background: #fff !important;
+  }
+
+  .receipt {
+    width: 210mm;
+    height: 100mm;
+
+    margin: 0;
+
+    box-shadow: none;
+
+    page-break-after: avoid;
+    page-break-before: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Hide everything else */
+  body > *:not(#root) {
+    display: none !important;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+}

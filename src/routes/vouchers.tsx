@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { Modal } from "@/components/modal";
-import { VoucherPrint } from "@/components/print-docs";
+import VoucherPrintTemplate from "@/components/print/VoucherPrintTemplate";
 import { methodLabel, voucherTypeLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { PartyKind, PaymentMethod, Voucher, VoucherType } from "@/lib/types";
@@ -251,7 +251,7 @@ function VouchersPage() {
       </Modal>
 
       {printing ? (
-        <VoucherPrint
+        <VoucherPrintTemplate
           voucher={printing}
           partyName={partyName(printing)}
           onClose={() => setPrintId(null)}
