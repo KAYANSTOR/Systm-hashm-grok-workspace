@@ -316,18 +316,6 @@ function SalesPage() {
                         <CheckCircle2 className="size-4" />
                         اعتماد
                       </button>
-                      <button
-                        type="button"
-                        className="btn-icon size-9 text-bad"
-                        onClick={() => {
-                          if (confirm("حذف الفاتورة؟")) {
-                            deleteInvoice(inv.id);
-                            toast.success("تم الحذف");
-                          }
-                        }}
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
                     </>
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2 text-xs font-bold text-good">
@@ -335,6 +323,18 @@ function SalesPage() {
                       معتمدة
                     </span>
                   )}
+                  <button
+                    type="button"
+                    className="btn-icon size-9 text-bad shrink-0"
+                    onClick={() => {
+                      if (confirm("حذف الفاتورة؟")) {
+                        deleteInvoice(inv.id);
+                        toast.success("تم الحذف");
+                      }
+                    }}
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
                 </div>
               </article>
             );

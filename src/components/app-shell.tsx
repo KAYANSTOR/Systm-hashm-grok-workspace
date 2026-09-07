@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
+import { useState, useEffect } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -16,6 +17,8 @@ import {
   Users,
   Wallet,
   X,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 import { Toaster } from "sonner";
 import { cn } from "@/lib/utils";
@@ -25,7 +28,7 @@ const NAV = [
   { to: "/", label: "الرئيسية", icon: Home },
   { to: "/sales", label: "المبيعات", icon: Calculator },
   { to: "/inventory", label: "المخزن", icon: Boxes },
-  { to: "/parties", label: "العملاء", icon: Users },
+  { to: "/parties", label: "العملاء/الموردين", icon: Users },
   { to: "/vouchers", label: "السندات", icon: Receipt },
   { to: "/cashbox", label: "الصندوق", icon: Wallet },
   { to: "/expenses", label: "المصروفات", icon: CreditCard },
@@ -37,17 +40,43 @@ const MOBILE_NAV = [
   { to: "/", label: "الرئيسية", icon: Home },
   { to: "/cashbox", label: "الصندوق", icon: Wallet },
   { to: "/reports", label: "التقارير", icon: PieChart },
-  { to: "/parties", label: "العملاء", icon: Users },
+  { to: "/parties", label: "العملاء/الموردين", icon: Users },
 ] as const;
 
 const QUICK = [
   { to: "/sales", label: "فاتورة جديدة", icon: Calculator, tone: "bg-brand-soft text-brand" },
   { to: "/vouchers", label: "سند جديد", icon: Receipt, tone: "bg-good-soft text-good" },
-  { to: "/parties", label: "إضافة عميل", icon: UserPlus, tone: "bg-accent-soft text-accent" },
+  { to: "/parties", label: "إضافة جهة", icon: UserPlus, tone: "bg-accent-soft text-accent" },
   { to: "/expenses", label: "مصروف جديد", icon: CreditCard, tone: "bg-bad-soft text-bad" },
 ] as const;
 
+
+function useOnlineStatus() {
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+  useEffect(() => {
+    function handleOnline() {
+      setIsOnline(true);
+    }
+    function handleOffline() {
+      setIsOnline(false);
+    }
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  return isOnline;
+}
+
+
 export function AppShell({ children }: { children: ReactNode }) {
+  const isOnline = useOnlineStatus();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const inventory = useStore((s) => s.inventory);
   const settings = useStore((s) => s.settings);
@@ -58,13 +87,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    const unsub = useStore.persist.onFinishHydration(() => setIsHydrated(true));
-    if (useStore.persist.hasHydrated()) {
-      setIsHydrated(true);
-    } else {
-      void useStore.persist.rehydrate();
-    }
-    return unsub;
+    setIsHydrated(true);
   }, []);
 
   useEffect(() => {
@@ -81,6 +104,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return (
       <div className="min-h-dvh bg-canvas text-ink flex items-center justify-center">
         <div className="size-10 animate-spin rounded-full border-4 border-brand border-t-transparent" />
+        <p className="mt-4 text-sm font-bold text-muted">جاري التحميل...</p>
       </div>
     );
   }
@@ -199,6 +223,20 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </p>
                 <p className="text-[11px] text-muted">صنعاء</p>
               </div>
+              
+              <div className="flex items-center">
+                {isOnline ? (
+                  <div className="flex items-center gap-1.5 rounded-full bg-good/10 px-2 py-1 text-[10px] font-bold text-good" title="متصل بالإنترنت">
+                    <Wifi className="size-3" />
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 rounded-full bg-bad/10 px-2 py-1 text-[10px] font-bold text-bad" title="وضع عدم الاتصال">
+                    <WifiOff className="size-3" />
+                    <span className="hidden sm:inline">غير متصل</span>
+                  </div>
+                )}
+              </div>
+
               <div className="flex size-10 items-center justify-center rounded-full bg-brand-soft text-lg font-black text-brand">
                 هـ
               </div>
@@ -206,17 +244,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </header>
 
           <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-32 pt-2 lg:px-8 lg:pb-10">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={pathname}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
-              >
-                {children}
-              </motion.div>
-            </AnimatePresence>
+            {children}
           </main>
         </div>
       </div>

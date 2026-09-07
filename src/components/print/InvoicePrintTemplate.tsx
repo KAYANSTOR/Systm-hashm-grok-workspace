@@ -1,6 +1,4 @@
 import React, { useRef } from 'react';
-import * as htmlToImage from 'html-to-image';
-import jsPDF from 'jspdf';
 import { Printer, Download, Share2, X, CheckCircle } from 'lucide-react';
 import type { Invoice } from '@/lib/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
@@ -48,6 +46,7 @@ export default function InvoicePrintTemplate({ invoice, partyName, onClose }: In
         return !exclusionClasses.some(classname => node.classList?.contains(classname));
       };
       
+      const htmlToImage = await import('html-to-image');
       const dataUrl = await htmlToImage.toJpeg(element, { 
         quality: 0.95, 
         pixelRatio: 2, 
@@ -64,6 +63,7 @@ export default function InvoicePrintTemplate({ invoice, partyName, onClose }: In
       });
       
       const pdfWidth = 210;
+      const { default: jsPDF } = await import('jspdf');
       const imgProps = new jsPDF().getImageProperties(dataUrl);
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
       

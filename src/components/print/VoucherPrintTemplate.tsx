@@ -1,6 +1,4 @@
 import React, { useRef } from 'react';
-import * as htmlToImage from 'html-to-image';
-import jsPDF from 'jspdf';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import type { Voucher } from '@/lib/types';
 import { Share2, Printer, X, Download, Scissors } from 'lucide-react';
@@ -29,6 +27,7 @@ export default function VoucherPrintTemplate({ voucher, partyName, onClose }: Vo
         return !exclusionClasses.some(classname => node.classList?.contains(classname));
       };
       
+      const htmlToImage = await import('html-to-image');
       const dataUrl = await htmlToImage.toJpeg(element, { 
         quality: 0.95, 
         pixelRatio: 2, 
@@ -45,6 +44,7 @@ export default function VoucherPrintTemplate({ voucher, partyName, onClose }: Vo
       });
       
       const pdfWidth = 210;
+      const { default: jsPDF } = await import('jspdf');
       const imgProps = new jsPDF().getImageProperties(dataUrl);
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
       

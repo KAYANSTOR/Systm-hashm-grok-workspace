@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowDownRight, ArrowUpRight, Search, Wallet } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Search, Wallet, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
@@ -16,6 +16,9 @@ function CashBoxPage() {
   const transactions = useStore((s) => s.transactions);
   const vouchers = useStore((s) => s.vouchers);
   const addVoucher = useStore((s) => s.addVoucher);
+  const deleteVoucher = useStore((s) => s.deleteVoucher);
+  const deleteExpense = useStore((s) => s.deleteExpense);
+  const deleteInvoice = useStore((s) => s.deleteInvoice);
 
   const [q, setQ] = useState("");
   const [from, setFrom] = useState("");
@@ -110,20 +113,35 @@ function CashBoxPage() {
           {filtered.map((t) => {
             const inn = t.cashIn > 0;
             return (
-              <div key={t.id} className="card flex items-center gap-3 p-3">
+              <div key={t.id} className="card flex items-center gap-3 p-3 group">
                 <div className={`flex size-11 shrink-0 items-center justify-center rounded-2xl ${inn ? "bg-good-soft text-good" : "bg-bad-soft text-bad"}`}>
                   {inn ? <ArrowDownRight className="size-5" /> : <ArrowUpRight className="size-5" />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-bold">{t.description}</p>
                   <p className="text-xs text-muted">
-                    {formatDate(t.date)} · {t.documentNumber} · {methodLabel[t.paymentMethod || "cash"]}
+                    {formatDate(t.date)} · {t.documentNumber}
                   </p>
                 </div>
-                <p className={`font-black tabular-nums ${inn ? "text-good" : "text-bad"}`}>
-                  {inn ? "+" : "-"}
-                  {formatCurrency(inn ? t.cashIn : t.cashOut)}
-                </p>
+                <div className="flex items-center gap-3">
+                  <p className={`font-black tabular-nums ${inn ? "text-good" : "text-bad"}`}>
+                    {inn ? "+" : "-"}
+                    {formatCurrency(inn ? t.cashIn : t.cashOut)}
+                  </p>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      if (!confirm("هل أنت متأكد من حذف هذه الحركة؟ سيتم حذف المستند المرتبط بها (فاتورة/سند/مصروف).")) return;
+                      if (t.documentType === "voucher") deleteVoucher(t.documentId);
+                      else if (t.documentType === "expense") deleteExpense(t.documentId);
+                      else if (t.documentType === "invoice") deleteInvoice(t.documentId);
+                      toast.success("تم الحذف بنجاح");
+                    }}
+                    className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-bad-soft text-bad opacity-0 transition-opacity group-hover:opacity-100"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
               </div>
             );
           })}

@@ -59,7 +59,7 @@ function Dashboard() {
   }, [customers, suppliers, inventory, invoices, transactions]);
 
   const recent = [...transactions]
-    .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.id || "").localeCompare(String(a.id || "")))
     .slice(0, 6);
 
   return (
@@ -145,11 +145,11 @@ function Dashboard() {
           {recent.length === 0 ? (
             <div className="card px-4 py-10 text-center text-muted">لا توجد عمليات مسجلة</div>
           ) : (
-            recent.map((trx) => {
+            recent.map((trx, i) => {
               const inflow = trx.cashIn > 0 || trx.credit > trx.debit;
               const amount = trx.cashIn || trx.cashOut || trx.debit || trx.credit;
               return (
-                <div key={trx.id} className="card flex items-center gap-3 p-3">
+                <div key={`${trx.id}-${i}`} className="card flex items-center gap-3 p-3">
                   <div
                     className={`flex size-12 shrink-0 items-center justify-center rounded-2xl ${inflow ? "bg-good-soft text-good" : "bg-bad-soft text-bad"}`}
                   >

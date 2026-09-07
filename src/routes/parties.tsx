@@ -290,6 +290,7 @@ function PartiesPage() {
               date: new Date().toLocaleDateString("en-GB"),
               customerName: statementParty.name,
               customerNumber: statementParty.id.slice(0, 8),
+              accountType: tab === "customers" ? "عميل" : "مورد",
               phone: "phone" in statementParty ? statementParty.phone : "",
               address: "address" in statementParty ? statementParty.address : "",
               periodFrom: statementRows.length
@@ -311,11 +312,11 @@ function PartiesPage() {
               openingBalance: 0,
             }}
             company={{
-              name: useStore.getState().settings.name,
-              location: useStore.getState().settings.location,
-              phone1: useStore.getState().settings.phone1,
-              phone2: useStore.getState().settings.phone2,
-              logoSrc: "/logo.svg",
+              name: useStore.getState().organization.name,
+              location: useStore.getState().organization.address || "",
+              phone1: useStore.getState().organization.phone || "",
+              phone2: useStore.getState().organization.commercialNumber || "",
+              logoSrc: useStore.getState().organization.logo,
             }}
           />
         </div>

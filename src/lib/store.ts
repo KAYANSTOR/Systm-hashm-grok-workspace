@@ -1,17 +1,19 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { applyExpense, applyInvoice, applyVoucher } from "./accounting";
-import { makeSeed } from "./seed";
-import type { AppData, Customer, Expense, InventoryItem, Invoice, Supplier, Voucher, WorkshopSettings } from "./types";
+import { EMPTY_DATA } from "./types";
+import type { AppData, Customer, Expense, InventoryItem, Invoice, Supplier, Voucher, WorkshopSettings, OrganizationProfile } from "./types";
 import { uid } from "./utils";
-import { fetchAllData, syncLegacyData, addParty, updateParty, deleteParty, addProduct, updateProduct, deleteProduct, saveInvoice, deleteInvoiceApi, saveVoucher, deleteVoucherApi, saveExpense, deleteExpenseApi } from "../server/repository";
+import { fetchAllData, syncLegacyData, saveOrganization, addParty, updateParty, deleteParty, addProduct, updateProduct, deleteProduct, saveInvoice, deleteInvoiceApi, saveVoucher, deleteVoucherApi, saveExpense, deleteExpenseApi } from "../server/repository";
 
 type Store = AppData & {
   fetchFromDb: () => Promise<void>;
   syncLegacyDb: () => Promise<void>;
   resetDemo: () => void;
+  resetDatabase: () => Promise<void>;
   importData: (data: AppData) => void;
   updateSettings: (patch: Partial<WorkshopSettings>) => void;
+  updateOrganization: (patch: Partial<OrganizationProfile>) => void;
   addCustomer: (c: Omit<Customer, "id" | "createdAt">) => string;
   updateCustomer: (id: string, data: Partial<Customer>) => void;
   deleteCustomer: (id: string) => void;
@@ -31,45 +33,102 @@ type Store = AppData & {
   deleteExpense: (id: string) => void;
 };
 
-const seed = makeSeed();
-
+import { resetDatabase as resetDbApi } from "../server/repository";
 export const useStore = create<Store>()(
   persist(
     (set, get) => ({
-      ...seed,
+      ...EMPTY_DATA,
       
-      resetDemo: () => set({ ...makeSeed() }),
+      resetDemo: () => set({ ...EMPTY_DATA }),
+      resetDatabase: async () => {
+        await resetDbApi();
+        set({ ...EMPTY_DATA });
+        await get().fetchFromDb();
+      },
       
       fetchFromDb: async () => {
         const data = await fetchAllData();
         
         // Auto-migration
+        if (data.organization) set({ organization: data.organization });
         if (data.isDbEmpty && (get().invoices.length > 0 || get().customers.length > 0)) {
            console.log("Legacy data detected, syncing to database...");
            await get().syncLegacyDb();
            return;
         }
 
+        const groupedTx: Record<string, any> = {};
+        for (const t of (data.transactions || [])) {
+          const docId = t.reference_id;
+          if (!groupedTx[docId]) {
+            groupedTx[docId] = {
+              id: t.id.split('_')[0],
+              date: t.created_at,
+              documentId: docId,
+              documentNumber: docId,
+              documentType: t.reference_type === 'invoice' ? 'invoice' : t.reference_type === 'voucher' ? 'voucher' : 'expense',
+              partyId: t.party_id,
+              debit: 0,
+              credit: 0,
+              cashIn: 0,
+              cashOut: 0,
+              description: t.description
+            };
+          }
+          const g = groupedTx[docId];
+          if (t.account_id === 'cash') {
+            g.cashIn += Number(t.debit) || 0;
+            g.cashOut += Number(t.credit) || 0;
+          } else {
+            g.debit += Number(t.debit) || 0;
+            g.credit += Number(t.credit) || 0;
+          }
+        }
+        const transactions = Object.values(groupedTx) as any[];
+
         set({
-           customers: (data.parties || []).filter((p: any) => p.type === 'customer' || p.type === 'retail' || p.type === 'wholesale'),
-           suppliers: (data.parties || []).filter((p: any) => p.type === 'supplier'),
+           customers: (data.parties || []).filter((p: any) => p.type === 'customer' || p.type === 'retail' || p.type === 'wholesale').map((c: any) => ({
+             ...c,
+             balance: transactions.filter((t: any) => t.partyId === c.id).reduce((sum, t: any) => sum + (t.debit || 0) - (t.credit || 0), 0)
+           })),
+           suppliers: (data.parties || []).filter((p: any) => p.type === 'supplier').map((s: any) => ({
+             ...s,
+             balance: transactions.filter((t: any) => t.partyId === s.id).reduce((sum, t: any) => sum + (t.credit || 0) - (t.debit || 0), 0)
+           })),
            inventory: (data.products || []).map((p: any) => ({ ...p, costPrice: Number(p.cost_price), sellingPrice: Number(p.selling_price), minQuantity: Number(p.min_stock) })),
-           invoices: data.invoices || [],
-           vouchers: data.vouchers || [],
-           expenses: data.expenses || [],
-           transactions: (data.transactions || []).map((t: any) => ({
-             id: t.id,
-             date: t.created_at,
-             documentId: t.reference_id,
-             documentNumber: t.reference_id,
-             documentType: t.reference_type === 'invoice' ? 'invoice' : t.reference_type === 'voucher' ? 'voucher' : 'expense',
-             partyId: t.party_id,
-             debit: Number(t.debit),
-             credit: Number(t.credit),
-             cashIn: t.account_id === 'cash' ? Number(t.debit) : 0,
-             cashOut: t.account_id === 'cash' ? Number(t.credit) : 0,
-             description: t.description
-           }))
+           invoices: (data.invoices || []).map((inv: any) => ({
+              ...inv,
+              invoiceNumber: inv.invoice_number,
+              invoiceType: inv.invoice_type,
+              partyId: inv.party_id,
+              subTotal: Number(inv.sub_total),
+              paidAmount: Number(inv.paid_amount),
+              remainingAmount: Number(inv.remaining_amount),
+              paymentType: inv.payment_type,
+              paymentMethod: inv.payment_method,
+              isApproved: inv.is_approved,
+              createdAt: inv.created_at,
+              items: (data.invoiceItems || []).filter((item: any) => item.invoice_id === inv.id).map((item: any) => ({
+                 ...item,
+                 inventoryItemId: item.product_id,
+                 unitPrice: Number(item.unit_price),
+                 total: Number(item.total)
+              }))
+           })),
+           vouchers: (data.vouchers || []).map((v: any) => ({
+              ...v,
+              voucherNumber: v.voucher_number,
+              partyType: v.party_type,
+              partyId: v.party_id,
+              paymentMethod: v.payment_method,
+              createdAt: v.created_at
+           })),
+           expenses: (data.expenses || []).map((e: any) => ({
+              ...e,
+              paymentMethod: e.payment_method,
+              createdAt: e.created_at
+           })),
+           transactions: transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         });
       },
       
@@ -85,7 +144,7 @@ export const useStore = create<Store>()(
           expenses: s.expenses,
           settings: s.settings
         }});
-        await get().fetchFromDb();
+        
       },
 
       importData: (data) =>
@@ -97,66 +156,70 @@ export const useStore = create<Store>()(
           vouchers: data.vouchers ?? [],
           transactions: data.transactions ?? [],
           expenses: data.expenses ?? [],
-          settings: { ...seed.settings, ...data.settings },
+          settings: { ...EMPTY_DATA.settings, ...data.settings },
         }),
         
       updateSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
+      updateOrganization: (patch) => {
+        set((s) => ({ organization: { ...s.organization, ...patch } }));
+        saveOrganization({ data: get().organization }).catch(console.error);
+      },
       
       addCustomer: (c) => {
         const id = uid("c");
         const obj = { ...c, id, createdAt: new Date().toISOString() };
         set((s) => ({ customers: [obj, ...s.customers] }));
-        addParty({ data: obj }).catch(console.error);
+        
         return id;
       },
       
       updateCustomer: (id, data) => {
         set((s) => ({ customers: s.customers.map((c) => (c.id === id ? { ...c, ...data } : c)) }));
         const customer = get().customers.find(c => c.id === id);
-        if(customer) updateParty({ data: customer }).catch(console.error);
+        
       },
       
       deleteCustomer: (id) => {
         set((s) => ({ customers: s.customers.filter((c) => c.id !== id) }));
-        deleteParty({ data: { id } }).catch(console.error);
+        (async () => { await deleteParty({ data: { id } }); })().catch(console.error);
       },
       
       addSupplier: (sup) => {
         const id = uid("s");
         const obj = { ...sup, id, createdAt: new Date().toISOString() };
         set((s) => ({ suppliers: [obj, ...s.suppliers] }));
-        addParty({ data: obj }).catch(console.error);
+        
         return id;
       },
       
       updateSupplier: (id, data) => {
         set((s) => ({ suppliers: s.suppliers.map((x) => (x.id === id ? { ...x, ...data } : x)) }));
         const supplier = get().suppliers.find((x) => x.id === id);
-        if (supplier) updateParty({ data: supplier }).catch(console.error);
+        
       },
       
       deleteSupplier: (id) => {
         set((s) => ({ suppliers: s.suppliers.filter((x) => x.id !== id) }));
-        deleteParty({ data: { id } }).catch(console.error);
+        
       },
       
       addInventoryItem: (i) => {
         const id = uid("i");
         const obj = { ...i, id, lastUpdated: new Date().toISOString() };
         set((s) => ({ inventory: [obj, ...s.inventory] }));
-        addProduct({ data: obj }).catch(console.error);
+        
         return id;
       },
       
       updateInventoryItem: (id, data) => {
         set((s) => ({ inventory: s.inventory.map((x) => x.id === id ? { ...x, ...data, lastUpdated: new Date().toISOString() } : x) }));
         const item = get().inventory.find((x) => x.id === id);
-        if (item) updateProduct({ data: item }).catch(console.error);
+        
       },
       
       deleteInventoryItem: (id) => {
         set((s) => ({ inventory: s.inventory.filter((x) => x.id !== id) }));
-        deleteProduct({ data: { id } }).catch(console.error);
+        (async () => { await deleteProduct({ data: { id } }); })().catch(console.error);
       },
       
       addInvoice: (i) => {
@@ -167,7 +230,7 @@ export const useStore = create<Store>()(
           next = applyInvoice(next, invoice, 1);
           return next;
         });
-        (async () => { await saveInvoice({ data: invoice }); await get().fetchFromDb(); })().catch(console.error);
+        (async () => { await saveInvoice({ data: invoice });  })().catch(console.error);
         return id;
       },
       
@@ -182,23 +245,20 @@ export const useStore = create<Store>()(
           next = applyInvoice(next, updated, 1);
           return next;
         });
-        (async () => { await saveInvoice({ data: updated }); await get().fetchFromDb(); })().catch(console.error);
+        (async () => { await saveInvoice({ data: updated });  })().catch(console.error);
       },
       
       deleteInvoice: (id) => {
         const old = get().invoices.find((x) => x.id === id);
         if (!old) return;
-        if (old.isApproved) {
-          console.warn("Cannot delete approved invoice");
-          return;
-        }
+
         set((s) => {
           let next: AppData = { ...s };
           next = applyInvoice(next, old, -1);
           next = { ...next, invoices: next.invoices.filter((x) => x.id !== id) };
           return next;
         });
-        (async () => { await deleteInvoiceApi({ data: { id } }); await get().fetchFromDb(); })().catch(console.error);
+        (async () => { await deleteInvoiceApi({ data: { id } });  })().catch(console.error);
       },
       
       approveInvoice: (id) => {
@@ -210,7 +270,7 @@ export const useStore = create<Store>()(
           next = applyInvoice(next, updated, 1);
           return next;
         });
-        (async () => { await saveInvoice({ data: updated }); await get().fetchFromDb(); })().catch(console.error);
+        (async () => { await saveInvoice({ data: updated });  })().catch(console.error);
       },
       
       addVoucher: (v) => {
@@ -221,7 +281,7 @@ export const useStore = create<Store>()(
           next = applyVoucher(next, voucher, 1);
           return next;
         });
-        (async () => { await saveVoucher({ data: voucher }); await get().fetchFromDb(); })().catch(console.error);
+        (async () => { await saveVoucher({ data: voucher });  })().catch(console.error);
         return id;
       },
       
@@ -234,7 +294,7 @@ export const useStore = create<Store>()(
           next = { ...next, vouchers: next.vouchers.filter((x) => x.id !== id) };
           return next;
         });
-        (async () => { await deleteVoucherApi({ data: { id } }); await get().fetchFromDb(); })().catch(console.error);
+        (async () => { await deleteVoucherApi({ data: { id } });  })().catch(console.error);
       },
       
       addExpense: (e) => {
@@ -245,7 +305,7 @@ export const useStore = create<Store>()(
           next = applyExpense(next, expense, 1);
           return next;
         });
-        (async () => { await saveExpense({ data: expense }); await get().fetchFromDb(); })().catch(console.error);
+        (async () => { await saveExpense({ data: expense });  })().catch(console.error);
         return id;
       },
       
@@ -258,11 +318,11 @@ export const useStore = create<Store>()(
           next = { ...next, expenses: next.expenses.filter((x) => x.id !== id) };
           return next;
         });
-        (async () => { await deleteExpenseApi({ data: { id } }); await get().fetchFromDb(); })().catch(console.error);
+        (async () => { await deleteExpenseApi({ data: { id } });  })().catch(console.error);
       }
     }),
     {
-      name: "hashem-workshop-v1",
+      name: "hashem-workshop-v2",
       skipHydration: true,
       partialize: (s) => ({
         customers: s.customers,
@@ -278,8 +338,41 @@ export const useStore = create<Store>()(
   )
 );
 
+
 if (typeof window !== "undefined") {
-  useStore.persist.rehydrate().then(() => {
-    useStore.getState().fetchFromDb().catch(console.error);
+  let syncTimeout: any = null;
+  const debouncedSync = () => {
+    if (syncTimeout) clearTimeout(syncTimeout);
+    syncTimeout = setTimeout(() => {
+      if (navigator.onLine) {
+         useStore.getState().syncLegacyDb().catch(console.error);
+      }
+    }, 2000);
+  };
+
+  useStore.persist.onFinishHydration((state) => {
+      const isEmpty = state.customers.length === 0 && state.invoices.length === 0 && state.inventory.length === 0;
+      if (isEmpty && navigator.onLine) {
+         state.fetchFromDb().catch(console.error);
+      } else {
+         debouncedSync();
+      }
   });
+  
+  useStore.persist.rehydrate();
+
+  useStore.subscribe((state, prevState) => {
+      // Basic check if data changed
+      if (
+         state.customers !== prevState.customers ||
+         state.invoices !== prevState.invoices ||
+         state.inventory !== prevState.inventory ||
+         state.vouchers !== prevState.vouchers ||
+         state.expenses !== prevState.expenses
+      ) {
+         debouncedSync();
+      }
+  });
+
+  window.addEventListener('online', debouncedSync);
 }

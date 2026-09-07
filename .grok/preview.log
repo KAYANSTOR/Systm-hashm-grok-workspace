@@ -1,0 +1,369 @@
+
+> preview
+> node scripts/with-app-env.mjs vite preview
+
+
+ ╭────────── [Build Info] ─────────────╮
+ │                                     │
+ │  - Build Directory: .vercel/output  │
+ │  - Date: 9/6/2026, 11:29:59 PM      │
+ │  - Nitro Version: 3.0.260610-beta   │
+ │  - Nitro Preset: vercel             │
+ │                                     │
+ ╰─────────────────────────────────────╯
+
+  ➜  Local:   http://127.0.0.1:8081/
+Error in renderToReadableStream: TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+    at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-B2-_qJEG.mjs:1626:135)
+    at renderWithHooks (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12693:18)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12757:11)
+    at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235)
+    at finishFunctionComponent (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12709:232)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12759:4)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12964:6)
+    at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235) { componentStack: [Getter] }
+TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+    at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-B2-_qJEG.mjs:1626:135)
+    ... 8 lines matching cause stack trace ...
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235) {
+  cause: TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+      at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-B2-_qJEG.mjs:1626:135)
+      at renderWithHooks (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12693:18)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12757:11)
+      at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+      at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235)
+      at finishFunctionComponent (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12709:232)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12759:4)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12964:6)
+      at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+      at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235),
+  status: 500,
+  statusText: undefined,
+  headers: undefined,
+  data: undefined,
+  body: undefined,
+  unhandled: true
+}
+
+> preview
+> node scripts/with-app-env.mjs vite preview
+
+
+ ╭────────── [Build Info] ─────────────╮
+ │                                     │
+ │  - Build Directory: .vercel/output  │
+ │  - Date: 9/6/2026, 11:33:11 PM      │
+ │  - Nitro Version: 3.0.260610-beta   │
+ │  - Nitro Preset: vercel             │
+ │                                     │
+ ╰─────────────────────────────────────╯
+
+  ➜  Local:   http://127.0.0.1:8081/
+Error in renderToReadableStream: TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+    at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-DV0qsGZh.mjs:1626:135)
+    at renderWithHooks (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12693:18)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12757:11)
+    at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235)
+    at finishFunctionComponent (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12709:232)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12759:4)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12964:6)
+    at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235) { componentStack: [Getter] }
+TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+    at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-DV0qsGZh.mjs:1626:135)
+    ... 8 lines matching cause stack trace ...
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235) {
+  cause: TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+      at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-DV0qsGZh.mjs:1626:135)
+      at renderWithHooks (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12693:18)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12757:11)
+      at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+      at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235)
+      at finishFunctionComponent (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12709:232)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12759:4)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12964:6)
+      at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+      at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235),
+  status: 500,
+  statusText: undefined,
+  headers: undefined,
+  data: undefined,
+  body: undefined,
+  unhandled: true
+}
+
+> preview
+> node scripts/with-app-env.mjs vite preview
+
+
+ ╭────────── [Build Info] ─────────────╮
+ │                                     │
+ │  - Build Directory: .vercel/output  │
+ │  - Date: 9/6/2026, 11:33:11 PM      │
+ │  - Nitro Version: 3.0.260610-beta   │
+ │  - Nitro Preset: vercel             │
+ │                                     │
+ ╰─────────────────────────────────────╯
+
+  ➜  Local:   http://127.0.0.1:8081/
+Error in renderToReadableStream: TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+    at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-DV0qsGZh.mjs:1626:135)
+    at renderWithHooks (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12693:18)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12757:11)
+    at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235)
+    at finishFunctionComponent (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12709:232)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12759:4)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12964:6)
+    at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235) { componentStack: [Getter] }
+TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+    at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-DV0qsGZh.mjs:1626:135)
+    ... 8 lines matching cause stack trace ...
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235) {
+  cause: TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+      at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-DV0qsGZh.mjs:1626:135)
+      at renderWithHooks (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12693:18)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12757:11)
+      at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+      at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235)
+      at finishFunctionComponent (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12709:232)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12759:4)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12964:6)
+      at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+      at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235),
+  status: 500,
+  statusText: undefined,
+  headers: undefined,
+  data: undefined,
+  body: undefined,
+  unhandled: true
+}
+Error in renderToReadableStream: TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+    at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-DV0qsGZh.mjs:1626:135)
+    at renderWithHooks (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12693:18)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12757:11)
+    at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235)
+    at finishFunctionComponent (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12709:232)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12759:4)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12964:6)
+    at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235) { componentStack: [Getter] }
+TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+    at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-DV0qsGZh.mjs:1626:135)
+    ... 8 lines matching cause stack trace ...
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235) {
+  cause: TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+      at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-DV0qsGZh.mjs:1626:135)
+      at renderWithHooks (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12693:18)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12757:11)
+      at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+      at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235)
+      at finishFunctionComponent (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12709:232)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12759:4)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12964:6)
+      at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+      at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235),
+  status: 500,
+  statusText: undefined,
+  headers: undefined,
+  data: undefined,
+  body: undefined,
+  unhandled: true
+}
+
+> preview
+> node scripts/with-app-env.mjs vite preview
+
+
+ ╭────────── [Build Info] ─────────────╮
+ │                                     │
+ │  - Build Directory: .vercel/output  │
+ │  - Date: 9/6/2026, 11:37:43 PM      │
+ │  - Nitro Version: 3.0.260610-beta   │
+ │  - Nitro Preset: vercel             │
+ │                                     │
+ ╰─────────────────────────────────────╯
+
+  ➜  Local:   http://127.0.0.1:8081/
+Error in renderToReadableStream: TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+    at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-DV0qsGZh.mjs:1626:135)
+    at renderWithHooks (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12693:18)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12757:11)
+    at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235)
+    at finishFunctionComponent (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12709:232)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12759:4)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12964:6)
+    at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235) { componentStack: [Getter] }
+TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+    at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-DV0qsGZh.mjs:1626:135)
+    ... 8 lines matching cause stack trace ...
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235) {
+  cause: TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+      at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-DV0qsGZh.mjs:1626:135)
+      at renderWithHooks (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12693:18)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12757:11)
+      at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+      at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235)
+      at finishFunctionComponent (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12709:232)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12759:4)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12964:6)
+      at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+      at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235),
+  status: 500,
+  statusText: undefined,
+  headers: undefined,
+  data: undefined,
+  body: undefined,
+  unhandled: true
+}
+
+> preview
+> node scripts/with-app-env.mjs vite preview
+
+
+ ╭────────── [Build Info] ─────────────╮
+ │                                     │
+ │  - Build Directory: .vercel/output  │
+ │  - Date: 9/6/2026, 11:43:32 PM      │
+ │  - Nitro Version: 3.0.260610-beta   │
+ │  - Nitro Preset: vercel             │
+ │                                     │
+ ╰─────────────────────────────────────╯
+
+  ➜  Local:   http://127.0.0.1:8081/
+Error in renderToReadableStream: TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+    at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-BZ2eyaxY.mjs:1630:135)
+    at renderWithHooks (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12693:18)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12757:11)
+    at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235)
+    at finishFunctionComponent (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12709:232)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12759:4)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12964:6)
+    at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235) { componentStack: [Getter] }
+TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+    at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-BZ2eyaxY.mjs:1630:135)
+    ... 8 lines matching cause stack trace ...
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235) {
+  cause: TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+      at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-BZ2eyaxY.mjs:1630:135)
+      at renderWithHooks (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12693:18)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12757:11)
+      at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+      at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235)
+      at finishFunctionComponent (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12709:232)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12759:4)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12964:6)
+      at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+      at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235),
+  status: 500,
+  statusText: undefined,
+  headers: undefined,
+  data: undefined,
+  body: undefined,
+  unhandled: true
+}
+
+> preview
+> node scripts/with-app-env.mjs vite preview
+
+
+ ╭────────── [Build Info] ─────────────╮
+ │                                     │
+ │  - Build Directory: .vercel/output  │
+ │  - Date: 9/6/2026, 11:49:33 PM      │
+ │  - Nitro Version: 3.0.260610-beta   │
+ │  - Nitro Preset: vercel             │
+ │                                     │
+ ╰─────────────────────────────────────╯
+
+  ➜  Local:   http://127.0.0.1:8081/
+Error in renderToReadableStream: TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+    at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-B3DTQHJA.mjs:1636:135)
+    at renderWithHooks (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12693:18)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12757:11)
+    at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235)
+    at finishFunctionComponent (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12709:232)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12759:4)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12964:6)
+    at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235) { componentStack: [Getter] }
+TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+    at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-B3DTQHJA.mjs:1636:135)
+    ... 8 lines matching cause stack trace ...
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235) {
+  cause: TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+      at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-B3DTQHJA.mjs:1636:135)
+      at renderWithHooks (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12693:18)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12757:11)
+      at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+      at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235)
+      at finishFunctionComponent (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12709:232)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12759:4)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12964:6)
+      at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+      at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235),
+  status: 500,
+  statusText: undefined,
+  headers: undefined,
+  data: undefined,
+  body: undefined,
+  unhandled: true
+}
+
+> preview
+> node scripts/with-app-env.mjs vite preview
+
+
+ ╭────────── [Build Info] ─────────────╮
+ │                                     │
+ │  - Build Directory: .vercel/output  │
+ │  - Date: 9/6/2026, 11:58:56 PM      │
+ │  - Nitro Version: 3.0.260610-beta   │
+ │  - Nitro Preset: vercel             │
+ │                                     │
+ ╰─────────────────────────────────────╯
+
+  ➜  Local:   http://127.0.0.1:8081/
+Error in renderToReadableStream: TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+    at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-C3MN94K8.mjs:1638:135)
+    at renderWithHooks (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12693:18)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12757:11)
+    at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235)
+    at finishFunctionComponent (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12709:232)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12759:4)
+    at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12964:6)
+    at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235) { componentStack: [Getter] }
+TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+    at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-C3MN94K8.mjs:1638:135)
+    ... 8 lines matching cause stack trace ...
+    at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235) {
+  cause: TypeError: (0 , import_jsx_dev_runtime.jsxDEV) is not a function
+      at component (file:///app/applet/.vercel/output/functions/__server.func/_ssr/router-C3MN94K8.mjs:1638:135)
+      at renderWithHooks (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12693:18)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12757:11)
+      at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+      at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235)
+      at finishFunctionComponent (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12709:232)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12759:4)
+      at renderElement (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:12964:6)
+      at retryNode (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13121:12)
+      at renderNodeDestructive (file:///app/applet/.vercel/output/functions/__server.func/_libs/@tanstack/react-router+%5B...%5D.mjs:13019:235),
+  status: 500,
+  statusText: undefined,
+  headers: undefined,
+  data: undefined,
+  body: undefined,
+  unhandled: true
+}

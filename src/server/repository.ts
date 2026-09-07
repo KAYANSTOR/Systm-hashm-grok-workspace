@@ -7,6 +7,7 @@ export const fetchAllData = createServerFn({ method: "GET" }).handler(
   async () => {
     const sql = await getSql();
     
+    const orgs = await sql`select * from organization_profile limit 1`;
     const parties = await sql`select * from parties where is_active = true`;
     const products = await sql`select * from products where is_active = true`;
     const invoices = await sql`select * from invoices order by created_at desc`;
@@ -18,7 +19,8 @@ export const fetchAllData = createServerFn({ method: "GET" }).handler(
     // Check if DB is completely empty to allow legacy sync
     const isDbEmpty = parties.length === 0 && products.length === 0 && invoices.length === 0;
 
-    return { parties, products, invoices, invoiceItems, vouchers, expenses, transactions, isDbEmpty } as any;
+    const organization = orgs.length > 0 ? { id: orgs[0].id, name: orgs[0].name, description: orgs[0].description, logo: orgs[0].logo, phone: orgs[0].phone, address: orgs[0].address, email: orgs[0].email, website: orgs[0].website, taxNumber: orgs[0].tax_number, commercialNumber: orgs[0].commercial_number, footerText: orgs[0].footer_text } : null;
+    return { organization, parties, products, invoices, invoiceItems, vouchers, expenses, transactions, isDbEmpty } as any;
   }
 );
 
@@ -33,21 +35,21 @@ export const syncLegacyData = createServerFn({ method: "POST" })
       for (const c of data.customers) {
         await tx`insert into parties (id, type, name, phone, address, created_at) 
                  values (${c.id}, 'customer', ${c.name}, ${c.phone}, ${c.address}, ${c.createdAt})
-                 on conflict (id) do nothing`;
+                 on conflict (id) do update set name=EXCLUDED.name, phone=EXCLUDED.phone, address=EXCLUDED.address`;
       }
       
       // 2. Insert Suppliers
       for (const s of data.suppliers) {
         await tx`insert into parties (id, type, name, phone, company, created_at)
                  values (${s.id}, 'supplier', ${s.name}, ${s.phone}, ${s.company}, ${s.createdAt})
-                 on conflict (id) do nothing`;
+                 on conflict (id) do update set name=EXCLUDED.name, phone=EXCLUDED.phone, company=EXCLUDED.company`;
       }
       
       // 3. Insert Inventory as Products
       for (const i of data.inventory) {
         await tx`insert into products (id, name, category, unit, cost_price, selling_price, min_stock, created_at)
                  values (${i.id}, ${i.name}, ${i.category}, ${i.unit}, ${i.costPrice}, ${i.sellingPrice}, ${i.minQuantity}, ${i.lastUpdated})
-                 on conflict (id) do nothing`;
+                 on conflict (id) do update set name=EXCLUDED.name, category=EXCLUDED.category, unit=EXCLUDED.unit, cost_price=EXCLUDED.cost_price, selling_price=EXCLUDED.selling_price, min_stock=EXCLUDED.min_stock`;
       }
       
       // 4. Accounts setup (Default accounts)
@@ -66,97 +68,97 @@ export const syncLegacyData = createServerFn({ method: "POST" })
                  values (${inv.id}, ${inv.invoiceNumber}, ${inv.type}, ${inv.invoiceType || null}, ${inv.partyId}, ${inv.date}, ${inv.subTotal}, ${inv.discount}, ${inv.total}, ${inv.paidAmount}, ${inv.remainingAmount}, ${inv.paymentType}, ${inv.paymentMethod || null}, ${inv.status}, ${inv.isApproved}, ${inv.notes || null}, ${inv.createdAt})
                  on conflict (id) do nothing`;
                  
+        await tx`delete from invoice_items where invoice_id=${inv.id}`;
         for (const item of inv.items) {
           await tx`insert into invoice_items (id, invoice_id, product_id, name, quantity, unit, unit_price, total)
-                   values (${item.id}, ${inv.id}, ${item.inventoryItemId || null}, ${item.name}, ${item.quantity}, ${item.unit || null}, ${item.unitPrice}, ${item.total})
-                   on conflict (id) do nothing`;
+                   values (${item.id}, ${inv.id}, ${item.inventoryItemId === 'SERVICE' ? null : (item.inventoryItemId || null)}, ${item.name}, ${item.quantity}, ${item.unit || null}, ${item.unitPrice}, ${item.total})
+                   on conflict (id) do update set quantity=EXCLUDED.quantity, unit_price=EXCLUDED.unit_price, total=EXCLUDED.total`;
         }
+      }
+      
+      
+      // 5.5 Insert Transactions
+      for (const t of data.transactions) {
+        await tx`insert into financial_transactions (id, account_id, party_id, amount, debit, credit, reference_type, reference_id, description, created_at)
+                 values (${t.id}, ${t.cashIn > 0 || t.cashOut > 0 ? 'cash' : (t.partyType === 'customer' ? 'accounts_receivable' : 'accounts_payable')}, ${t.partyId || null}, ${t.debit - t.credit}, ${t.debit}, ${t.credit}, ${t.documentType}, ${t.documentId}, ${t.description}, ${t.date})
+                 on conflict (id) do update set amount=EXCLUDED.amount, debit=EXCLUDED.debit, credit=EXCLUDED.credit`;
       }
       
       // 6. Insert Vouchers
       for (const v of data.vouchers) {
         await tx`insert into vouchers (id, voucher_number, type, party_type, party_id, amount, date, payment_method, description, created_at)
                  values (${v.id}, ${v.voucherNumber}, ${v.type}, ${v.partyType}, ${v.partyId || null}, ${v.amount}, ${v.date}, ${v.paymentMethod}, ${v.description}, ${v.createdAt})
-                 on conflict (id) do nothing`;
+                 on conflict (id) do update set amount=EXCLUDED.amount, date=EXCLUDED.date, payment_method=EXCLUDED.payment_method, description=EXCLUDED.description`;
       }
       
       // 7. Insert Expenses
       for (const e of data.expenses) {
         await tx`insert into expenses (id, category, amount, date, payment_method, type, description, created_at)
                  values (${e.id}, ${e.category}, ${e.amount}, ${e.date}, ${e.paymentMethod}, ${e.type}, ${e.description}, ${e.createdAt})
-                 on conflict (id) do nothing`;
+                 on conflict (id) do update set amount=EXCLUDED.amount, date=EXCLUDED.date, payment_method=EXCLUDED.payment_method, description=EXCLUDED.description`;
       }
-      
     });
-
-    return { success: true };
   });
 
 export const addParty = createServerFn({ method: "POST" })
   .validator((data: any) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data: p }) => {
     const sql = await getSql();
-    await sql`insert into parties (id, type, name, phone, address, company, created_at)
-              values (${data.id}, ${data.type === 'retail' || data.type === 'wholesale' ? 'customer' : 'supplier'}, ${data.name}, ${data.phone || null}, ${data.address || null}, ${data.company || null}, ${data.createdAt})`;
+    await sql`insert into parties (id, type, name, phone, address, company, created_at) values (${p.id}, ${p.type}, ${p.name}, ${p.phone || null}, ${p.address || null}, ${p.company || null}, ${p.createdAt})`;
   });
 
 export const updateParty = createServerFn({ method: "POST" })
   .validator((data: any) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data: p }) => {
     const sql = await getSql();
-    await sql`update parties set name=${data.name}, phone=${data.phone}, address=${data.address}, company=${data.company} where id=${data.id}`;
+    await sql`update parties set name=${p.name}, phone=${p.phone || null}, address=${p.address || null}, company=${p.company || null} where id=${p.id}`;
   });
 
 export const deleteParty = createServerFn({ method: "POST" })
   .validator((data: { id: string }) => data)
   .handler(async ({ data }) => {
     const sql = await getSql();
-    await sql`update parties set is_active=false where id=${data.id}`;
+    await sql`update parties set is_active=false, archived_at=now() where id=${data.id}`;
   });
 
 export const addProduct = createServerFn({ method: "POST" })
   .validator((data: any) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data: p }) => {
     const sql = await getSql();
-    await sql`insert into products (id, name, category, unit, cost_price, selling_price, min_stock, created_at)
-              values (${data.id}, ${data.name}, ${data.category}, ${data.unit}, ${data.costPrice}, ${data.sellingPrice}, ${data.minQuantity}, ${data.lastUpdated})`;
+    await sql`insert into products (id, name, category, unit, cost_price, selling_price, min_stock, created_at) values (${p.id}, ${p.name}, ${p.category}, ${p.unit || null}, ${p.costPrice}, ${p.sellingPrice}, ${p.minQuantity}, ${p.lastUpdated})`;
   });
 
 export const updateProduct = createServerFn({ method: "POST" })
   .validator((data: any) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data: p }) => {
     const sql = await getSql();
-    await sql`update products set name=${data.name}, category=${data.category}, unit=${data.unit}, cost_price=${data.costPrice}, selling_price=${data.sellingPrice}, min_stock=${data.minQuantity} where id=${data.id}`;
+    await sql`update products set name=${p.name}, category=${p.category}, unit=${p.unit || null}, cost_price=${p.costPrice}, selling_price=${p.sellingPrice}, min_stock=${p.minQuantity} where id=${p.id}`;
   });
 
 export const deleteProduct = createServerFn({ method: "POST" })
   .validator((data: { id: string }) => data)
   .handler(async ({ data }) => {
     const sql = await getSql();
-    await sql`update products set is_active=false where id=${data.id}`;
+    await sql`update products set is_active=false, archived_at=now() where id=${data.id}`;
   });
 
 export const saveInvoice = createServerFn({ method: "POST" })
-  .validator((data: Invoice) => data)
+  .validator((data: any) => data)
   .handler(async ({ data: inv }) => {
     const sql = await getSql();
     await sql.transaction(async (tx) => {
-      // 1. Save invoice
       await tx`insert into invoices (id, invoice_number, type, invoice_type, party_id, date, sub_total, discount, total, paid_amount, remaining_amount, payment_type, payment_method, status, is_approved, notes, created_at)
                values (${inv.id}, ${inv.invoiceNumber}, ${inv.type}, ${inv.invoiceType || null}, ${inv.partyId}, ${inv.date}, ${inv.subTotal}, ${inv.discount}, ${inv.total}, ${inv.paidAmount}, ${inv.remainingAmount}, ${inv.paymentType}, ${inv.paymentMethod || null}, ${inv.status}, ${inv.isApproved}, ${inv.notes || null}, ${inv.createdAt})
                on conflict (id) do update set 
                sub_total=${inv.subTotal}, discount=${inv.discount}, total=${inv.total}, paid_amount=${inv.paidAmount}, remaining_amount=${inv.remainingAmount}, status=${inv.status}`;
       
-      // 2. Save items (delete old ones if update, then insert)
       await tx`delete from invoice_items where invoice_id=${inv.id}`;
       for (const item of inv.items) {
-        await tx`insert into invoice_items (id, invoice_id, product_id, name, quantity, unit, unit_price, total)
-                 values (${item.id}, ${inv.id}, ${item.inventoryItemId || null}, ${item.name}, ${item.quantity}, ${item.unit || null}, ${item.unitPrice}, ${item.total})`;
+          await tx`insert into invoice_items (id, invoice_id, product_id, name, quantity, unit, unit_price, total)
+                 values (${item.id}, ${inv.id}, ${item.inventoryItemId === 'SERVICE' ? null : (item.inventoryItemId || null)}, ${item.name}, ${item.quantity}, ${item.unit || null}, ${item.unitPrice}, ${item.total})`;
       }
 
-      // If approved, do accounting & inventory movements
       if (inv.isApproved) {
-         // Inventory movements
          for (const item of inv.items) {
             if (item.inventoryItemId && item.inventoryItemId !== "SERVICE") {
                const qty = inv.type === "sale" ? -item.quantity : item.quantity;
@@ -165,8 +167,6 @@ export const saveInvoice = createServerFn({ method: "POST" })
             }
          }
          
-         // Financial Transactions
-         const dir = inv.type === "sale" ? 1 : -1;
          const partyDebit = inv.type === "sale" ? inv.total : 0;
          const partyCredit = inv.type === "purchase" ? inv.total : 0;
          
@@ -196,7 +196,7 @@ export const deleteInvoiceApi = createServerFn({ method: "POST" })
   });
 
 export const saveVoucher = createServerFn({ method: "POST" })
-  .validator((data: Voucher) => data)
+  .validator((data: any) => data)
   .handler(async ({ data: v }) => {
     const sql = await getSql();
     await sql.transaction(async (tx) => {
@@ -209,6 +209,13 @@ export const saveVoucher = createServerFn({ method: "POST" })
       
       await tx`insert into financial_transactions (id, account_id, party_id, amount, debit, credit, reference_type, reference_id, description, created_at)
                values (${v.id + '_cash'}, 'cash', ${v.partyId || null}, ${cashDebit - cashCredit}, ${cashDebit}, ${cashCredit}, 'voucher', ${v.id}, ${v.description}, ${v.createdAt})`;
+
+      if (v.partyId) {
+         const partyDebit = isReceipt ? 0 : v.amount;
+         const partyCredit = isReceipt ? v.amount : 0;
+         await tx`insert into financial_transactions (id, account_id, party_id, amount, debit, credit, reference_type, reference_id, description, created_at)
+                  values (${v.id + '_party'}, ${v.partyType === 'customer' ? 'accounts_receivable' : 'accounts_payable'}, ${v.partyId}, ${partyDebit - partyCredit}, ${partyDebit}, ${partyCredit}, 'voucher', ${v.id}, ${v.description}, ${v.createdAt})`;
+      }
     });
   });
 
@@ -244,3 +251,33 @@ export const deleteExpenseApi = createServerFn({ method: "POST" })
        await tx`delete from expenses where id=${data.id}`;
     });
   });
+
+
+export const saveOrganization = createServerFn({ method: "POST" })
+  .validator((data: any) => data)
+  .handler(async ({ data }) => {
+    const sql = await getSql();
+    await sql`insert into organization_profile (id, name, description, logo, phone, address, email, website, tax_number, commercial_number, footer_text)
+              values ('default_org', ${data.name}, ${data.description || null}, ${data.logo || null}, ${data.phone || null}, ${data.address || null}, ${data.email || null}, ${data.website || null}, ${data.taxNumber || null}, ${data.commercialNumber || null}, ${data.footerText || null})
+              on conflict (id) do update set 
+                name=EXCLUDED.name, description=EXCLUDED.description, logo=EXCLUDED.logo, 
+                phone=EXCLUDED.phone, address=EXCLUDED.address, email=EXCLUDED.email, 
+                website=EXCLUDED.website, tax_number=EXCLUDED.tax_number, 
+                commercial_number=EXCLUDED.commercial_number, footer_text=EXCLUDED.footer_text, 
+                updated_at=now()`;
+  });
+
+export const resetDatabase = createServerFn({ method: "POST" }).handler(async () => {
+    const sql = await getSql();
+    await sql.transaction(async (tx) => {
+        await tx`delete from financial_transactions`;
+        await tx`delete from inventory_movements`;
+        await tx`delete from invoice_items`;
+        await tx`delete from invoices`;
+        await tx`delete from vouchers`;
+        await tx`delete from expenses`;
+        await tx`delete from products`;
+        await tx`delete from parties`;
+        // organization_profile is kept or reset? we can keep it
+    });
+});

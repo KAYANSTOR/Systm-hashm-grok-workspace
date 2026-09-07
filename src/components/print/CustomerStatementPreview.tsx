@@ -2,8 +2,6 @@ import React, { useRef, useState } from "react";
 import { CustomerStatement } from "./CustomerStatement";
 import type { CustomerStatementData, StatementCompany } from "./CustomerStatement";
 import "./CustomerStatementPreview.css";
-import * as htmlToImage from 'html-to-image';
-import jsPDF from 'jspdf';
 import { Share2, Download, Printer } from 'lucide-react';
 
 export function CustomerStatementPreview({
@@ -28,6 +26,7 @@ export function CustomerStatementPreview({
         return !exclusionClasses.some(classname => node.classList?.contains(classname));
       };
       
+      const htmlToImage = await import('html-to-image');
       const dataUrl = await htmlToImage.toJpeg(element, { 
         quality: 0.95, 
         pixelRatio: 2, 
@@ -44,6 +43,7 @@ export function CustomerStatementPreview({
       });
       
       const pdfWidth = 210;
+      const { default: jsPDF } = await import('jspdf');
       const imgProps = new jsPDF().getImageProperties(dataUrl);
       const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
       

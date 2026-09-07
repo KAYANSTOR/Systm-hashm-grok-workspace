@@ -116,6 +116,21 @@ export interface Expense {
   createdAt: string;
 }
 
+
+export interface OrganizationProfile {
+  id: string;
+  name: string;
+  description?: string;
+  logo?: string;
+  phone?: string;
+  address?: string;
+  email?: string;
+  website?: string;
+  taxNumber?: string;
+  commercialNumber?: string;
+  footerText?: string;
+}
+
 export interface WorkshopSettings {
   name: string;
   location: string;
@@ -132,7 +147,16 @@ export interface AppData {
   transactions: Transaction[];
   expenses: Expense[];
   settings: WorkshopSettings;
+  organization: OrganizationProfile;
 }
+
+
+export const DEFAULT_ORGANIZATION: OrganizationProfile = {
+  id: 'default_org',
+  name: "معامل هاشم الأحمدي للتصميم والتطريز",
+  address: "صنعاء — شارع الزبيري — مقابل وزارة الدفاع",
+  phone: "770 447 441 - 730 447 441",
+};
 
 export const DEFAULT_SETTINGS: WorkshopSettings = {
   name: "معامل هاشم الأحمدي للتصميم والتطريز",
@@ -142,6 +166,7 @@ export const DEFAULT_SETTINGS: WorkshopSettings = {
 };
 
 export const EMPTY_DATA: AppData = {
+  organization: DEFAULT_ORGANIZATION,
   customers: [],
   suppliers: [],
   inventory: [],

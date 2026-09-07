@@ -85,7 +85,7 @@ export const CustomerStatement = forwardRef<HTMLDivElement, Props>(
           </div>
           <div className="statement-title">
             <span>《</span>
-            <h1>كشف حساب العملاء</h1>
+            <h1>{statement.accountType === "مورد" ? "كشف حساب مورد" : "كشف حساب عميل"}</h1>
             <span>》</span>
           </div>
           <div className="statement-meta-box">
@@ -96,12 +96,12 @@ export const CustomerStatement = forwardRef<HTMLDivElement, Props>(
 
         <section className="customer-info">
           <div className="info-column">
-            <InfoRow label="اسم العميل" value={statement.customerName} />
+            <InfoRow label={statement.accountType === "مورد" ? "اسم المورد" : "اسم العميل"} value={statement.customerName} />
             <InfoRow label="نوع الحساب" value={statement.accountType || "عميل"} />
             <InfoRow label="تاريخ فتح الحساب" value={statement.accountOpeningDate || "—"} />
           </div>
           <div className="info-column">
-            <InfoRow label="رقم العميل" value={statement.customerNumber} />
+            <InfoRow label={statement.accountType === "مورد" ? "رقم المورد" : "رقم العميل"} value={statement.customerNumber} />
             <InfoRow label="رقم الجوال" value={statement.phone || "—"} />
             <InfoRow label="العنوان" value={statement.address || "—"} />
           </div>
@@ -157,7 +157,7 @@ export const CustomerStatement = forwardRef<HTMLDivElement, Props>(
 
         <footer className="statement-footer">
           <Signature label="إعداد" />
-          <Signature label="راجعة" />
+          <Signature label="مراجعة" />
           <Signature label="يعتمد" />
         </footer>
       </div>
