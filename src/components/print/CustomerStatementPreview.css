@@ -1,6 +1,7 @@
 .statement-preview {
   min-height: 100vh;
   padding: 16px;
+  background: #ffffff;
   direction: rtl;
 }
 
@@ -23,6 +24,7 @@
 }
 
 @media print {
-  .statement-preview { padding: 0 !important; }
+  html, body { background: #ffffff !important; }
+  .statement-preview { padding: 0 !important; background: #ffffff !important; }
   .statement-actions { display: none !important; }
 }

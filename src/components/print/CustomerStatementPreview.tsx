@@ -2,7 +2,8 @@ import React, { useRef, useState } from "react";
 import { CustomerStatement } from "./CustomerStatement";
 import type { CustomerStatementData, StatementCompany } from "./CustomerStatement";
 import "./CustomerStatementPreview.css";
-import { Share2, Download, Printer } from 'lucide-react';
+import { Download, Printer } from 'lucide-react';
+import DocumentActionsSheet from "@/components/DocumentActionsSheet";
 
 export function CustomerStatementPreview({
   statement,
@@ -13,6 +14,7 @@ export function CustomerStatementPreview({
 }) {
   const printRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(true);
 
   const fetchPdfBlob = async () => {
     if (!printRef.current) return null;
@@ -121,6 +123,14 @@ export function CustomerStatementPreview({
       </div>
 
       <CustomerStatement ref={printRef} statement={statement} company={company} />
+      <DocumentActionsSheet
+        open={actionsOpen}
+        title="كشف الحساب"
+        phone={statement.phone}
+        onClose={() => setActionsOpen(false)}
+        onPrint={handlePrint}
+        onDownload={handleDownload}
+      />
     </main>
   );
 }

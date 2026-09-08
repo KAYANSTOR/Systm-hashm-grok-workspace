@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { Modal } from "@/components/modal";
 import InvoicePrintTemplate from "@/components/print/InvoicePrintTemplate";
+import DocumentActionsSheet from "@/components/DocumentActionsSheet";
 import { methodLabel, paymentTypeLabel, statusLabel, unitLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type {
@@ -35,6 +36,7 @@ function SalesPage() {
   const suppliers = useStore((s) => s.suppliers);
   const inventory = useStore((s) => s.inventory);
   const addInvoice = useStore((s) => s.addInvoice);
+  const addSupplier = useStore((s) => s.addSupplier);
   const updateInvoice = useStore((s) => s.updateInvoice);
   const deleteInvoice = useStore((s) => s.deleteInvoice);
   const approveInvoice = useStore((s) => s.approveInvoice);
@@ -45,6 +47,7 @@ function SalesPage() {
   const [mode, setMode] = useState<Mode>({ kind: "sale", salesType: "PRODUCT_SALE" });
   const [editing, setEditing] = useState<string | null>(null);
   const [printId, setPrintId] = useState<string | null>(null);
+  const [actionsId, setActionsId] = useState<string | null>(null);
 
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [partyId, setPartyId] = useState("");
@@ -55,6 +58,7 @@ function SalesPage() {
   const [paymentType, setPaymentType] = useState<PaymentType>("cash");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [notes, setNotes] = useState("");
+  const [supplierName, setSupplierName] = useState("");
 
   const [itemId, setItemId] = useState("");
   const [qty, setQty] = useState("1");
@@ -95,6 +99,7 @@ function SalesPage() {
     setPaymentType("cash");
     setPaymentMethod("cash");
     setNotes("");
+    setSupplierName("");
     setOpen(true);
   };
 
@@ -107,6 +112,7 @@ function SalesPage() {
     setEditing(inv.id);
     setInvoiceNumber(inv.invoiceNumber);
     setPartyId(inv.partyId === "PENDING_RECEIPT" ? "" : inv.partyId);
+    setSupplierName(inv.partyId === "PENDING_RECEIPT" ? "" : suppliers.find((supplier) => supplier.id === inv.partyId)?.name || "");
     setDate(inv.date);
     setItems(inv.items);
     setDiscount(String(inv.discount));
@@ -174,12 +180,17 @@ function SalesPage() {
 
   const save = (approved: boolean) => {
     if (items.length === 0) return toast.error("أضف بنداً واحداً على الأقل");
-    if (!partyId) return toast.error("اختر الطرف");
+    const isPendingReceipt = Boolean(editing && invoices.find((invoice) => invoice.id === editing)?.partyId === "PENDING_RECEIPT");
+    let resolvedPartyId = partyId;
+    if (isPendingReceipt && !resolvedPartyId && supplierName.trim()) {
+      resolvedPartyId = addSupplier({ name: supplierName.trim(), phone: "", company: supplierName.trim(), balance: 0 });
+    }
+    if (!resolvedPartyId) return toast.error("اختر المورد أو أدخل اسم المورد");
     const payload = {
       invoiceNumber,
       type: mode.kind,
       invoiceType: mode.kind === "sale" ? mode.salesType : undefined,
-      partyId,
+      partyId: resolvedPartyId,
       date,
       items,
       subTotal,
@@ -196,15 +207,17 @@ function SalesPage() {
     if (editing) {
       updateInvoice(editing, payload);
       toast.success("تم تحديث الفاتورة");
+      if (approved) setActionsId(editing);
     } else {
       const id = addInvoice(payload);
       toast.success(approved ? "تم اعتماد الفاتورة" : "حُفظت كمسودة");
-      if (approved) setPrintId(id);
+      if (approved) setActionsId(id);
     }
     setOpen(false);
   };
 
   const printing = invoices.find((i) => i.id === printId);
+  const pendingReceiptReview = Boolean(editing && invoices.find((invoice) => invoice.id === editing)?.partyId === "PENDING_RECEIPT");
 
   return (
     <div className="space-y-4">
@@ -312,6 +325,7 @@ function SalesPage() {
                         className="btn-primary px-3 py-2 text-xs"
                         onClick={() => {
                           approveInvoice(inv.id);
+                          setActionsId(inv.id);
                           toast.success("تم الاعتماد");
                         }}
                       >
@@ -347,13 +361,15 @@ function SalesPage() {
       <Modal
         open={open}
         title={
-          editing
-            ? "تعديل فاتورة"
-            : mode.kind === "purchase"
-              ? "فاتورة مشتريات"
-              : mode.salesType === "SERVICE"
-                ? "فاتورة خدمة تطريز"
-                : "فاتورة بيع بضاعة"
+          pendingReceiptReview
+            ? "مطابقة أمر التوريد المخزني"
+            : editing
+              ? "تعديل فاتورة"
+              : mode.kind === "purchase"
+                ? "فاتورة مشتريات"
+                : mode.salesType === "SERVICE"
+                  ? "فاتورة خدمة تطريز"
+                  : "فاتورة بيع بضاعة"
         }
         onClose={() => setOpen(false)}
         wide
@@ -387,11 +403,21 @@ function SalesPage() {
               ))}
             </select>
           </label>
+          {pendingReceiptReview ? (
+            <label>
+              <span className="label">اسم المورد الجديد</span>
+              <input className="input-field" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} placeholder="أدخل اسم المورد" />
+            </label>
+          ) : null}
           <label>
             <span className="label">التاريخ</span>
             <input className="input-field" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </label>
         </div>
+
+        {pendingReceiptReview ? (
+          <p className="mt-3 rounded-xl bg-brand-soft px-3 py-2 text-sm font-bold text-brand">تم تحميل الأصناف التي أرسلها مستلم المخزن. راجع القائمة وعدّل الكمية أو سعر الشراء قبل الاعتماد.</p>
+        ) : null}
 
         <div className="mt-4 rounded-2xl border border-line bg-canvas/50 p-3">
           {mode.kind === "sale" && mode.salesType === "SERVICE" ? (
@@ -432,12 +458,18 @@ function SalesPage() {
           <ul className="mt-3 divide-y divide-line rounded-2xl border border-line">
             {items.map((line, idx) => (
               <li key={line.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                <div>
-                  <p className="font-bold">{line.name}</p>
-                  <p className="text-xs text-muted">
-                    {line.quantity} {line.unit} × {formatCurrency(line.unitPrice)}
-                  </p>
-                </div>
+                {pendingReceiptReview ? (
+                  <div className="grid flex-1 gap-2 sm:grid-cols-3">
+                    <input className="input-field" value={line.name} placeholder="اسم الصنف" onChange={(e) => setItems((previous) => previous.map((item, itemIndex) => itemIndex === idx ? { ...item, name: e.target.value } : item))} />
+                    <input className="input-field" inputMode="decimal" value={line.quantity} placeholder="الكمية" onChange={(e) => setItems((previous) => previous.map((item, itemIndex) => itemIndex === idx ? { ...item, quantity: Number(e.target.value) || 0, total: (Number(e.target.value) || 0) * item.unitPrice } : item))} />
+                    <input className="input-field" inputMode="decimal" value={line.unitPrice} placeholder="سعر الشراء" onChange={(e) => setItems((previous) => previous.map((item, itemIndex) => itemIndex === idx ? { ...item, unitPrice: Number(e.target.value) || 0, total: item.quantity * (Number(e.target.value) || 0) } : item))} />
+                  </div>
+                ) : (
+                  <div>
+                    <p className="font-bold">{line.name}</p>
+                    <p className="text-xs text-muted">{line.quantity} {line.unit} × {formatCurrency(line.unitPrice)}</p>
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <span className="font-black tabular-nums">{formatCurrency(line.total)}</span>
                   <button type="button" className="text-bad" onClick={() => setItems((p) => p.filter((_, i) => i !== idx))}>
@@ -525,6 +557,22 @@ function SalesPage() {
           onClose={() => setPrintId(null)}
         />
       ) : null}
+      <DocumentActionsSheet
+        open={Boolean(actionsId)}
+        title="الفاتورة"
+        phone={(() => {
+          const invoice = invoices.find((item) => item.id === actionsId);
+          const party = invoice?.type === "purchase"
+            ? suppliers.find((item) => item.id === invoice.partyId)
+            : customers.find((item) => item.id === invoice?.partyId);
+          return party?.phone;
+        })()}
+        onClose={() => setActionsId(null)}
+        onPrint={() => {
+          setPrintId(actionsId);
+          setActionsId(null);
+        }}
+      />
     </div>
   );
 }

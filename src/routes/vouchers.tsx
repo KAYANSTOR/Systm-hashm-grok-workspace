@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { Modal } from "@/components/modal";
 import VoucherPrintTemplate from "@/components/print/VoucherPrintTemplate";
+import DocumentActionsSheet from "@/components/DocumentActionsSheet";
 import { methodLabel, voucherTypeLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { PartyKind, PaymentMethod, Voucher, VoucherType } from "@/lib/types";
@@ -23,6 +24,7 @@ function VouchersPage() {
   const [filter, setFilter] = useState<"all" | VoucherType>("all");
   const [open, setOpen] = useState(false);
   const [printId, setPrintId] = useState<string | null>(null);
+  const [actionsId, setActionsId] = useState<string | null>(null);
 
   const [voucherNumber, setVoucherNumber] = useState("");
   const [type, setType] = useState<VoucherType>("receipt");
@@ -69,7 +71,7 @@ function VouchersPage() {
     const n = parseFloat(amount) || 0;
     if (n <= 0) return toast.error("أدخل مبلغاً صحيحاً");
     if (partyType !== "other" && !partyId) return toast.error("اختر الطرف");
-    addVoucher({
+    const id = addVoucher({
       voucherNumber,
       type,
       partyType,
@@ -80,6 +82,7 @@ function VouchersPage() {
       description,
     });
     toast.success("تم حفظ السند");
+    setActionsId(id);
     setOpen(false);
   };
 
@@ -257,6 +260,22 @@ function VouchersPage() {
           onClose={() => setPrintId(null)}
         />
       ) : null}
+      <DocumentActionsSheet
+        open={Boolean(actionsId)}
+        title={vouchers.find((item) => item.id === actionsId)?.type === "payment" ? "سند الصرف" : "سند القبض"}
+        phone={(() => {
+          const voucher = vouchers.find((item) => item.id === actionsId);
+          const party = voucher?.partyType === "supplier"
+            ? suppliers.find((item) => item.id === voucher.partyId)
+            : customers.find((item) => item.id === voucher?.partyId);
+          return party?.phone;
+        })()}
+        onClose={() => setActionsId(null)}
+        onPrint={() => {
+          setPrintId(actionsId);
+          setActionsId(null);
+        }}
+      />
     </div>
   );
 }

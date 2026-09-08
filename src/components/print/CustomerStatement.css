@@ -5,7 +5,7 @@
   --teal-dark: #087583;
   --border: #7e9296;
   --text: #172022;
-  --paper: #fffefa;
+  --paper: #ffffff;
   --debit: #ef2222;
   --credit: #16852b;
 }
@@ -20,7 +20,7 @@
   background: var(--paper);
   color: var(--text);
   direction: rtl;
-  font-family: "ReceiptArabic", "Cairo", Arial, sans-serif;
+  font-family: "ReceiptArabic", "Cairo", "Noto Sans Arabic", Arial, sans-serif;
   font-size: 10.5pt;
   line-height: 1.25;
 }
