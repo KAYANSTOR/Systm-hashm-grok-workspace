@@ -39,6 +39,7 @@ export const invoiceKindLabel: Record<InvoiceKind, string> = {
 export const salesTypeLabel: Record<InvoiceSalesType, string> = {
   PRODUCT_SALE: "بيع بضاعة",
   SERVICE: "خدمة تطريز",
+  ISSUE: "أمر صرف مخزني",
 };
 
 export const paymentTypeLabel: Record<PaymentType, string> = {

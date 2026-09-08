@@ -87,9 +87,11 @@ export function applyInvoice(state: AppData, invoice: Invoice, sign: 1 | -1): Ap
       description:
         invoice.invoiceType === "SERVICE"
           ? "فاتورة خدمة تطريز"
-          : isSale
-            ? "فاتورة مبيعات"
-            : "فاتورة مشتريات",
+          : invoice.invoiceType === "ISSUE"
+            ? "أمر صرف مخزني"
+            : isSale
+              ? "فاتورة مبيعات"
+              : "فاتورة مشتريات",
     };
     next = { ...next, transactions: [trx, ...next.transactions] };
   }

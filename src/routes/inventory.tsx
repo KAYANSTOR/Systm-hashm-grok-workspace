@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AlertTriangle, Pencil, Plus, Scissors, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, Pencil, Plus, Scissors, Search, Trash2, ArrowDownRight, ArrowUpRight, Printer } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
@@ -7,7 +7,7 @@ import { Modal } from "@/components/modal";
 import { categoryLabel, unitLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { InventoryCategory, InventoryItem, InventoryUnit } from "@/lib/types";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, nextNumber, todayIso } from "@/lib/utils";
 
 export const Route = createFileRoute("/inventory")({ component: InventoryPage });
 
@@ -24,7 +24,12 @@ const emptyForm = {
 };
 
 function InventoryPage() {
-  const inventory = useStore((s) => s.inventory);
+  const rawInventory = useStore((s) => s.inventory);
+  const customers = useStore((s) => s.customers);
+  const addCustomer = useStore((s) => s.addCustomer);
+  const inventory = Array.from(new Map(rawInventory.map(item => [item.id, item])).values());
+  const invoices = useStore((s) => s.invoices);
+  const addInvoice = useStore((s) => s.addInvoice);
   const addInventoryItem = useStore((s) => s.addInventoryItem);
   const updateInventoryItem = useStore((s) => s.updateInventoryItem);
   const deleteInventoryItem = useStore((s) => s.deleteInventoryItem);
@@ -34,6 +39,10 @@ function InventoryPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [issueOpen, setIssueOpen] = useState(false);
+  const [issueItems, setIssueItems] = useState<Array<{ id: string; inventoryItemId: string; quantity: string }>>([]);
+  const [receiptItems, setReceiptItems] = useState<Array<{ id: string; inventoryItemId: string; name: string; quantity: string }>>([]);
 
   const filtered = useMemo(
     () =>
@@ -93,6 +102,93 @@ function InventoryPage() {
     setOpen(false);
   };
 
+
+  
+  const saveIssue = () => {
+    const validItems = issueItems.filter((i) => i.inventoryItemId);
+    if (validItems.length === 0) return toast.error("أضف مادة واحدة على الأقل");
+    if (validItems.some((i) => !parseFloat(i.quantity))) return toast.error("تأكد من إدخال كميات صحيحة");
+
+    const invoiceNumber = nextNumber(
+      invoices.filter((i) => i.invoiceType === "ISSUE").map((i) => i.invoiceNumber),
+      "ISS"
+    );
+
+    // Make sure we have an INTERNAL_ISSUE customer or just use a fallback
+    let internalParty = customers.find(c => c.name === "الورشة (صرف داخلي)");
+    let partyId = internalParty?.id;
+    if (!partyId) {
+      partyId = addCustomer({ name: "الورشة (صرف داخلي)", phone: "-", address: "-", balance: 0, type: "retail" });
+    }
+
+    addInvoice({
+      invoiceNumber,
+      type: "sale",
+      invoiceType: "ISSUE",
+      partyId: partyId,
+      date: todayIso(),
+      items: validItems.map((i) => {
+        const invItem = inventory.find(x => x.id === i.inventoryItemId);
+        return {
+          id: Math.random().toString(36).slice(2),
+          inventoryItemId: i.inventoryItemId,
+          name: invItem?.name || "مادة",
+          quantity: parseFloat(i.quantity) || 1,
+          unitPrice: 0,
+          total: 0
+        };
+      }),
+      subTotal: 0,
+      discount: 0,
+      total: 0,
+      paidAmount: 0,
+      remainingAmount: 0,
+      paymentType: "cash",
+      status: "paid",
+      isApproved: true, // Auto-approve issues
+    });
+
+    toast.success("تم صرف المواد بنجاح");
+    setIssueOpen(false);
+  };
+
+
+  const saveReceipt = () => {
+    const validItems = receiptItems.filter((i) => i.inventoryItemId || i.name.trim());
+    if (validItems.length === 0) return toast.error("أضف مادة واحدة على الأقل");
+    if (validItems.some((i) => !parseFloat(i.quantity))) return toast.error("تأكد من إدخال كميات صحيحة");
+
+    const invoiceNumber = nextNumber(
+      invoices.filter((i) => i.type === "purchase").map((i) => i.invoiceNumber),
+      "PUR"
+    );
+
+    addInvoice({
+      invoiceNumber,
+      type: "purchase",
+      partyId: "PENDING_RECEIPT",
+      date: todayIso(),
+      items: validItems.map((i) => ({
+        id: Math.random().toString(36).slice(2),
+        inventoryItemId: i.inventoryItemId || undefined,
+        name: i.inventoryItemId ? (inventory.find((inv) => inv.id === i.inventoryItemId)?.name || i.name) : i.name,
+        quantity: parseFloat(i.quantity) || 1,
+        unitPrice: 0,
+        total: 0,
+      })),
+      subTotal: 0,
+      discount: 0,
+      total: 0,
+      paidAmount: 0,
+      remainingAmount: 0,
+      status: "unpaid",
+      isApproved: false,
+      paymentType: "deferred",
+    });
+    toast.success("تم إرسال أمر التوريد للمدير للمطابقة");
+    setReceiptOpen(false);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -100,10 +196,23 @@ function InventoryPage() {
           <h1 className="page-title">المخزن والأقمشة</h1>
           <p className="page-subtitle">إدارة المواد الأولية ومستلزمات التطريز.</p>
         </div>
-        <button type="button" className="btn-primary" onClick={openNew}>
-          <Plus className="size-5" />
-          إضافة مادة
-        </button>
+        <div className="flex gap-2">
+          <button type="button" className="btn-secondary" onClick={() => { setReceiptItems([{ id: Math.random().toString(), inventoryItemId: "", name: "", quantity: "1" }]); setReceiptOpen(true); }}>
+            <Plus className="size-5" />
+            أمر توريد مخزني
+          </button>
+          
+          <button type="button" className="btn-ghost text-bad" onClick={() => {
+            setIssueItems([{ id: Math.random().toString(), inventoryItemId: "", quantity: "1" }]);
+            setIssueOpen(true);
+          }}>
+            <Plus className="size-4" /> أمر صرف
+          </button>
+          <button type="button" className="btn-primary" onClick={openNew}>
+            <Plus className="size-5" />
+            إضافة مادة
+          </button>
+        </div>
       </div>
 
       <div className="card flex flex-col gap-3 p-3 sm:flex-row">
@@ -258,6 +367,82 @@ function InventoryPage() {
           </Field>
         </div>
       </Modal>
+
+      <Modal open={receiptOpen} onClose={() => setReceiptOpen(false)} title="أمر توريد مخزني">
+        <div className="space-y-4">
+          <p className="text-sm text-muted">سيتم إرسال هذا الأمر للإدارة لمطابقته مع فاتورة المشتريات وإضافة الأسعار.</p>
+          <div className="space-y-3">
+            {receiptItems.map((item, index) => (
+              <div key={item.id} className="flex gap-2 items-start">
+                <div className="flex-1 space-y-2">
+                  <select
+                    className="input-field"
+                    value={item.inventoryItemId}
+                    onChange={(e) => {
+                      const newItems = [...receiptItems];
+                      newItems[index].inventoryItemId = e.target.value;
+                      setReceiptItems(newItems);
+                    }}
+                  >
+                    <option value="">-- اختر من المخزن (أو اكتب اسم جديد) --</option>
+                    {inventory.map((inv) => (
+                      <option key={inv.id} value={inv.id}>{inv.name} ({inv.code})</option>
+                    ))}
+                  </select>
+                  {!item.inventoryItemId && (
+                    <input
+                      className="input-field"
+                      placeholder="اسم الصنف (إذا لم يكن في المخزن)"
+                      value={item.name}
+                      onChange={(e) => {
+                        const newItems = [...receiptItems];
+                        newItems[index].name = e.target.value;
+                        setReceiptItems(newItems);
+                      }}
+                    />
+                  )}
+                </div>
+                <input
+                  type="number"
+                  className="input-field w-24"
+                  placeholder="الكمية"
+                  value={item.quantity}
+                  min="1"
+                  onChange={(e) => {
+                    const newItems = [...receiptItems];
+                    newItems[index].quantity = e.target.value;
+                    setReceiptItems(newItems);
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn-icon text-bad"
+                  onClick={() => setReceiptItems(receiptItems.filter((_, i) => i !== index))}
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="btn-ghost w-full"
+            onClick={() => setReceiptItems([...receiptItems, { id: Math.random().toString(), inventoryItemId: "", name: "", quantity: "1" }])}
+          >
+            <Plus className="size-4" />
+            إضافة صنف آخر
+          </button>
+          <div className="flex gap-3 pt-4">
+            <button type="button" className="btn-primary flex-1" onClick={saveReceipt}>
+              إرسال للمطابقة
+            </button>
+            <button type="button" className="btn-ghost flex-1" onClick={() => setReceiptOpen(false)}>
+              إلغاء
+            </button>
+          </div>
+        </div>
+      </Modal>
+
     </div>
   );
 }

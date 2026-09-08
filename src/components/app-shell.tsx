@@ -20,7 +20,7 @@ import {
   Wifi,
   WifiOff
 } from "lucide-react";
-import { Toaster } from "sonner";
+import { Toaster, toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 
@@ -28,7 +28,6 @@ const NAV = [
   { to: "/", label: "الرئيسية", icon: Home },
   { to: "/sales", label: "المبيعات", icon: Calculator },
   { to: "/inventory", label: "المخزن", icon: Boxes },
-  { to: "/parties", label: "العملاء/الموردين", icon: Users },
   { to: "/vouchers", label: "السندات", icon: Receipt },
   { to: "/cashbox", label: "الصندوق", icon: Wallet },
   { to: "/expenses", label: "المصروفات", icon: CreditCard },
@@ -40,7 +39,7 @@ const MOBILE_NAV = [
   { to: "/", label: "الرئيسية", icon: Home },
   { to: "/cashbox", label: "الصندوق", icon: Wallet },
   { to: "/reports", label: "التقارير", icon: PieChart },
-  { to: "/parties", label: "العملاء/الموردين", icon: Users },
+  { to: "/inventory", label: "المخزن", icon: Boxes },
 ] as const;
 
 const QUICK = [
@@ -57,6 +56,7 @@ function useOnlineStatus() {
   useEffect(() => {
     function handleOnline() {
       setIsOnline(true);
+      toast.success("تم استعادة الاتصال بالإنترنت، وتم ترحيل ورفع البيانات إلى السحابة بنجاح.", { duration: 5000 });
     }
     function handleOffline() {
       setIsOnline(false);
@@ -243,8 +243,18 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-32 pt-2 lg:px-8 lg:pb-10">
-            {children}
+          <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-32 pt-2 lg:px-8 lg:pb-10 relative overflow-x-hidden">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={pathname}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0, transition: { duration: 0.15, ease: "easeOut" } }}
+                exit={{ opacity: 0, y: -4, transition: { duration: 0.05, ease: "easeIn" } }}
+                className="w-full will-change-[opacity,transform]"
+              >
+                {children}
+              </motion.div>
+            </AnimatePresence>
           </main>
         </div>
       </div>

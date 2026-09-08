@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import {
-  CheckCircle2,
+  AlertTriangle, CheckCircle2,
   Pencil,
   Plus,
   Printer,
@@ -106,7 +106,7 @@ function SalesPage() {
     setMode({ kind: inv.type, salesType: inv.invoiceType || "PRODUCT_SALE" });
     setEditing(inv.id);
     setInvoiceNumber(inv.invoiceNumber);
-    setPartyId(inv.partyId);
+    setPartyId(inv.partyId === "PENDING_RECEIPT" ? "" : inv.partyId);
     setDate(inv.date);
     setItems(inv.items);
     setDiscount(String(inv.discount));
@@ -271,7 +271,7 @@ function SalesPage() {
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <p className="font-mono text-xs font-bold text-muted">{inv.invoiceNumber}</p>
-                    <h3 className="font-black">{party || "—"}</h3>
+                    <h3 className="font-black">{inv.partyId === "PENDING_RECEIPT" ? <span className="text-warn flex items-center gap-1"><AlertTriangle className="size-4" /> توريد مخزني (بانتظار المطابقة)</span> : (party || "—")}</h3>
                     <p className="text-xs text-muted">
                       {formatDate(inv.date)} ·{" "}
                       {inv.type === "purchase"
