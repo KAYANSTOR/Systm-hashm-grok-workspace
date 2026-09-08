@@ -27,6 +27,7 @@ function Dashboard() {
   const inventory = useStore((s) => s.inventory);
   const invoices = useStore((s) => s.invoices);
   const transactions = useStore((s) => s.transactions);
+  const pendingReceipts = invoices.filter((i) => i.type === "purchase" && i.partyId === "PENDING_RECEIPT" && !i.isApproved);
 
   const stats = useMemo(() => {
     const today = new Date().toDateString();
@@ -130,6 +131,21 @@ function Dashboard() {
         <Action to="/parties" icon={UserPlus} title="إضافة عميل" />
         <Action to="/expenses" icon={CreditCard} title="إضافة مصروف" />
       </div>
+
+      {pendingReceipts.length > 0 ? (
+        <Link to="/sales" className="card block border-2 border-warn/30 bg-warn/5 p-4 transition hover:bg-warn/10">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold text-warn">صندوق وارد المدير</p>
+              <h2 className="mt-1 text-lg font-black">أوامر توريد مخزني بانتظار المطابقة</h2>
+              <p className="mt-1 text-sm text-muted">افتحها لإضافة المورد والأسعار والتكلفة ثم اعتماد فاتورة المشتريات.</p>
+            </div>
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-warn text-lg font-black text-white">
+              {pendingReceipts.length}
+            </span>
+          </div>
+        </Link>
+      ) : null}
 
       <section>
         <div className="mb-3 flex items-center justify-between px-1">

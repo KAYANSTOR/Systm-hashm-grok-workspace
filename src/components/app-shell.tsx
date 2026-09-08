@@ -56,7 +56,7 @@ function useOnlineStatus() {
   useEffect(() => {
     function handleOnline() {
       setIsOnline(true);
-      toast.success("تم استعادة الاتصال بالإنترنت، وتم ترحيل ورفع البيانات إلى السحابة بنجاح.", { duration: 5000 });
+      toast.info("تمت استعادة الاتصال، جارٍ ترحيل العمليات المحفوظة إلى السحابة…", { duration: 5000 });
     }
     function handleOffline() {
       setIsOnline(false);
@@ -95,6 +95,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const inventory = useStore((s) => s.inventory);
   const settings = useStore((s) => s.settings);
+  const connectionState = useStore((s) => s.connectionState);
+  const pendingSyncCount = useStore((s) => s.pendingSyncCount);
+  const lastSyncMessage = useStore((s) => s.lastSyncMessage);
+  const syncLegacyDb = useStore((s) => s.syncLegacyDb);
 
   const [fabOpen, setFabOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -113,6 +117,18 @@ export function AppShell({ children }: { children: ReactNode }) {
     setFabOpen(false);
     setNotesOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    const retrySync = () => { void syncLegacyDb().catch(() => undefined); };
+    window.addEventListener("online", retrySync);
+    return () => window.removeEventListener("online", retrySync);
+  }, [syncLegacyDb]);
+
+  useEffect(() => {
+    if (lastSyncMessage === "تم ترحيل البيانات إلى السحابة بنجاح") {
+      toast.success(lastSyncMessage, { duration: 5000 });
+    }
+  }, [lastSyncMessage]);
 
   const lowStock = useMemo(
     () => inventory.filter((i) => i.quantity <= (i.minQuantity || 0)),
@@ -264,6 +280,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           </header>
 
           <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-32 pt-2 lg:px-8 lg:pb-10 relative overflow-x-hidden">
+            {connectionState !== "online" || pendingSyncCount > 0 ? (
+              <div className={`mb-3 flex items-center justify-between gap-3 rounded-2xl px-4 py-2.5 text-xs font-bold ${connectionState === "offline" ? "bg-bad/10 text-bad" : "bg-warn/10 text-warn"}`} role="status">
+                <span>{connectionState === "offline" ? "غير متصل — البيانات تُحفظ على الجهاز" : "جارٍ مزامنة البيانات مع السحابة…"}</span>
+                {pendingSyncCount > 0 ? <span>{pendingSyncCount} عملية معلقة</span> : null}
+              </div>
+            ) : null}
             <div key={pathname} className="w-full">
               <Suspense fallback={<PageSkeleton />}>
                 {children}

@@ -10,6 +10,7 @@ export const fetchAllData = createServerFn({ method: "GET" }).handler(
     const orgs = await sql`select * from organization_profile limit 1`;
     const parties = await sql`select * from parties where is_active = true`;
     const products = await sql`select * from products where is_active = true`;
+    const stock = await sql`select product_id, quantity from warehouse_stock where warehouse_id = 'wh1'`;
     const invoices = await sql`select * from invoices order by created_at desc`;
     const invoiceItems = await sql`select * from invoice_items`;
     const vouchers = await sql`select * from vouchers order by created_at desc`;
@@ -20,7 +21,7 @@ export const fetchAllData = createServerFn({ method: "GET" }).handler(
     const isDbEmpty = parties.length === 0 && products.length === 0 && invoices.length === 0;
 
     const organization = orgs.length > 0 ? { id: orgs[0].id, name: orgs[0].name, description: orgs[0].description, logo: orgs[0].logo, phone: orgs[0].phone, address: orgs[0].address, email: orgs[0].email, website: orgs[0].website, taxNumber: orgs[0].tax_number, commercialNumber: orgs[0].commercial_number, footerText: orgs[0].footer_text } : null;
-    return { organization, parties, products, invoices, invoiceItems, vouchers, expenses, transactions, isDbEmpty } as any;
+    return { organization, parties, products, stock, invoices, invoiceItems, vouchers, expenses, transactions, isDbEmpty } as any;
   }
 );
 
@@ -50,6 +51,9 @@ export const syncLegacyData = createServerFn({ method: "POST" })
         await tx`insert into products (id, name, category, unit, cost_price, selling_price, min_stock, created_at)
                  values (${i.id}, ${i.name}, ${i.category}, ${i.unit}, ${i.costPrice}, ${i.sellingPrice}, ${i.minQuantity}, ${i.lastUpdated})
                  on conflict (id) do update set name=EXCLUDED.name, category=EXCLUDED.category, unit=EXCLUDED.unit, cost_price=EXCLUDED.cost_price, selling_price=EXCLUDED.selling_price, min_stock=EXCLUDED.min_stock`;
+        await tx`insert into warehouse_stock (warehouse_id, product_id, quantity)
+                 values ('wh1', ${i.id}, ${i.quantity})
+                 on conflict (warehouse_id, product_id) do update set quantity=EXCLUDED.quantity`;
       }
       
       // 4. Accounts setup (Default accounts)
@@ -63,6 +67,9 @@ export const syncLegacyData = createServerFn({ method: "POST" })
                on conflict (id) do nothing`;
                
       // 5. Insert Invoices & Items
+      await tx`insert into parties (id, type, name, phone, address, created_at)
+               values ('PENDING_RECEIPT', 'supplier', 'مورد توريد مخزني - بانتظار تحديد المورد', '-', '-', now())
+               on conflict (id) do nothing`;
       for (const inv of data.invoices) {
         await tx`insert into invoices (id, invoice_number, type, invoice_type, party_id, date, sub_total, discount, total, paid_amount, remaining_amount, payment_type, payment_method, status, is_approved, notes, created_at)
                  values (${inv.id}, ${inv.invoiceNumber}, ${inv.type}, ${inv.invoiceType || null}, ${inv.partyId}, ${inv.date}, ${inv.subTotal}, ${inv.discount}, ${inv.total}, ${inv.paidAmount}, ${inv.remainingAmount}, ${inv.paymentType}, ${inv.paymentMethod || null}, ${inv.status}, ${inv.isApproved}, ${inv.notes || null}, ${inv.createdAt})
@@ -147,6 +154,14 @@ export const saveInvoice = createServerFn({ method: "POST" })
   .handler(async ({ data: inv }) => {
     const sql = await getSql();
     await sql.transaction(async (tx) => {
+      // Warehouse receipts are submitted before the manager knows the supplier.
+      // The invoices.party_id foreign key still requires a real party row, so
+      // materialize the stable placeholder before inserting the invoice.
+      if (inv.partyId === "PENDING_RECEIPT") {
+        await tx`insert into parties (id, type, name, phone, address, created_at)
+                 values ('PENDING_RECEIPT', 'supplier', 'مورد توريد مخزني - بانتظار تحديد المورد', '-', '-', now())
+                 on conflict (id) do nothing`;
+      }
       await tx`insert into invoices (id, invoice_number, type, invoice_type, party_id, date, sub_total, discount, total, paid_amount, remaining_amount, payment_type, payment_method, status, is_approved, notes, created_at)
                values (${inv.id}, ${inv.invoiceNumber}, ${inv.type}, ${inv.invoiceType || null}, ${inv.partyId}, ${inv.date}, ${inv.subTotal}, ${inv.discount}, ${inv.total}, ${inv.paidAmount}, ${inv.remainingAmount}, ${inv.paymentType}, ${inv.paymentMethod || null}, ${inv.status}, ${inv.isApproved}, ${inv.notes || null}, ${inv.createdAt})
                on conflict (id) do update set 

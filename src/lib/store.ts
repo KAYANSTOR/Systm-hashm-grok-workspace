@@ -11,6 +11,9 @@ let lastFetchAt = 0;
 let syncPromise: Promise<void> | null = null;
 
 type Store = AppData & {
+  connectionState: "online" | "offline" | "syncing";
+  pendingSyncCount: number;
+  lastSyncMessage: string;
   fetchFromDb: () => Promise<void>;
   syncLegacyDb: () => Promise<void>;
   resetDemo: () => void;
@@ -42,6 +45,9 @@ export const useStore = create<Store>()(
   persist(
     (set, get) => ({
       ...EMPTY_DATA,
+      connectionState: typeof navigator !== "undefined" && navigator.onLine ? "online" : "offline",
+      pendingSyncCount: 0,
+      lastSyncMessage: "",
       
       resetDemo: () => set({ ...EMPTY_DATA }),
       resetDatabase: async () => {
@@ -54,6 +60,7 @@ export const useStore = create<Store>()(
       fetchFromDb: async () => {
         const now = Date.now();
         if (fetchInFlight || now - lastFetchAt < 15_000) return;
+        if (get().pendingSyncCount > 0) return get().syncLegacyDb();
         fetchInFlight = true;
         lastFetchAt = now;
         try {
@@ -119,7 +126,7 @@ export const useStore = create<Store>()(
              ...s,
              balance: -(partyBalances.get(s.id) || 0),
            })),
-           inventory: (data.products || []).map((p: any) => ({ ...p, costPrice: Number(p.cost_price), sellingPrice: Number(p.selling_price), minQuantity: Number(p.min_stock) })),
+           inventory: (data.products || []).map((p: any) => ({ ...p, quantity: Number((data.stock || []).find((s: any) => s.product_id === p.id)?.quantity || 0), costPrice: Number(p.cost_price), sellingPrice: Number(p.selling_price), minQuantity: Number(p.min_stock) })),
            invoices: (data.invoices || []).map((inv: any) => ({
               ...inv,
               invoiceNumber: inv.invoice_number,
@@ -154,6 +161,7 @@ export const useStore = create<Store>()(
            })),
            transactions: transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         });
+        set({ connectionState: "online", pendingSyncCount: 0, lastSyncMessage: "تم تحديث البيانات من السحابة" });
         } finally {
           fetchInFlight = false;
         }
@@ -161,6 +169,11 @@ export const useStore = create<Store>()(
       
       syncLegacyDb: async () => {
         if (syncPromise) return syncPromise;
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          set({ connectionState: "offline", pendingSyncCount: 1, lastSyncMessage: "تم حفظ العمليات على الجهاز، وستُرحّل عند عودة الإنترنت" });
+          return;
+        }
+        set({ connectionState: "syncing", pendingSyncCount: 1, lastSyncMessage: "جارٍ ترحيل العمليات إلى السحابة…" });
         const s = get();
         syncPromise = syncLegacyData({ data: {
           customers: s.customers,
@@ -171,9 +184,12 @@ export const useStore = create<Store>()(
           transactions: s.transactions,
           expenses: s.expenses,
           settings: s.settings
-        }}).finally(() => {
-          syncPromise = null;
-        });
+        }}).then(() => {
+          set({ connectionState: "online", pendingSyncCount: 0, lastSyncMessage: "تم ترحيل البيانات إلى السحابة بنجاح" });
+        }).catch((error) => {
+          set({ connectionState: "offline", pendingSyncCount: 1, lastSyncMessage: "تعذّر الترحيل مؤقتًا، ستتم إعادة المحاولة تلقائيًا" });
+          throw error;
+        }).finally(() => { syncPromise = null; });
         return syncPromise;
         
       },
@@ -382,12 +398,10 @@ if (typeof window !== "undefined") {
   };
 
   useStore.persist.onFinishHydration((state) => {
-      const isEmpty = state.customers.length === 0 && state.invoices.length === 0 && state.inventory.length === 0;
-      if (isEmpty && navigator.onLine) {
-         state.fetchFromDb().catch(console.error);
-      } else {
-         debouncedSync();
-      }
+      // Always refresh from the shared database after hydration. Previously
+      // this only happened when local storage was empty, so a manager with an
+      // older local cache could never see a receipt submitted by the receiver.
+      if (navigator.onLine) state.fetchFromDb().catch(console.error);
   });
   
   useStore.persist.rehydrate();
@@ -406,4 +420,7 @@ if (typeof window !== "undefined") {
   });
 
   window.addEventListener('online', debouncedSync);
+  window.addEventListener('focus', () => {
+    if (navigator.onLine) useStore.getState().fetchFromDb().catch(console.error);
+  });
 }
