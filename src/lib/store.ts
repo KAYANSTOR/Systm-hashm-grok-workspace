@@ -380,6 +380,9 @@ export const useStore = create<Store>()(
         transactions: s.transactions,
         expenses: s.expenses,
         settings: s.settings,
+        connectionState: s.connectionState,
+        pendingSyncCount: s.pendingSyncCount,
+        lastSyncMessage: s.lastSyncMessage,
       }),
     }
   )
@@ -415,6 +418,10 @@ if (typeof window !== "undefined") {
          state.vouchers !== prevState.vouchers ||
          state.expenses !== prevState.expenses
       ) {
+         useStore.setState({
+           pendingSyncCount: Math.max(1, state.pendingSyncCount),
+           connectionState: navigator.onLine ? "syncing" : "offline",
+         });
          debouncedSync();
       }
   });

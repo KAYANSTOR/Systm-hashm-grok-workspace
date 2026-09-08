@@ -187,8 +187,10 @@ export function applyExpense(state: AppData, expense: Expense, sign: 1 | -1): Ap
       documentId: expense.id,
       documentNumber: `EXP-${String(seq).padStart(4, "0")}`,
       documentType: "expense",
-      debit: 0,
-      credit: 0,
+        // Expense is debited to its expense account and credited to cash.
+        // cashOut keeps the cashbox view consistent with the ledger.
+        debit: expense.amount,
+        credit: 0,
       cashIn: 0,
       cashOut: expense.amount,
       paymentMethod: expense.paymentMethod,

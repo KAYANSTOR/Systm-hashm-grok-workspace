@@ -443,6 +443,52 @@ function InventoryPage() {
         </div>
       </Modal>
 
+      <Modal open={issueOpen} onClose={() => setIssueOpen(false)} title="أمر صرف مخزني">
+        <div className="space-y-4">
+          <p className="text-sm text-muted">سجّل المواد المصروفة للورشة، وسيتم خصمها من رصيد المخزن.</p>
+          <div className="space-y-3">
+            {issueItems.map((item, index) => (
+              <div key={item.id} className="flex items-start gap-2">
+                <select
+                  className="input-field flex-1"
+                  value={item.inventoryItemId}
+                  onChange={(e) => {
+                    const next = [...issueItems];
+                    next[index] = { ...next[index], inventoryItemId: e.target.value };
+                    setIssueItems(next);
+                  }}
+                >
+                  <option value="">اختر مادة من المخزن</option>
+                  {inventory.map((inv) => <option key={inv.id} value={inv.id}>{inv.name} ({inv.quantity} {unitLabel[inv.unit]})</option>)}
+                </select>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  className="input-field w-24"
+                  value={item.quantity}
+                  onChange={(e) => {
+                    const next = [...issueItems];
+                    next[index] = { ...next[index], quantity: e.target.value };
+                    setIssueItems(next);
+                  }}
+                />
+                <button type="button" className="btn-icon text-bad" aria-label="حذف البند" onClick={() => setIssueItems(issueItems.filter((_, i) => i !== index))}>
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button type="button" className="btn-ghost w-full" onClick={() => setIssueItems([...issueItems, { id: Math.random().toString(), inventoryItemId: "", quantity: "1" }])}>
+            <Plus className="size-4" /> إضافة مادة أخرى
+          </button>
+          <div className="flex gap-3 pt-4">
+            <button type="button" className="btn-primary flex-1" onClick={saveIssue}>حفظ أمر الصرف</button>
+            <button type="button" className="btn-ghost flex-1" onClick={() => setIssueOpen(false)}>إلغاء</button>
+          </div>
+        </div>
+      </Modal>
+
     </div>
   );
 }

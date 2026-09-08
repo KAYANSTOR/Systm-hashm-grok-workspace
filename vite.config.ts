@@ -157,7 +157,20 @@ export default defineConfig(({ command, isPreview }) => ({
     port: 8081,
     strictPort: true,
   },
-  resolve: { tsconfigPaths: true }, ssr: { noExternal: true },
+  resolve: { tsconfigPaths: true },
+  // React 19 exposes its dev entry as CommonJS. Keep it external in Vite SSR
+  // so the dev server does not evaluate module.exports as ESM.
+  ssr: {
+    noExternal: true,
+    external: [
+      "react",
+      "react-dom",
+      "react/jsx-runtime",
+      "react/jsx-dev-runtime",
+      "use-sync-external-store",
+      "use-sync-external-store/shim/with-selector",
+    ],
+  },
   plugins: [
     pgliteBootstrapPlugin(),
     // Before tanstackStart so /auth/popup never falls through to the SPA.
@@ -197,6 +210,18 @@ export default defineConfig(({ command, isPreview }) => ({
                 statuses: [0, 200]
               }
             }
+          },
+          {
+            // Keep the application shell and visited route documents usable
+            // when the network disappears after the first online visit.
+            urlPattern: ({ request }) => request.destination === "document",
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "app-navigation-cache",
+              networkTimeoutSeconds: 3,
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
           }
         ]
       }
@@ -205,7 +230,9 @@ export default defineConfig(({ command, isPreview }) => ({
     tailwindcss(),
     tanstackStart({
       router: {
-        autoCodeSplitting: true,
+        // Load the full internal dashboard bundle on the first visit so every
+        // screen remains available immediately during an offline session.
+        autoCodeSplitting: false,
       },
     }),
     ...(command === "build" || isPreview
