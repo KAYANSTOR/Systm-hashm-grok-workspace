@@ -103,6 +103,12 @@ export const useStore = create<Store>()(
             (partyBalances.get(transaction.partyId) || 0) + transaction.debit - transaction.credit,
           );
         }
+        const invoiceItemsByInvoice = new Map<string, any[]>();
+        for (const item of data.invoiceItems || []) {
+          const items = invoiceItemsByInvoice.get(item.invoice_id) || [];
+          items.push(item);
+          invoiceItemsByInvoice.set(item.invoice_id, items);
+        }
 
         set({
            customers: (data.parties || []).filter((p: any) => p.type === 'customer' || p.type === 'retail' || p.type === 'wholesale').map((c: any) => ({
@@ -126,7 +132,7 @@ export const useStore = create<Store>()(
               paymentMethod: inv.payment_method,
               isApproved: inv.is_approved,
               createdAt: inv.created_at,
-              items: (data.invoiceItems || []).filter((item: any) => item.invoice_id === inv.id).map((item: any) => ({
+              items: (invoiceItemsByInvoice.get(inv.id) || []).map((item: any) => ({
                  ...item,
                  inventoryItemId: item.product_id,
                  unitPrice: Number(item.unit_price),

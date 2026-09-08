@@ -1,6 +1,6 @@
-import { useMemo, type ReactNode } from "react";
+import { Suspense, useCallback, useMemo, type ReactNode } from "react";
 import { useState, useEffect } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ArrowRight,
@@ -74,9 +74,24 @@ function useOnlineStatus() {
   return isOnline;
 }
 
+function PageSkeleton() {
+  return (
+    <div className="space-y-5" aria-label="جاري تحميل الشاشة" role="status">
+      <div className="h-9 w-48 animate-pulse rounded-xl bg-paper/80" />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="h-28 animate-pulse rounded-3xl bg-paper/80" />
+        <div className="h-28 animate-pulse rounded-3xl bg-paper/80" />
+        <div className="h-28 animate-pulse rounded-3xl bg-paper/80" />
+      </div>
+      <div className="h-64 animate-pulse rounded-3xl bg-paper/80" />
+    </div>
+  );
+}
+
 
 export function AppShell({ children }: { children: ReactNode }) {
   const isOnline = useOnlineStatus();
+  const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const inventory = useStore((s) => s.inventory);
   const settings = useStore((s) => s.settings);
@@ -85,6 +100,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [notesOpen, setNotesOpen] = useState(false);
 
   const [isHydrated, setIsHydrated] = useState(false);
+
+  const preload = useCallback((to: string) => {
+    void router.preloadRoute({ to } as never);
+  }, [router]);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -131,8 +150,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                   key={item.to}
                   to={item.to}
                   preload="intent"
+                  onPointerEnter={() => preload(item.to)}
+                  onTouchStart={() => preload(item.to)}
                   className={cn(
                     "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold transition",
+                    "touch-manipulation",
+                    "will-change-auto",
                     active
                       ? "bg-brand-soft text-brand"
                       : "text-muted hover:bg-canvas hover:text-ink",
@@ -241,17 +264,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           </header>
 
           <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-32 pt-2 lg:px-8 lg:pb-10 relative overflow-x-hidden">
-            <AnimatePresence initial={false}>
-              <motion.div
-                key={pathname}
-                initial={{ opacity: 0, transform: "translate3d(0, 3px, 0)" }}
-                animate={{ opacity: 1, transform: "translate3d(0, 0, 0)", transition: { duration: 0.11, ease: [0.23, 1, 0.32, 1] } }}
-                exit={{ opacity: 0, transform: "translate3d(0, -2px, 0)", transition: { duration: 0.06, ease: [0.23, 1, 0.32, 1] } }}
-                className="w-full will-change-[opacity,transform]"
-              >
+            <div key={pathname} className="w-full">
+              <Suspense fallback={<PageSkeleton />}>
                 {children}
-              </motion.div>
-            </AnimatePresence>
+              </Suspense>
+            </div>
           </main>
         </div>
       </div>
@@ -318,8 +335,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                   key={item.to}
                   to={item.to}
                   preload="intent"
+                  onPointerEnter={() => preload(item.to)}
+                  onTouchStart={() => preload(item.to)}
                   className={cn(
-                  "flex flex-1 flex-col items-center gap-1 pt-1 text-[11px] font-bold",
+                    "flex flex-1 flex-col items-center gap-1 pt-1 text-[11px] font-bold",
                   i === 1 && "ml-8",
                   i === 2 && "mr-8",
                   active ? "text-brand" : "text-muted",
