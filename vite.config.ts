@@ -203,7 +203,11 @@ export default defineConfig(({ command, isPreview }) => ({
     }),
 
     tailwindcss(),
-    tanstackStart(),
+    tanstackStart({
+      router: {
+        autoCodeSplitting: true,
+      },
+    }),
     ...(command === "build" || isPreview
       ? [
           nitro({

@@ -115,7 +115,7 @@ function InventoryPage() {
     );
 
     // Make sure we have an INTERNAL_ISSUE customer or just use a fallback
-    let internalParty = customers.find(c => c.name === "الورشة (صرف داخلي)");
+    const internalParty = customers.find(c => c.name === "الورشة (صرف داخلي)");
     let partyId = internalParty?.id;
     if (!partyId) {
       partyId = addCustomer({ name: "الورشة (صرف داخلي)", phone: "-", address: "-", balance: 0, type: "retail" });

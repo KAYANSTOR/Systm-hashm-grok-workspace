@@ -6,6 +6,10 @@ import type { AppData, Customer, Expense, InventoryItem, Invoice, Supplier, Vouc
 import { uid } from "./utils";
 import { fetchAllData, syncLegacyData, saveOrganization, addParty, updateParty, deleteParty, addProduct, updateProduct, deleteProduct, saveInvoice, deleteInvoiceApi, saveVoucher, deleteVoucherApi, saveExpense, deleteExpenseApi } from "../server/repository";
 
+let fetchInFlight = false;
+let lastFetchAt = 0;
+let syncPromise: Promise<void> | null = null;
+
 type Store = AppData & {
   fetchFromDb: () => Promise<void>;
   syncLegacyDb: () => Promise<void>;
@@ -43,10 +47,16 @@ export const useStore = create<Store>()(
       resetDatabase: async () => {
         await resetDbApi();
         set({ ...EMPTY_DATA });
+        lastFetchAt = 0;
         await get().fetchFromDb();
       },
       
       fetchFromDb: async () => {
+        const now = Date.now();
+        if (fetchInFlight || now - lastFetchAt < 15_000) return;
+        fetchInFlight = true;
+        lastFetchAt = now;
+        try {
         const data = await fetchAllData();
         
         // Auto-migration
@@ -85,15 +95,23 @@ export const useStore = create<Store>()(
           }
         }
         const transactions = Object.values(groupedTx) as any[];
+        const partyBalances = new Map<string, number>();
+        for (const transaction of transactions) {
+          if (!transaction.partyId) continue;
+          partyBalances.set(
+            transaction.partyId,
+            (partyBalances.get(transaction.partyId) || 0) + transaction.debit - transaction.credit,
+          );
+        }
 
         set({
            customers: (data.parties || []).filter((p: any) => p.type === 'customer' || p.type === 'retail' || p.type === 'wholesale').map((c: any) => ({
              ...c,
-             balance: transactions.filter((t: any) => t.partyId === c.id).reduce((sum, t: any) => sum + (t.debit || 0) - (t.credit || 0), 0)
+             balance: partyBalances.get(c.id) || 0,
            })),
            suppliers: (data.parties || []).filter((p: any) => p.type === 'supplier').map((s: any) => ({
              ...s,
-             balance: transactions.filter((t: any) => t.partyId === s.id).reduce((sum, t: any) => sum + (t.credit || 0) - (t.debit || 0), 0)
+             balance: -(partyBalances.get(s.id) || 0),
            })),
            inventory: (data.products || []).map((p: any) => ({ ...p, costPrice: Number(p.cost_price), sellingPrice: Number(p.selling_price), minQuantity: Number(p.min_stock) })),
            invoices: (data.invoices || []).map((inv: any) => ({
@@ -130,11 +148,15 @@ export const useStore = create<Store>()(
            })),
            transactions: transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         });
+        } finally {
+          fetchInFlight = false;
+        }
       },
       
       syncLegacyDb: async () => {
+        if (syncPromise) return syncPromise;
         const s = get();
-        await syncLegacyData({ data: {
+        syncPromise = syncLegacyData({ data: {
           customers: s.customers,
           suppliers: s.suppliers,
           inventory: s.inventory,
@@ -143,7 +165,10 @@ export const useStore = create<Store>()(
           transactions: s.transactions,
           expenses: s.expenses,
           settings: s.settings
-        }});
+        }}).finally(() => {
+          syncPromise = null;
+        });
+        return syncPromise;
         
       },
 
