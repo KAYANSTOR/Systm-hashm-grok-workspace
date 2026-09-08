@@ -2,8 +2,8 @@
 /**
  * Brand-asset gate shared by browser-smoke.mjs (and unit-testable without a
  * browser): a canvas app is almost always a game / visually rich app, and
- * those must ship a custom share card — the default og.grok.me placeholder is
- * not acceptable for them (see .grok/skills/og/SKILL.md).
+ * those must ship a custom share card — the default og.app.me placeholder is
+ * not acceptable for them (see .app/skills/og/SKILL.md).
  *
  * Games must also set type=x:game in src/lib/og/site.json so the platform
  * injector emits og:type for X game-card unfurls, and public/x-banner.jpg for
@@ -24,13 +24,13 @@
  * also requires the custom card: its caller is normally the pass that exists to
  * produce one, so the placeholder the parent tolerates for a plain utility is a
  * failed pass here. --placeholder-ok is for the other launch — a pass doing
- * favicon, PWA icons and title for a plain utility that keeps the og.grok.me
+ * favicon, PWA icons and title for a plain utility that keeps the og.app.me
  * card — where no card is the expected verdict rather than a failure.
  */
 import { existsSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { OG_SITE_REL_PATH, readOgSite, siteHasCustomCard } from "./grok-pwa-shared.mjs";
+import { OG_SITE_REL_PATH, readOgSite, siteHasCustomCard } from "./app-pwa-shared.mjs";
 
 // Over this, link scrapers (X card previews included) time out or skip the
 // image, so the card silently fails to unfurl. The og skill's JPEG contract
@@ -38,7 +38,7 @@ import { OG_SITE_REL_PATH, readOgSite, siteHasCustomCard } from "./grok-pwa-shar
 export const MAX_CARD_BYTES = 600 * 1024;
 
 // Written by the brand task while it generates, removed when it finishes.
-export const OG_PENDING_REL_PATH = ".grok/og-pending";
+export const OG_PENDING_REL_PATH = ".app/og-pending";
 // A Stop mid-generation leaves the marker behind, so the demotion expires
 // instead of hiding a missing card forever on that workspace.
 export const OG_PENDING_MAX_AGE_MS = 10 * 60 * 1000;
@@ -85,7 +85,7 @@ function brandWarningsOnDisk({
   workspaceRoot = "/workspace",
   cardRequired = false,
 }) {
-  const skillPath = join(workspaceRoot, ".grok/skills/og/SKILL.md");
+  const skillPath = join(workspaceRoot, ".app/skills/og/SKILL.md");
   const sitePath = join(workspaceRoot, OG_SITE_REL_PATH);
   const site = readOgSite(workspaceRoot);
   const cardPath = [
@@ -113,7 +113,7 @@ function brandWarningsOnDisk({
     warnings.push(
       `BRAND WARNING: this looks like a game/canvas app but ${workspaceRoot}/public/og.jpg `
         + "is missing. Games and visually rich apps must ship a custom 1200x630 share card "
-        + "built from the app's own art — the default og.grok.me placeholder card is not "
+        + "built from the app's own art — the default og.app.me placeholder card is not "
         + `acceptable for them. You are not done: open ${skillPath} and finish the `
         + "brand-asset pass.",
     );
@@ -122,12 +122,12 @@ function brandWarningsOnDisk({
       `BRAND WARNING: ${workspaceRoot}/public/og.jpg is missing and this pass exists to `
         + "produce it. Generate the 1200x630 card from the app's own art and hand it over "
         + `per ${skillPath}. If no image-generation tool is available in this session, `
-        + "report that instead of reporting a pass — the app keeps the og.grok.me "
+        + "report that instead of reporting a pass — the app keeps the og.app.me "
         + "placeholder.",
     );
   } else {
     warnings.push(
-      "BRAND NOTE: no custom public/og.jpg — the platform will serve the og.grok.me placeholder. "
+      "BRAND NOTE: no custom public/og.jpg — the platform will serve the og.app.me placeholder. "
         + "Custom cards are the default for games of every kind (DOM board/word games included), "
         + "whimsical apps, creative tools, and brand-forward pages — only plain utilities "
         + "(converters, CRUD trackers, admin dashboards) keep the placeholder. If this app "
@@ -145,7 +145,7 @@ function brandWarningsOnDisk({
   }
 
   // Games with a custom link card must also ship the 50:11 X feed card.
-  // Skip while still on the og.grok.me placeholder — that pass has not started yet.
+  // Skip while still on the og.app.me placeholder — that pass has not started yet.
   if (hasCanvas && cardPath !== undefined) {
     const bannerPath = join(workspaceRoot, "public/x-banner.jpg");
     if (!existsSync(bannerPath)) {

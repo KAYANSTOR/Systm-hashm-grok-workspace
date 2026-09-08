@@ -23,14 +23,14 @@ export function classifyCallToolError(
   if (isLoginRequired(result)) {
     return {
       kind: "login",
-      message: "Continue with Grok to load your data.",
+      message: "Continue with App to load your data.",
       detail,
     };
   }
   if (raw.includes("not_connected") || raw.includes("failed_precondition")) {
     return {
       kind: "not_connected",
-      message: "Connect this connector in Grok to load your data.",
+      message: "Connect this connector in App to load your data.",
       detail,
     };
   }

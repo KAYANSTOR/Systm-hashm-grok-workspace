@@ -5,14 +5,14 @@ import {
   type JWTVerifyGetKey,
 } from "jose";
 
-export const GATE_IDENTITY_HEADER = "x-grok-identity";
+export const GATE_IDENTITY_HEADER = "x-app-identity";
 export const GATE_JWKS_PATH = "/__gate/identity-key";
 
 const JWKS_CACHE_TTL_MS = 300_000;
 const PREVIEW_AUDIENCE = "preview";
 export const PREVIEW_GATE_ORIGIN = "http://127.0.0.1:6014";
-const FALLBACK_EMAIL_DOMAIN = "viewer.grok.invalid";
-const FALLBACK_NAME = "Grok user";
+const FALLBACK_EMAIL_DOMAIN = "viewer.app.invalid";
+const FALLBACK_NAME = "App user";
 
 export type GateIdentity = {
   sub: string;
@@ -35,7 +35,7 @@ export function gateIdentityEnabled(): boolean {
 }
 
 export function gateTokenAudience(): string {
-  const projectId = env("GROK_PROJECT_ID");
+  const projectId = env("APP_PROJECT_ID");
   return projectId ? `app:${projectId}` : PREVIEW_AUDIENCE;
 }
 
@@ -127,13 +127,13 @@ export async function verifyGateIdentityToken(
 type GateEndpoints = { issuer: string; jwksUrl: string };
 
 export function resolveGateEndpoints(headers: Headers): GateEndpoints | null {
-  const explicit = env("GROK_GATE_ORIGIN");
+  const explicit = env("APP_GATE_ORIGIN");
   if (explicit) {
     const origin = explicit.replace(/\/+$/, "");
     return { issuer: origin, jwksUrl: `${origin}${GATE_JWKS_PATH}` };
   }
 
-  if (!env("GROK_PROJECT_ID")) {
+  if (!env("APP_PROJECT_ID")) {
     return {
       issuer: PREVIEW_GATE_ORIGIN,
       jwksUrl: `${PREVIEW_GATE_ORIGIN}${GATE_JWKS_PATH}`,
@@ -153,8 +153,8 @@ export function resolveGateEndpoints(headers: Headers): GateEndpoints | null {
     host.endsWith(".app-builder-testing.com")
   ) {
     issuer = "https://gate.app-builder-testing.com";
-  } else if (host === "grok.me" || host.endsWith(".grok.me")) {
-    issuer = "https://gate.grok.me";
+  } else if (host === "app.me" || host.endsWith(".app.me")) {
+    issuer = "https://gate.app.me";
   }
   if (!issuer) return null;
 
