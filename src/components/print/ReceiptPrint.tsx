@@ -58,16 +58,16 @@ export default function ReceiptPrint({ data, onClose }: ReceiptPrintProps) {
         filter: filter as any
       });
       
-      const pdfWidth = 80;
+      // The physical receipt is a wide 2:1 document, not an A4 page.
+      // Keep the PDF canvas identical to the printed receipt dimensions.
+      const pdfWidth = 210;
+      const pdfHeight = 105;
       const { default: jsPDF } = await import('jspdf');
-      const imgProps = new jsPDF().getImageProperties(dataUrl);
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
       
-      // Dynamic page size to fit all content perfectly in one continuous page
       const pdf = new jsPDF({ 
-        orientation: 'portrait', 
+        orientation: 'landscape',
         unit: 'mm', 
-        format: [pdfWidth, Math.max(297, pdfHeight + 10)] 
+        format: [pdfWidth, pdfHeight]
       });
       
       pdf.addImage(dataUrl, 'JPEG', 0, 0, pdfWidth, pdfHeight);

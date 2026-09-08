@@ -41,7 +41,7 @@
 
 .receipt {
   width: 210mm;
-  height: 100mm;
+  height: 105mm;
 
   position: relative;
   overflow: hidden;
@@ -408,18 +408,18 @@
    PRINT
    ================================================================ */
 
-@page { size: 210mm 100mm; margin: 0; }
+@page { size: 210mm 105mm; margin: 0; }
 @media print {
 
   @page {
-    size: 210mm 100mm;
+    size: 210mm 105mm;
     margin: 0;
   }
 
   html,
   body {
     width: 210mm;
-    height: 100mm;
+    height: 105mm;
 
     margin: 0 !important;
     padding: 0 !important;
@@ -434,9 +434,9 @@
 
   .receipt-print-page {
     width: 210mm;
-    height: 100mm;
+    height: 105mm;
 
-    min-height: 100mm;
+    min-height: 105mm;
 
     margin: 0;
     padding: 0;
@@ -450,7 +450,7 @@
 
   .receipt {
     width: 210mm;
-    height: 100mm;
+    height: 105mm;
 
     margin: 0;
 
