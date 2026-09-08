@@ -16,14 +16,9 @@ function numericValue(value: number): string {
 }
 
 function invoiceKindLabel(invoice: Invoice): string {
-  if (invoice.invoiceType === "SERVICE") return "خدمة تطريز";
-  if (invoice.invoiceType === "ISSUE") return "أمر صرف مخزني";
-  return invoice.type === "purchase" ? "فاتورة مشتريات" : "فاتورة مبيعات";
-}
-
-function partyKindLabel(invoice: Invoice): string {
-  if (invoice.invoiceType === "ISSUE") return "صرف من المخزون";
-  return invoice.type === "purchase" ? "مورد" : "عميل";
+  if (invoice.invoiceType === "SERVICE") return "فاتورة خدمة";
+  if (invoice.invoiceType === "ISSUE") return "فاتورة صرف";
+  return invoice.type === "purchase" ? "فاتورة مشتريات" : "فاتورة نقدية";
 }
 
 export default function InvoicePrintTemplate({ invoice, partyName, onClose }: InvoicePrintTemplateProps) {
@@ -182,8 +177,7 @@ export default function InvoicePrintTemplate({ invoice, partyName, onClose }: In
           <div ref={printRef} className="invoice-print-page mx-auto">
             <header className="invoice-brand-header">
               <div className="invoice-brand-copy">
-                <div className="invoice-kicker">فاتورة رسمية · {invoice.isApproved ? "معتمدة" : "مسودة"}</div>
-                <h1 className="invoice-company-name">{companySettings.name}</h1>
+              <h1 className="invoice-company-name">{companySettings.name}</h1>
                 <div className="invoice-company-meta">{companySettings.location}</div>
                 <div className="invoice-company-phone">{[companySettings.phone1, companySettings.phone2].filter(Boolean).join(" · ")}</div>
               </div>
@@ -194,7 +188,7 @@ export default function InvoicePrintTemplate({ invoice, partyName, onClose }: In
 
             <section className="invoice-document-bar" aria-label="بيانات الفاتورة">
               <div className="invoice-meta-cell invoice-meta-number">
-                <span>رقم الفاتورة</span>
+                <span>الرقم</span>
                 <strong>{invoice.invoiceNumber}</strong>
               </div>
               <div className="invoice-title-cell">
@@ -208,9 +202,9 @@ export default function InvoicePrintTemplate({ invoice, partyName, onClose }: In
             </section>
 
             <section className="invoice-party-card">
-              <span className="invoice-party-label">الطرف المستفيد</span>
+              <span className="invoice-party-label">المطلوب من الأخ</span>
               <strong className="invoice-party-name">{partyName || "نقدي"}</strong>
-              <span className="invoice-party-kind">{partyKindLabel(invoice)}</span>
+              <span className="invoice-party-kind">المحترمون</span>
             </section>
 
             <section className="invoice-table-wrap">
@@ -218,10 +212,10 @@ export default function InvoicePrintTemplate({ invoice, partyName, onClose }: In
                 <thead>
                   <tr>
                     <th className="col-no">#</th>
-                    <th className="col-description">البيان</th>
-                    <th className="col-quantity">الكمية / الوحدة</th>
-                    <th className="col-unit-price">سعر الوحدة</th>
-                    <th className="col-total">الإجمالي</th>
+                    <th className="col-description">البيان<br /><span>Description</span></th>
+                    <th className="col-quantity">الكمية</th>
+                    <th className="col-unit-price">السعر<br /><span>سعر الوحدة</span></th>
+                    <th className="col-total">القيمة الإجمالية<br /><span>Total Amount</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -248,26 +242,23 @@ export default function InvoicePrintTemplate({ invoice, partyName, onClose }: In
 
             <section className="invoice-summary-row">
               <div className="invoice-notes-box">
-                <span className="invoice-section-label">ملاحظات وشروط</span>
-                <div className="invoice-notes">{invoice.notes || "نشكر لكم ثقتكم. يرجى مراجعة تفاصيل الفاتورة وإبلاغنا بأي ملاحظة."}</div>
+                <span className="invoice-section-label">البيان</span>
+                <div className="invoice-notes">{invoice.notes || ""}</div>
                 <div className="invoice-signature-lines">
                   <span>توقيع المستلم</span>
                   <span>توقيع المسؤول</span>
                 </div>
               </div>
               <div className="invoice-totals">
-                <div className="invoice-total-line"><span>الإجمالي الفرعي</span><strong>{formatCurrency(invoice.subTotal)}</strong></div>
-                <div className="invoice-total-line"><span>الخصم</span><strong>{formatCurrency(invoice.discount)}</strong></div>
                 <div className="invoice-total-line is-grand"><span>إجمالي الفاتورة</span><strong>{formatCurrency(displayTotal)}</strong></div>
                 <div className="invoice-total-line"><span>الرصيد السابق</span><strong>{formatCurrency(previousBalance)}</strong></div>
-                <div className="invoice-total-line"><span>المدفوع</span><strong>{formatCurrency(displayPaid)}</strong></div>
-                <div className="invoice-total-line is-due"><span>المتبقي</span><strong>{formatCurrency(displayRemaining)}</strong></div>
+                <div className="invoice-total-line"><span>الإجمالي الكلي</span><strong>{formatCurrency(grandTotal)}</strong></div>
               </div>
             </section>
 
             <footer className="invoice-footer">
-              <span className="invoice-footer-status">{invoice.isApproved ? "تم اعتماد الفاتورة وترحيلها" : "فاتورة مسودة — بانتظار الاعتماد"}</span>
-              <span>المبلغ الكلي مع الرصيد السابق: {formatCurrency(grandTotal)}</span>
+              <span className="invoice-footer-status">توقيع المستلم ................................</span>
+              <span>هل حُررت الفاتورة (   )</span>
             </footer>
           </div>
         </div>

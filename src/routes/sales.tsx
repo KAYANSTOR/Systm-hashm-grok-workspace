@@ -169,6 +169,8 @@ function SalesPage() {
     paymentType === "cash" ? total : paymentType === "deferred" ? 0 : parseFloat(paidAmount) || 0;
   const remaining = total - paid;
   const status = invoiceStatus(total, paid);
+  const previousBalance = parties.find((party) => party.id === partyId)?.balance || 0;
+  const grandTotal = previousBalance + (mode.kind === "sale" ? remaining : -remaining);
 
   const save = (approved: boolean) => {
     if (items.length === 0) return toast.error("أضف بنداً واحداً على الأقل");
@@ -371,11 +373,11 @@ function SalesPage() {
       >
         <div className="grid gap-3 sm:grid-cols-3">
           <label>
-            <span className="label">رقم الفاتورة</span>
+            <span className="label">الرقم</span>
             <input className="input-field" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
           </label>
           <label>
-            <span className="label">{mode.kind === "sale" ? "العميل" : "المورد"}</span>
+            <span className="label">المطلوب من الأخ</span>
             <select className="input-field" value={partyId} onChange={(e) => setPartyId(e.target.value)}>
               <option value="">اختر…</option>
               {parties.map((p) => (
@@ -394,11 +396,11 @@ function SalesPage() {
         <div className="mt-4 rounded-2xl border border-line bg-canvas/50 p-3">
           {mode.kind === "sale" && mode.salesType === "SERVICE" ? (
             <div className="grid gap-2 sm:grid-cols-4">
-              <input className="input-field sm:col-span-2" placeholder="اسم الخدمة" value={serviceName} onChange={(e) => setServiceName(e.target.value)} />
-              <input className="input-field" placeholder="الوحدة (قطعة/وار)" value={serviceUnit} onChange={(e) => setServiceUnit(e.target.value)} />
+              <input className="input-field sm:col-span-2" placeholder="البيان / اسم الخدمة" value={serviceName} onChange={(e) => setServiceName(e.target.value)} />
+              <input className="input-field" placeholder="الوحدة" value={serviceUnit} onChange={(e) => setServiceUnit(e.target.value)} />
               <input className="input-field" inputMode="decimal" placeholder="الكمية" value={qty} onChange={(e) => setQty(e.target.value)} />
-              <input className="input-field sm:col-span-2" placeholder="وصف اختياري" value={serviceDesc} onChange={(e) => setServiceDesc(e.target.value)} />
-              <input className="input-field" inputMode="decimal" placeholder="السعر" value={price} onChange={(e) => setPrice(e.target.value)} />
+              <input className="input-field sm:col-span-2" placeholder="وصف البيان" value={serviceDesc} onChange={(e) => setServiceDesc(e.target.value)} />
+              <input className="input-field" inputMode="decimal" placeholder="سعر الوحدة" value={price} onChange={(e) => setPrice(e.target.value)} />
               <button type="button" className="btn-primary" onClick={addLine}>
                 إضافة
               </button>
@@ -418,7 +420,7 @@ function SalesPage() {
                 ))}
               </select>
               <input className="input-field" inputMode="decimal" placeholder="الكمية" value={qty} onChange={(e) => setQty(e.target.value)} />
-              <input className="input-field" inputMode="decimal" placeholder="السعر" value={price} onChange={(e) => setPrice(e.target.value)} />
+              <input className="input-field" inputMode="decimal" placeholder="سعر الوحدة" value={price} onChange={(e) => setPrice(e.target.value)} />
               <button type="button" className="btn-primary sm:col-span-4" onClick={addLine}>
                 إضافة بند
               </button>
@@ -453,7 +455,7 @@ function SalesPage() {
             <input className="input-field" inputMode="decimal" value={discount} onChange={(e) => setDiscount(e.target.value)} />
           </label>
           <label>
-            <span className="label">نوع الدفع</span>
+            <span className="label">طريقة الدفع</span>
             <select
               className="input-field"
               value={paymentType}
@@ -466,7 +468,7 @@ function SalesPage() {
           </label>
           {paymentType !== "deferred" && (
             <label>
-              <span className="label">عبر</span>
+              <span className="label">عبر شبكة</span>
               <select
                 className="input-field"
                 value={paymentMethod}
@@ -490,22 +492,22 @@ function SalesPage() {
           )}
         </div>
         <label className="mt-3 block">
-          <span className="label">ملاحظات</span>
+          <span className="label">البيان</span>
           <input className="input-field" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </label>
 
         <div className="mt-4 rounded-2xl bg-brand-soft p-4 text-sm">
           <div className="flex justify-between font-bold">
-            <span>الإجمالي</span>
+            <span>اجمالي الفاتورة</span>
             <span className="tabular-nums">{formatCurrency(total)}</span>
           </div>
           <div className="mt-1 flex justify-between text-muted">
-            <span>المدفوع</span>
-            <span className="tabular-nums">{formatCurrency(paid)}</span>
+            <span>الرصيد السابق</span>
+            <span className="tabular-nums">{formatCurrency(previousBalance)}</span>
           </div>
           <div className="mt-1 flex justify-between font-black text-accent">
-            <span>المتبقي</span>
-            <span className="tabular-nums">{formatCurrency(remaining)}</span>
+            <span>الاجمالي الكلي</span>
+            <span className="tabular-nums">{formatCurrency(grandTotal)}</span>
           </div>
         </div>
       </Modal>
