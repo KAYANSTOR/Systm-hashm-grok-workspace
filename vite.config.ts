@@ -168,6 +168,19 @@ export default defineConfig(({ command, isPreview }) => ({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
+      manifest: {
+        name: 'معمل هاشم',
+        short_name: 'معمل هاشم',
+        description: 'نظام إدارة المبيعات والمخزن والصندوق',
+        theme_color: '#1b7a76',
+        background_color: '#eef3f4',
+        display: 'standalone',
+        dir: 'rtl',
+        lang: 'ar',
+        icons: [
+          { src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+        ],
+      },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf,eot}'],
         runtimeCaching: [

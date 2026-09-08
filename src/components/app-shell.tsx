@@ -116,9 +116,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex min-h-dvh w-full">
         <aside className="no-print sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-l border-line bg-paper p-4 lg:flex">
           <div className="mb-6 flex items-center gap-3 px-2">
-            <div className="flex size-11 items-center justify-center rounded-full bg-brand-soft text-lg font-black text-brand">
-              هـ
-            </div>
+            <img src="/favicon.svg" alt="شعار معمل هاشم" className="size-11 rounded-2xl shadow-sm" />
             <div>
               <p className="text-sm font-black leading-tight text-brand">معمل هاشم</p>
               <p className="text-[11px] font-medium text-muted">إدارة المعمل</p>
@@ -132,6 +130,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Link
                   key={item.to}
                   to={item.to}
+                  preload="intent"
                   className={cn(
                     "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold transition",
                     active
@@ -237,19 +236,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                 )}
               </div>
 
-              <div className="flex size-10 items-center justify-center rounded-full bg-brand-soft text-lg font-black text-brand">
-                هـ
-              </div>
+              <img src="/favicon.svg" alt="شعار معمل هاشم" className="size-10 rounded-2xl shadow-sm" />
             </div>
           </header>
 
           <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-32 pt-2 lg:px-8 lg:pb-10 relative overflow-x-hidden">
-            <AnimatePresence mode="wait">
+            <AnimatePresence initial={false}>
               <motion.div
                 key={pathname}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0, transition: { duration: 0.15, ease: "easeOut" } }}
-                exit={{ opacity: 0, y: -4, transition: { duration: 0.05, ease: "easeIn" } }}
+                initial={{ opacity: 0, transform: "translate3d(0, 3px, 0)" }}
+                animate={{ opacity: 1, transform: "translate3d(0, 0, 0)", transition: { duration: 0.11, ease: [0.23, 1, 0.32, 1] } }}
+                exit={{ opacity: 0, transform: "translate3d(0, -2px, 0)", transition: { duration: 0.06, ease: [0.23, 1, 0.32, 1] } }}
                 className="w-full will-change-[opacity,transform]"
               >
                 {children}
@@ -316,11 +313,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           {MOBILE_NAV.map((item, i) => {
             const Icon = item.icon;
             const active = pathname === item.to;
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={cn(
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  preload="intent"
+                  className={cn(
                   "flex flex-1 flex-col items-center gap-1 pt-1 text-[11px] font-bold",
                   i === 1 && "ml-8",
                   i === 2 && "mr-8",

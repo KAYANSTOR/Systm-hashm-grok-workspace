@@ -82,7 +82,7 @@
     @apply inline-flex items-center justify-center gap-2 rounded-xl bg-bad px-5 py-2.5 font-bold text-brand-fg shadow-sm transition hover:opacity-90 active:scale-[0.98];
   }
   .btn-icon {
-    @apply inline-flex size-10 items-center justify-center rounded-2xl bg-paper text-ink shadow-sm transition hover:bg-brand-soft;
+    @apply inline-flex size-10 items-center justify-center rounded-2xl bg-paper text-ink shadow-sm transition-[transform,background-color,color] duration-150 hover:bg-brand-soft active:scale-[0.96];
   }
 
   .input-field {
@@ -102,6 +102,15 @@
   }
   .page-subtitle {
     @apply mt-1 text-sm font-medium text-muted;
+  }
+
+  a,
+  button {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .will-change-\[opacity\,transform\] {
+    backface-visibility: hidden;
   }
 }
 

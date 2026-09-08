@@ -1,4 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="8" fill="#1b7a76"/>
-  <text x="16" y="23" text-anchor="middle" font-size="16" font-family="Tahoma, Arial, sans-serif" font-weight="800" fill="#f4fffe">ه</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">شعار معمل هاشم</title>
+  <desc id="desc">بكرة خيط وإبرة بتصميم هندسي</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#24958d"/>
+      <stop offset="1" stop-color="#14635f"/>
+    </linearGradient>
+    <linearGradient id="thread" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8d9e5"/>
+      <stop offset="1" stop-color="#b85a86"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="30" fill="url(#bg)"/>
+  <path d="M31 77c0-22 15-39 34-39s32 14 32 34c0 15-10 27-24 27-13 0-22-9-22-20 0-10 7-17 16-17 8 0 14 6 14 14" fill="none" stroke="#f4fffe" stroke-width="10" stroke-linecap="round"/>
+  <path d="M86 29 48 91" fill="none" stroke="url(#thread)" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="87" cy="28" r="7" fill="#f8d9e5"/>
+  <path d="M92 102c10 4 16 9 20 17" fill="none" stroke="#f8d9e5" stroke-width="4" stroke-linecap="round"/>
 </svg>
