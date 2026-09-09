@@ -29,12 +29,21 @@ function SettingsPage() {
   const updateOrganization = useStore((s) => s.updateOrganization);
     const importData = useStore((s) => s.importData);
   const resetDatabase = useStore((s) => s.resetDatabase);
+  const warehouses = useStore((s) => s.warehouses || []);
+  const productCategories = useStore((s) => s.productCategories || []);
+  const addWarehouse = useStore((s) => s.addWarehouse);
+  const updateWarehouse = useStore((s) => s.updateWarehouse);
+  const addProductCategory = useStore((s) => s.addProductCategory);
+  const updateProductCategory = useStore((s) => s.updateProductCategory);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState(settings);
   const [orgForm, setOrgForm] = useState(org);
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [warehouseName, setWarehouseName] = useState("");
+  const [warehouseLocation, setWarehouseLocation] = useState("");
+  const [categoryName, setCategoryName] = useState("");
   const syncLegacyDb = useStore((s) => s.syncLegacyDb);
 
   useEffect(() => {
@@ -107,6 +116,21 @@ function SettingsPage() {
     } finally {
       setIsSyncing(false);
     }
+  };
+
+  const createWarehouse = () => {
+    if (!warehouseName.trim()) return toast.error("أدخل اسم المخزن");
+    addWarehouse({ name: warehouseName, location: warehouseLocation });
+    setWarehouseName("");
+    setWarehouseLocation("");
+    toast.success("تمت إضافة المخزن");
+  };
+
+  const createCategory = () => {
+    if (!categoryName.trim()) return toast.error("أدخل اسم الفئة");
+    addProductCategory(categoryName);
+    setCategoryName("");
+    toast.success("تمت إضافة الفئة");
   };
 
   return (
@@ -254,6 +278,62 @@ function SettingsPage() {
               <Trash2 className="size-5" />
               حذف جميع البيانات بالكامل
             </button>
+          </div>
+        </section>
+
+        <section className="card overflow-hidden md:col-span-2">
+          <div className="border-b border-line bg-canvas/50 px-5 py-4">
+            <h2 className="font-black text-brand-dark">إدارة المخازن والفئات</h2>
+            <p className="text-xs text-muted">تُستخدم هذه القوائم مباشرة في المخزون والتقارير وأوامر التوريد والصرف.</p>
+          </div>
+          <div className="grid gap-6 p-5 lg:grid-cols-2">
+            <div className="space-y-3">
+              <h3 className="font-black">المخازن</h3>
+              <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                <input className="input-field" placeholder="اسم المخزن" value={warehouseName} onChange={(e) => setWarehouseName(e.target.value)} />
+                <input className="input-field" placeholder="الموقع (اختياري)" value={warehouseLocation} onChange={(e) => setWarehouseLocation(e.target.value)} />
+                <button type="button" className="btn-primary" onClick={createWarehouse}>إضافة</button>
+              </div>
+              <div className="divide-y divide-line rounded-2xl border border-line">
+                {warehouses.map((warehouse) => (
+                  <div key={warehouse.id} className="flex items-center justify-between gap-3 p-3 text-sm">
+                    <div><p className="font-bold">{warehouse.name}</p><p className="text-xs text-muted">{warehouse.location || "بدون موقع"}</p></div>
+                    <div className="flex gap-2">
+                      <button type="button" className="btn-ghost text-xs" onClick={() => {
+                        const name = window.prompt("اسم المخزن", warehouse.name);
+                        if (name?.trim()) updateWarehouse(warehouse.id, { name: name.trim() });
+                      }}>تعديل</button>
+                      <button type="button" className="btn-ghost text-xs" onClick={() => updateWarehouse(warehouse.id, { isActive: !warehouse.isActive })}>
+                        {warehouse.isActive ? "تعطيل" : "تفعيل"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-3">
+              <h3 className="font-black">فئات المنتجات</h3>
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                <input className="input-field" placeholder="اسم الفئة" value={categoryName} onChange={(e) => setCategoryName(e.target.value)} />
+                <button type="button" className="btn-primary" onClick={createCategory}>إضافة</button>
+              </div>
+              <div className="divide-y divide-line rounded-2xl border border-line">
+                {productCategories.map((category) => (
+                  <div key={category.id} className="flex items-center justify-between gap-3 p-3 text-sm">
+                    <p className={`font-bold ${category.isActive ? "" : "text-muted line-through"}`}>{category.name}</p>
+                    <div className="flex gap-2">
+                      <button type="button" className="btn-ghost text-xs" onClick={() => {
+                        const name = window.prompt("اسم الفئة", category.name);
+                        if (name?.trim()) updateProductCategory(category.id, { name: name.trim() });
+                      }}>تعديل</button>
+                      <button type="button" className="btn-ghost text-xs" onClick={() => updateProductCategory(category.id, { isActive: !category.isActive })}>
+                        {category.isActive ? "تعطيل" : "تفعيل"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
     

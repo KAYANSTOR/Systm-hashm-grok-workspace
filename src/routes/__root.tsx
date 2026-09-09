@@ -1,4 +1,5 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
 import { AppShell } from "@/components/app-shell";
 import { startCloudSync } from "@/lib/cloud-sync-bootstrap";
@@ -8,6 +9,30 @@ const APP_NAME = "معمل هاشم";
 
 if (typeof window !== "undefined") {
   startCloudSync();
+}
+
+function RootDocument() {
+  useEffect(() => {
+    if ("serviceWorker" in navigator && import.meta.env.PROD) {
+      void navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
+    }
+  }, []);
+
+  return (
+    <html lang="ar" dir="rtl" className="antialiased" suppressHydrationWarning>
+      <head>
+        <HeadContent />
+      </head>
+      <body>
+        <AuthProvider>
+          <AppShell>
+            <Outlet />
+          </AppShell>
+        </AuthProvider>
+        <Scripts />
+      </body>
+    </html>
+  );
 }
 
 export const Route = createRootRoute({
@@ -34,19 +59,5 @@ export const Route = createRootRoute({
       },
     ],
   }),
-  component: () => (
-    <html lang="ar" dir="rtl" className="antialiased" suppressHydrationWarning>
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <AuthProvider>
-          <AppShell>
-            <Outlet />
-          </AppShell>
-        </AuthProvider>
-        <Scripts />
-      </body>
-    </html>
-  ),
+  component: RootDocument,
 });

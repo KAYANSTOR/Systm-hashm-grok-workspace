@@ -179,6 +179,11 @@ export default defineConfig(({ command, isPreview }) => ({
     appEnvPlugin(),
 
     VitePWA({
+      // TanStack Start/Nitro serves the deployed browser assets from this
+      // directory, not Vite's small intermediate dist directory. Pointing
+      // Workbox at the deployed output is what makes route chunks available
+      // after the network is disabled.
+      outDir: '.vercel/output/static',
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       manifest: {
@@ -197,7 +202,15 @@ export default defineConfig(({ command, isPreview }) => ({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf,eot}'],
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
+        // TanStack Start does not emit a root index.html shell. Let the
+        // document NetworkFirst route serve the exact HTML document cached
+        // during the user's online visit instead of falling back to a
+        // non-existent index.html.
+        navigateFallback: null,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf,eot,webmanifest}'],
         runtimeCaching: [
           {
             urlPattern: /\/api\/.*/,
@@ -212,6 +225,15 @@ export default defineConfig(({ command, isPreview }) => ({
                 statuses: [0, 200]
               }
             }
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            },
           },
           {
             // Keep the application shell and visited route documents usable

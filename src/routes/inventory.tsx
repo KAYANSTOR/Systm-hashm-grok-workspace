@@ -33,6 +33,7 @@ function InventoryPage() {
   const addInvoice = useStore((s) => s.addInvoice);
   const addInventoryItem = useStore((s) => s.addInventoryItem);
   const warehouses = useStore((s) => s.warehouses || []);
+  const productCategories = useStore((s) => s.productCategories || []);
   const defaultWarehouseId = useStore((s) => s.defaultWarehouseId || "wh1");
   const [warehouseId, setWarehouseId] = useState(defaultWarehouseId);
   const updateInventoryItem = useStore((s) => s.updateInventoryItem);
@@ -47,6 +48,12 @@ function InventoryPage() {
   const [issueOpen, setIssueOpen] = useState(false);
   const [issueItems, setIssueItems] = useState<Array<{ id: string; inventoryItemId: string; quantity: string }>>([]);
   const [receiptItems, setReceiptItems] = useState<Array<{ id: string; inventoryItemId: string; name: string; quantity: string }>>([]);
+
+  const categoryNames: Record<string, string> = { ...categoryLabel };
+  for (const category of productCategories) {
+    if (category.isActive) categoryNames[category.id] = category.name;
+  }
+  const categoryOptions = Object.entries(categoryNames);
 
   const filtered = useMemo(
     () =>
@@ -237,7 +244,7 @@ function InventoryPage() {
           onChange={(e) => setCat(e.target.value as typeof cat)}
         >
           <option value="all">كل الفئات</option>
-          {Object.entries(categoryLabel).map(([k, v]) => (
+          {categoryOptions.map(([k, v]) => (
             <option key={k} value={k}>
               {v}
             </option>
@@ -262,7 +269,7 @@ function InventoryPage() {
                     <p className="text-xs text-muted">اللون: {item.color || "غير محدد"}</p>
                   </div>
                   <span className="rounded-full bg-brand-soft px-2.5 py-1 text-xs font-bold text-brand">
-                    {categoryLabel[item.category]}
+                    {categoryNames[item.category] || item.category}
                   </span>
                 </div>
                 <div className="mt-4 flex items-end justify-between">
@@ -336,7 +343,7 @@ function InventoryPage() {
               value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value as InventoryCategory })}
             >
-              {Object.entries(categoryLabel).map(([k, v]) => (
+              {categoryOptions.map(([k, v]) => (
                 <option key={k} value={k}>
                   {v}
                 </option>
