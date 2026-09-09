@@ -37,11 +37,19 @@ export interface InventoryItem {
   category: InventoryCategory;
   unit: InventoryUnit;
   quantity: number;
+  /** Preferred warehouse for opening stock / default issue source */
+  warehouseId?: string;
   costPrice: number;
   sellingPrice: number;
   minQuantity: number;
   color: string;
   lastUpdated: string;
+}
+
+export interface WarehouseStockRow {
+  warehouseId: string;
+  productId: string;
+  quantity: number;
 }
 
 export interface InvoiceLine {
@@ -62,6 +70,8 @@ export interface Invoice {
   paymentType: PaymentType;
   invoiceType?: InvoiceSalesType;
   partyId: string;
+  /** Warehouse that stock is taken from / received into for this document */
+  warehouseId?: string;
   date: string;
   items: InvoiceLine[];
   subTotal: number;
@@ -72,6 +82,7 @@ export interface Invoice {
   paymentMethod?: PaymentMethod;
   status: InvoiceStatus;
   isApproved: boolean;
+  isCancelled?: boolean;
   notes?: string;
   createdAt: string;
 }
@@ -138,6 +149,35 @@ export interface WorkshopSettings {
   phone2: string;
 }
 
+
+export interface Warehouse {
+  id: string;
+  name: string;
+  location?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface ProductCategory {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+export interface AuditLogEntry {
+  auditId: string;
+  operationId?: string;
+  entityType: string;
+  entityId: string;
+  action: string;
+  deviceId?: string;
+  createdAt: string;
+  summary?: string;
+  before?: unknown;
+  after?: unknown;
+  status?: "success" | "failed" | "pending";
+}
+
 export interface AppData {
   customers: Customer[];
   suppliers: Supplier[];
@@ -148,6 +188,13 @@ export interface AppData {
   expenses: Expense[];
   settings: WorkshopSettings;
   organization: OrganizationProfile;
+  warehouses: Warehouse[];
+  productCategories: ProductCategory[];
+  auditLog: AuditLogEntry[];
+  warehouseStocks: WarehouseStockRow[];
+  userPermissions?: string[];
+  userId?: string;
+  defaultWarehouseId: string;
 }
 
 
@@ -175,4 +222,18 @@ export const EMPTY_DATA: AppData = {
   transactions: [],
   expenses: [],
   settings: DEFAULT_SETTINGS,
+  warehouses: [
+    { id: "wh1", name: "المخزن الرئيسي", location: "", isActive: true, createdAt: "2020-01-01T00:00:00.000Z" },
+  ],
+  productCategories: [
+    { id: "fabric", name: "أقمشة", isActive: true },
+    { id: "thread", name: "خيوط", isActive: true },
+    { id: "accessory", name: "إكسسوارات", isActive: true },
+    { id: "machine_part", name: "قطع آلات", isActive: true },
+  ],
+  auditLog: [],
+  warehouseStocks: [],
+  userPermissions: [],
+  userId: undefined,
+  defaultWarehouseId: "wh1",
 };

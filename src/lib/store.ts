@@ -1,20 +1,88 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { applyExpense, applyInvoice, applyVoucher } from "./accounting";
+import { toast } from "sonner";
+import { approveInvoiceOp, issueMaterialOp } from "../domain/operations.ts";
+import { ERROR_MESSAGES_AR } from "../domain/result.ts";
+import { ledgerRowId } from "../domain/idempotency.ts";
+import {
+  mutateApproveInvoice,
+  mutateSaveInvoice,
+  mutateDeleteInvoice,
+  mutateCancelInvoice,
+  mutateSaveVoucher,
+  mutateDeleteVoucher,
+  mutateSaveExpense,
+  mutateDeleteExpense,
+  mutateUpsertCustomer,
+  mutateUpsertSupplier,
+  mutateDeleteParty,
+  mutateUpsertProduct,
+  mutateDeleteProduct,
+  mutateIssueMaterial,
+} from "../application/mutate.ts";
+import type { OutboxItem } from "../domain/outbox.ts";
+import { drainOutbox, outboxPendingCount } from "../application/sync-engine.ts";
+import { applyOutboxOperation } from "../server/repository";
+import { getDeviceId } from "../domain/device.ts";
 import { EMPTY_DATA } from "./types";
 import type { AppData, Customer, Expense, InventoryItem, Invoice, Supplier, Voucher, WorkshopSettings, OrganizationProfile } from "./types";
 import { uid } from "./utils";
-import { fetchAllData, syncLegacyData, saveOrganization, addParty, updateParty, deleteParty, addProduct, updateProduct, deleteProduct, saveInvoice, deleteInvoiceApi, saveVoucher, deleteVoucherApi, saveExpense, deleteExpenseApi } from "../server/repository";
+import { fetchAllData, syncLegacyData, saveOrganization, addParty, updateParty, deleteParty, addProduct, updateProduct, deleteProduct, saveInvoice, deleteInvoiceApi, cancelInvoiceApi, saveVoucher, deleteVoucherApi, saveExpense, deleteExpenseApi, listAuditEvents } from "../server/repository";
 
 let fetchInFlight = false;
 let lastFetchAt = 0;
 let syncPromise: Promise<void> | null = null;
 
+function serverFail(userMessage: string, err: unknown) {
+  console.error(userMessage, err);
+  try { toast.error(userMessage); } catch { /* SSR */ }
+}
+
+function applyBundle(get: any, set: any, result: any, failMsg: string) {
+  if (!result.ok) {
+    try { toast.error(result.error.message || ERROR_MESSAGES_AR[result.error.code]); } catch {}
+    return false;
+  }
+  const audit = result.value.audit;
+  set((s: any) => {
+    const next = { ...(result.value.state as any) };
+    if (audit) {
+      const entry = {
+        auditId: audit.auditId,
+        operationId: audit.operationId,
+        entityType: audit.entityType,
+        entityId: audit.entityId,
+        action: audit.action,
+        deviceId: audit.deviceId,
+        createdAt: audit.createdAt || new Date().toISOString(),
+        summary: `${audit.action} · ${audit.entityType}`,
+        before: audit.before,
+        after: audit.after,
+        status: "success" as const,
+      };
+      next.auditLog = [entry, ...(s.auditLog || [])].slice(0, 500);
+    }
+    return next;
+  });
+  get().enqueueOutbox(result.value.outbox);
+  (async () => {
+    try { await get().drainPendingOutbox(); }
+    catch (e) { serverFail(failMsg, e); }
+  })();
+  return true;
+}
+
+
 type Store = AppData & {
   connectionState: "online" | "offline" | "syncing";
   pendingSyncCount: number;
   lastSyncMessage: string;
+  outbox: OutboxItem[];
+  enqueueOutbox: (item: OutboxItem) => void;
+  drainPendingOutbox: () => Promise<void>;
   fetchFromDb: () => Promise<void>;
+  refreshAuditFromServer: () => Promise<void>;
   syncLegacyDb: () => Promise<void>;
   resetDemo: () => void;
   resetDatabase: () => Promise<void>;
@@ -33,7 +101,12 @@ type Store = AppData & {
   addInvoice: (i: Omit<Invoice, "id" | "createdAt">) => string;
   updateInvoice: (id: string, data: Partial<Invoice>) => void;
   deleteInvoice: (id: string) => void;
-  approveInvoice: (id: string) => void;
+  approveInvoice: (id: string) => boolean;
+  cancelInvoice: (id: string) => boolean;
+  addWarehouse: (w: { name: string; location?: string }) => string;
+  updateWarehouse: (id: string, data: Partial<{ name: string; location: string; isActive: boolean }>) => void;
+  addProductCategory: (name: string) => string;
+  updateProductCategory: (id: string, data: Partial<{ name: string; isActive: boolean }>) => void;
   addVoucher: (v: Omit<Voucher, "id" | "createdAt">) => string;
   deleteVoucher: (id: string) => void;
   addExpense: (e: Omit<Expense, "id" | "createdAt">) => string;
@@ -48,6 +121,55 @@ export const useStore = create<Store>()(
       connectionState: typeof navigator !== "undefined" && navigator.onLine ? "online" : "offline",
       pendingSyncCount: 0,
       lastSyncMessage: "",
+      outbox: [],
+      enqueueOutbox: (item) =>
+        set((s) => ({
+          outbox: [...s.outbox.filter((x) => x.operationId !== item.operationId), item],
+          pendingSyncCount: Math.max(1, s.pendingSyncCount),
+        })),
+      drainPendingOutbox: async () => {
+        const items = get().outbox;
+        if (!items.length) return;
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          set({ connectionState: "offline", lastSyncMessage: "العمليات محفوظة محليًا وبانتظار الاتصال" });
+          return;
+        }
+        const drained = await drainOutbox(items, async (item) => {
+          const ack = await applyOutboxOperation({ data: item });
+          const p = item.payload as any;
+          if (item.operationType === "invoice.save" || item.operationType === "invoice.approve") {
+            await saveInvoice({ data: p });
+          } else if (item.operationType === "invoice.cancel") {
+            await cancelInvoiceApi({ data: { id: p?.id || item.documentId } });
+          } else if (item.operationType === "invoice.delete") {
+            await deleteInvoiceApi({ data: { id: p?.id || item.documentId } });
+          } else if (item.operationType === "voucher.save") {
+            await saveVoucher({ data: p });
+          } else if (item.operationType === "voucher.delete") {
+            await deleteVoucherApi({ data: { id: p?.id || item.documentId } });
+          } else if (item.operationType === "expense.save") {
+            await saveExpense({ data: p });
+          } else if (item.operationType === "expense.delete") {
+            await deleteExpenseApi({ data: { id: p?.id || item.documentId } });
+          } else if (item.operationType === "party.upsert" || item.operationType === "opening.balance") {
+            await addParty({ data: p });
+          } else if (item.operationType === "party.delete") {
+            await deleteParty({ data: { id: p?.id || item.documentId } });
+          } else if (item.operationType === "product.upsert" || item.operationType === "opening.stock") {
+            await addProduct({ data: p });
+          } else if (item.operationType === "product.delete") {
+            await deleteProduct({ data: { id: p?.id || item.documentId } });
+          }
+          return ack as any;
+        });
+        const pending = outboxPendingCount(drained);
+        set({
+          outbox: drained,
+          pendingSyncCount: pending,
+          connectionState: pending > 0 ? "syncing" : "online",
+          lastSyncMessage: pending > 0 ? "بعض العمليات بانتظار الترحيل" : "تمت مزامنة العمليات",
+        });
+      },
       
       resetDemo: () => set({ ...EMPTY_DATA }),
       resetDatabase: async () => {
@@ -126,7 +248,35 @@ export const useStore = create<Store>()(
              ...s,
              balance: -(partyBalances.get(s.id) || 0),
            })),
-           inventory: (data.products || []).map((p: any) => ({ ...p, quantity: Number((data.stock || []).find((s: any) => s.product_id === p.id)?.quantity || 0), costPrice: Number(p.cost_price), sellingPrice: Number(p.selling_price), minQuantity: Number(p.min_stock) })),
+           warehouseStocks: (data.stock || []).map((s: any) => ({
+             warehouseId: s.warehouse_id,
+             productId: s.product_id,
+             quantity: Number(s.quantity) || 0,
+           })),
+           warehouses: (data.warehouses || []).length
+             ? (data.warehouses || []).map((w: any) => ({
+                 id: w.id,
+                 name: w.name,
+                 location: w.location || "",
+                 isActive: w.is_active !== false,
+                 createdAt: w.created_at || new Date().toISOString(),
+               }))
+             : get().warehouses,
+           defaultWarehouseId: get().defaultWarehouseId || "wh1",
+          userPermissions: data.userPermissions || [],
+          userId: data.userId,
+           inventory: (data.products || []).map((p: any) => {
+             const rows = (data.stock || []).filter((s: any) => s.product_id === p.id);
+             const qty = rows.reduce((sum: number, s: any) => sum + (Number(s.quantity) || 0), 0);
+             return {
+               ...p,
+               quantity: qty,
+               warehouseId: rows[0]?.warehouse_id || get().defaultWarehouseId || "wh1",
+               costPrice: Number(p.cost_price),
+               sellingPrice: Number(p.selling_price),
+               minQuantity: Number(p.min_stock),
+             };
+           }),
            invoices: (data.invoices || []).map((inv: any) => ({
               ...inv,
               invoiceNumber: inv.invoice_number,
@@ -138,6 +288,8 @@ export const useStore = create<Store>()(
               paymentType: inv.payment_type,
               paymentMethod: inv.payment_method,
               isApproved: inv.is_approved,
+              isCancelled: Boolean(inv.notes && String(inv.notes).includes("[CANCELLED]")),
+              warehouseId: inv.warehouse_id || get().defaultWarehouseId || "wh1",
               createdAt: inv.created_at,
               items: (invoiceItemsByInvoice.get(inv.id) || []).map((item: any) => ({
                  ...item,
@@ -162,11 +314,53 @@ export const useStore = create<Store>()(
            transactions: transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         });
         set({ connectionState: "online", pendingSyncCount: 0, lastSyncMessage: "تم تحديث البيانات من السحابة" });
+          await get().refreshAuditFromServer();
         } finally {
           fetchInFlight = false;
         }
       },
       
+      refreshAuditFromServer: async () => {
+        try {
+          const rows = await listAuditEvents();
+          if (!Array.isArray(rows) || !rows.length) return;
+          set((s) => {
+            const byOp = new Map<string, any>();
+            for (const e of s.auditLog || []) {
+              const key = e.operationId || e.auditId;
+              byOp.set(key, e);
+            }
+            for (const r of rows) {
+              const operationId = r.operation_id || undefined;
+              const auditId = r.audit_id;
+              const key = operationId || auditId;
+              const existing = byOp.get(key);
+              const entry = {
+                auditId,
+                operationId,
+                entityType: r.entity_type,
+                entityId: r.entity_id,
+                action: r.action,
+                deviceId: r.device_id || undefined,
+                createdAt: r.created_at || new Date().toISOString(),
+                summary: `${r.action} · ${r.entity_type}`,
+                before: r.before_data,
+                after: r.after_data,
+                status: "success" as const,
+              };
+              // Prefer server row when same operation_id
+              byOp.set(key, existing && !operationId ? existing : entry);
+            }
+            const merged = [...byOp.values()].sort((a, b) =>
+              String(b.createdAt).localeCompare(String(a.createdAt)),
+            );
+            return { auditLog: merged.slice(0, 500) };
+          });
+        } catch (e) {
+          console.error("refreshAuditFromServer", e);
+        }
+      },
+
       syncLegacyDb: async () => {
         if (syncPromise) return syncPromise;
         if (typeof navigator !== "undefined" && !navigator.onLine) {
@@ -196,7 +390,6 @@ export const useStore = create<Store>()(
 
       importData: (data) =>
         set({
-          organization: { ...EMPTY_DATA.organization, ...data.organization },
           customers: data.customers ?? [],
           suppliers: data.suppliers ?? [],
           inventory: data.inventory ?? [],
@@ -213,167 +406,190 @@ export const useStore = create<Store>()(
         saveOrganization({ data: get().organization }).catch(console.error);
       },
       
+
       addCustomer: (c) => {
         const id = uid("c");
-        const obj = { ...c, id, createdAt: new Date().toISOString() };
-        set((s) => ({ customers: [obj, ...s.customers] }));
-        
+        const createdAt = new Date().toISOString();
+        const customer = { ...c, id, createdAt };
+        const result = mutateUpsertCustomer(get() as any, customer, true);
+        applyBundle(get, set, result, "تعذر حفظ العميل على الخادم");
         return id;
       },
-      
+
       updateCustomer: (id, data) => {
-        set((s) => ({ customers: s.customers.map((c) => (c.id === id ? { ...c, ...data } : c)) }));
-        const customer = get().customers.find(c => c.id === id);
-        
+        const prev = get().customers.find((c) => c.id === id);
+        if (!prev) return;
+        const customer = { ...prev, ...data, id };
+        applyBundle(get, set, mutateUpsertCustomer(get() as any, customer, false), "تعذر تحديث العميل");
       },
-      
+
       deleteCustomer: (id) => {
-        set((s) => ({ customers: s.customers.filter((c) => c.id !== id) }));
-        (async () => { await deleteParty({ data: { id } }); })().catch(console.error);
+        applyBundle(get, set, mutateDeleteParty(get() as any, id, "customer"), "تعذر حذف العميل");
       },
-      
+
       addSupplier: (sup) => {
         const id = uid("s");
-        const obj = { ...sup, id, createdAt: new Date().toISOString() };
-        set((s) => ({ suppliers: [obj, ...s.suppliers] }));
-        
+        const createdAt = new Date().toISOString();
+        const supplier = { ...sup, id, createdAt };
+        applyBundle(get, set, mutateUpsertSupplier(get() as any, supplier, true), "تعذر حفظ المورد على الخادم");
         return id;
       },
-      
+
       updateSupplier: (id, data) => {
-        set((s) => ({ suppliers: s.suppliers.map((x) => (x.id === id ? { ...x, ...data } : x)) }));
-        const supplier = get().suppliers.find((x) => x.id === id);
-        
+        const prev = get().suppliers.find((x) => x.id === id);
+        if (!prev) return;
+        const supplier = { ...prev, ...data, id };
+        applyBundle(get, set, mutateUpsertSupplier(get() as any, supplier, false), "تعذر تحديث المورد");
       },
-      
+
       deleteSupplier: (id) => {
-        set((s) => ({ suppliers: s.suppliers.filter((x) => x.id !== id) }));
-        
+        applyBundle(get, set, mutateDeleteParty(get() as any, id, "supplier"), "تعذر حذف المورد");
       },
-      
+
       addInventoryItem: (i) => {
         const id = uid("i");
-        const obj = { ...i, id, lastUpdated: new Date().toISOString() };
-        set((s) => ({ inventory: [obj, ...s.inventory] }));
-        
+        const lastUpdated = new Date().toISOString();
+        const item = { ...i, id, lastUpdated };
+        applyBundle(get, set, mutateUpsertProduct(get() as any, item, true), "تعذر حفظ المادة على الخادم");
         return id;
       },
-      
+
       updateInventoryItem: (id, data) => {
-        set((s) => ({ inventory: s.inventory.map((x) => x.id === id ? { ...x, ...data, lastUpdated: new Date().toISOString() } : x) }));
-        const item = get().inventory.find((x) => x.id === id);
-        
+        const prev = get().inventory.find((x) => x.id === id);
+        if (!prev) return;
+        const item = { ...prev, ...data, id, lastUpdated: new Date().toISOString() };
+        applyBundle(get, set, mutateUpsertProduct(get() as any, item, false), "تعذر تحديث المادة");
       },
-      
+
       deleteInventoryItem: (id) => {
-        set((s) => ({ inventory: s.inventory.filter((x) => x.id !== id) }));
-        (async () => { await deleteProduct({ data: { id } }); })().catch(console.error);
+        applyBundle(get, set, mutateDeleteProduct(get() as any, id), "تعذر حذف المادة");
       },
-      
+
       addInvoice: (i) => {
         const id = uid("inv");
-        const invoice: Invoice = { ...i, id, createdAt: new Date().toISOString() };
-        set((s) => {
-          let next: AppData = { ...s, invoices: [invoice, ...s.invoices] };
-          next = applyInvoice(next, invoice, 1);
-          return next;
-        });
-        (async () => { await saveInvoice({ data: invoice });  })().catch(console.error);
-        return id;
+        const invoice = { ...i, id, createdAt: new Date().toISOString() };
+        const result = mutateSaveInvoice(get() as any, invoice);
+        const ok = applyBundle(get, set, result, "تعذر حفظ الفاتورة");
+        return ok ? id : "";
       },
-      
+
       updateInvoice: (id, data) => {
         const old = get().invoices.find((x) => x.id === id);
         if (!old || old.isApproved) return;
-        const updated: Invoice = { ...old, ...data, id };
-        set((s) => {
-          let next: AppData = { ...s };
-          next = applyInvoice(next, old, -1);
-          next = { ...next, invoices: next.invoices.map((x) => (x.id === id ? updated : x)) };
-          next = applyInvoice(next, updated, 1);
-          return next;
-        });
-        (async () => { await saveInvoice({ data: updated });  })().catch(console.error);
+        const updated = { ...old, ...data, id };
+        applyBundle(get, set, mutateSaveInvoice(get() as any, updated, old), "تعذر تحديث الفاتورة");
       },
-      
-      deleteInvoice: (id) => {
-        const old = get().invoices.find((x) => x.id === id);
-        if (!old) return;
 
-        set((s) => {
-          let next: AppData = { ...s };
-          next = applyInvoice(next, old, -1);
-          next = { ...next, invoices: next.invoices.filter((x) => x.id !== id) };
-          return next;
-        });
-        (async () => { await deleteInvoiceApi({ data: { id } });  })().catch(console.error);
+      deleteInvoice: (id) => {
+        applyBundle(get, set, mutateDeleteInvoice(get() as any, id), "تعذر حذف الفاتورة");
       },
-      
+
       approveInvoice: (id) => {
-        const old = get().invoices.find((x) => x.id === id);
-        if (!old || old.isApproved) return;
-        const updated: Invoice = { ...old, isApproved: true };
-        set((s) => {
-          let next: AppData = { ...s, invoices: s.invoices.map((x) => (x.id === id ? updated : x)) };
-          next = applyInvoice(next, updated, 1);
-          return next;
-        });
-        (async () => { await saveInvoice({ data: updated });  })().catch(console.error);
+        return applyBundle(get, set, mutateApproveInvoice(get() as any, id), "تعذر اعتماد الفاتورة");
       },
-      
+
+      cancelInvoice: (id) => {
+        return applyBundle(get, set, mutateCancelInvoice(get() as any, id), "تعذر إلغاء الفاتورة");
+      },
+
       addVoucher: (v) => {
         const id = uid("v");
-        const voucher: Voucher = { ...v, id, createdAt: new Date().toISOString() };
-        set((s) => {
-          let next: AppData = { ...s, vouchers: [voucher, ...s.vouchers] };
-          next = applyVoucher(next, voucher, 1);
-          return next;
-        });
-        (async () => { await saveVoucher({ data: voucher });  })().catch(console.error);
+        const voucher = { ...v, id, createdAt: new Date().toISOString() };
+        applyBundle(get, set, mutateSaveVoucher(get() as any, voucher), "تعذر حفظ السند");
         return id;
       },
-      
+
       deleteVoucher: (id) => {
-        const old = get().vouchers.find((x) => x.id === id);
-        if (!old) return;
-        set((s) => {
-          let next: AppData = { ...s };
-          next = applyVoucher(next, old, -1);
-          next = { ...next, vouchers: next.vouchers.filter((x) => x.id !== id) };
-          return next;
-        });
-        (async () => { await deleteVoucherApi({ data: { id } });  })().catch(console.error);
+        applyBundle(get, set, mutateDeleteVoucher(get() as any, id), "تعذر حذف السند");
       },
-      
+
       addExpense: (e) => {
         const id = uid("e");
-        const expense: Expense = { ...e, id, createdAt: new Date().toISOString() };
-        set((s) => {
-          let next: AppData = { ...s, expenses: [expense, ...s.expenses] };
-          next = applyExpense(next, expense, 1);
-          return next;
-        });
-        (async () => { await saveExpense({ data: expense });  })().catch(console.error);
+        const expense = { ...e, id, createdAt: new Date().toISOString() };
+        applyBundle(get, set, mutateSaveExpense(get() as any, expense), "تعذر حفظ المصروف");
         return id;
       },
-      
+
       deleteExpense: (id) => {
-        const old = get().expenses.find((x) => x.id === id);
-        if (!old) return;
+        applyBundle(get, set, mutateDeleteExpense(get() as any, id), "تعذر حذف المصروف");
+      },
+
+
+      addWarehouse: (w) => {
+        const id = uid("wh");
+        const row = {
+          id,
+          name: w.name.trim(),
+          location: w.location || "",
+          isActive: true,
+          createdAt: new Date().toISOString(),
+        };
+        set((s) => ({
+          warehouses: [row, ...(s.warehouses || [])],
+          auditLog: [
+            {
+              auditId: uid("aud"),
+              entityType: "warehouse",
+              entityId: id,
+              action: "create",
+              createdAt: new Date().toISOString(),
+              summary: `إنشاء مخزن · ${row.name}`,
+              status: "success" as const,
+            },
+            ...(s.auditLog || []),
+          ].slice(0, 500),
+        }));
+        return id;
+      },
+      updateWarehouse: (id, data) => {
+        set((s) => ({
+          warehouses: (s.warehouses || []).map((x) =>
+            x.id === id ? { ...x, ...data } : x,
+          ),
+        }));
+      },
+      addProductCategory: (name) => {
+        const id = uid("cat");
+        const row = { id, name: name.trim(), isActive: true };
+        set((s) => ({
+          productCategories: [row, ...(s.productCategories || [])],
+          auditLog: [
+            {
+              auditId: uid("aud"),
+              entityType: "category",
+              entityId: id,
+              action: "create",
+              createdAt: new Date().toISOString(),
+              summary: `إنشاء فئة · ${row.name}`,
+              status: "success" as const,
+            },
+            ...(s.auditLog || []),
+          ].slice(0, 500),
+        }));
+        return id;
+      },
+      updateProductCategory: (id, data) => {
         set((s) => {
-          let next: AppData = { ...s };
-          next = applyExpense(next, old, -1);
-          next = { ...next, expenses: next.expenses.filter((x) => x.id !== id) };
-          return next;
+          const cats = s.productCategories || [];
+          const cat = cats.find((c) => c.id === id);
+          if (data.isActive === false) {
+            const used = s.inventory.some((i) => i.category === id || i.category === cat?.name);
+            if (used) {
+              try { toast.error("لا يمكن تعطيل فئة مرتبطة بأصناف — عطّل الأصناف أولاً أو أبقِ الفئة"); } catch {}
+              return s;
+            }
+          }
+          return {
+            productCategories: cats.map((c) => (c.id === id ? { ...c, ...data } : c)),
+          };
         });
-        (async () => { await deleteExpenseApi({ data: { id } });  })().catch(console.error);
-      }
+      },
+
     }),
     {
       name: "hashem-workshop-v2",
       skipHydration: true,
       partialize: (s) => ({
-        organization: s.organization,
         customers: s.customers,
         suppliers: s.suppliers,
         inventory: s.inventory,
@@ -385,6 +601,7 @@ export const useStore = create<Store>()(
         connectionState: s.connectionState,
         pendingSyncCount: s.pendingSyncCount,
         lastSyncMessage: s.lastSyncMessage,
+        outbox: s.outbox,
       }),
     }
   )
@@ -428,7 +645,10 @@ if (typeof window !== "undefined") {
       }
   });
 
-  window.addEventListener('online', debouncedSync);
+  window.addEventListener('online', () => {
+    debouncedSync();
+    useStore.getState().drainPendingOutbox().catch(console.error);
+  });
   window.addEventListener('focus', () => {
     if (navigator.onLine) useStore.getState().fetchFromDb().catch(console.error);
   });

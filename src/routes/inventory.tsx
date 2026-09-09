@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { Modal } from "@/components/modal";
 import { categoryLabel, unitLabel } from "@/lib/labels";
+import { AppSelect } from "@/components/ui/AppSelect";
 import { useStore } from "@/lib/store";
 import type { InventoryCategory, InventoryItem, InventoryUnit } from "@/lib/types";
 import { formatCurrency, nextNumber, todayIso } from "@/lib/utils";
@@ -31,6 +32,9 @@ function InventoryPage() {
   const invoices = useStore((s) => s.invoices);
   const addInvoice = useStore((s) => s.addInvoice);
   const addInventoryItem = useStore((s) => s.addInventoryItem);
+  const warehouses = useStore((s) => s.warehouses || []);
+  const defaultWarehouseId = useStore((s) => s.defaultWarehouseId || "wh1");
+  const [warehouseId, setWarehouseId] = useState(defaultWarehouseId);
   const updateInventoryItem = useStore((s) => s.updateInventoryItem);
   const deleteInventoryItem = useStore((s) => s.deleteInventoryItem);
 
@@ -124,6 +128,7 @@ function InventoryPage() {
     addInvoice({
       invoiceNumber,
       type: "sale",
+      warehouseId,
       invoiceType: "ISSUE",
       partyId: partyId,
       date: todayIso(),
@@ -165,6 +170,7 @@ function InventoryPage() {
 
     addInvoice({
       invoiceNumber,
+      warehouseId,
       type: "purchase",
       partyId: "PENDING_RECEIPT",
       date: todayIso(),

@@ -21,21 +21,6 @@ import type { AppData } from "@/lib/types";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
-async function optimizeLogo(file: File): Promise<string> {
-  const source = await createImageBitmap(file);
-  const maxSize = 512;
-  const scale = Math.min(1, maxSize / Math.max(source.width, source.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(source.width * scale));
-  canvas.height = Math.max(1, Math.round(source.height * scale));
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("تعذر تجهيز الشعار");
-  context.clearRect(0, 0, canvas.width, canvas.height);
-  context.drawImage(source, 0, 0, canvas.width, canvas.height);
-  source.close();
-  return canvas.toDataURL("image/webp", 0.86);
-}
-
 function SettingsPage() {
   const settings = useStore((s) => s.settings);
   const updateSettings = useStore((s) => s.updateSettings);
@@ -48,7 +33,6 @@ function SettingsPage() {
   const [form, setForm] = useState(settings);
   const [orgForm, setOrgForm] = useState(org);
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
-  useEffect(() => setOrgForm(org), [org]);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -149,10 +133,13 @@ function SettingsPage() {
                     className="text-sm text-muted file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-brand-soft file:text-brand hover:file:bg-brand/20 cursor-pointer"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) void optimizeLogo(file).then((logo) => {
-                        setOrgForm((current) => ({ ...current, logo }));
-                        toast.success("تم تجهيز الشعار؛ اضغط حفظ التعديلات لتثبيته");
-                      }).catch(() => toast.error("تعذر تجهيز ملف الشعار"));
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          setOrgForm({ ...orgForm, logo: ev.target?.result as string });
+                        };
+                        reader.readAsDataURL(file);
+                      }
                     }}
                   />
                 </div>

@@ -12,6 +12,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { Modal } from "@/components/modal";
+import { AppSelect } from "@/components/ui/AppSelect";
 import InvoicePrintTemplate from "@/components/print/InvoicePrintTemplate";
 import DocumentActionsSheet from "@/components/DocumentActionsSheet";
 import { methodLabel, paymentTypeLabel, statusLabel, unitLabel } from "@/lib/labels";
@@ -40,6 +41,10 @@ function SalesPage() {
   const updateInvoice = useStore((s) => s.updateInvoice);
   const deleteInvoice = useStore((s) => s.deleteInvoice);
   const approveInvoice = useStore((s) => s.approveInvoice);
+  const defaultWarehouseId = useStore((s) => s.defaultWarehouseId || "wh1");
+  const warehouses = useStore((s) => s.warehouses || []);
+  const [warehouseId, setWarehouseId] = useState(defaultWarehouseId);
+  const cancelInvoice = useStore((s) => s.cancelInvoice);
 
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | InvoiceKind>("all");
@@ -93,6 +98,7 @@ function SalesPage() {
     setInvoiceNumber(nextNumber(invoices.filter((i) => i.type === kind).map((i) => i.invoiceNumber), prefix));
     setPartyId("");
     setDate(todayIso());
+    setWarehouseId(defaultWarehouseId);
     setItems([]);
     setDiscount("0");
     setPaidAmount("0");
@@ -100,6 +106,7 @@ function SalesPage() {
     setPaymentMethod("cash");
     setNotes("");
     setSupplierName("");
+    setWarehouseId(defaultWarehouseId);
     setOpen(true);
   };
 
@@ -114,6 +121,7 @@ function SalesPage() {
     setPartyId(inv.partyId === "PENDING_RECEIPT" ? "" : inv.partyId);
     setSupplierName(inv.partyId === "PENDING_RECEIPT" ? "" : suppliers.find((supplier) => supplier.id === inv.partyId)?.name || "");
     setDate(inv.date);
+    setWarehouseId(inv.warehouseId || defaultWarehouseId);
     setItems(inv.items);
     setDiscount(String(inv.discount));
     setPaidAmount(String(inv.paidAmount));
@@ -202,16 +210,28 @@ function SalesPage() {
       remainingAmount: remaining,
       status,
       isApproved: approved,
+      warehouseId,
       notes,
     };
     if (editing) {
       updateInvoice(editing, payload);
-      toast.success("تم تحديث الفاتورة");
-      if (approved) setActionsId(editing);
+      const current = useStore.getState().invoices.find((x) => x.id === editing);
+      if (approved) {
+        if (current?.isApproved) {
+          setActionsId(editing);
+          toast.success("تم اعتماد الفاتورة");
+        } else {
+          toast.error("تعذر اعتماد الفاتورة — راجع الكميات أو البيانات");
+          return;
+        }
+      } else {
+        toast.success("تم تحديث المسودة");
+      }
     } else {
       const id = addInvoice(payload);
-      toast.success(approved ? "تم اعتماد الفاتورة" : "حُفظت كمسودة");
+      if (!id) return; // domain/application rejected
       if (approved) setActionsId(id);
+      toast.success(approved ? "تم اعتماد الفاتورة" : "حُفظت كمسودة");
     }
     setOpen(false);
   };
@@ -324,20 +344,39 @@ function SalesPage() {
                         type="button"
                         className="btn-primary px-3 py-2 text-xs"
                         onClick={() => {
-                          approveInvoice(inv.id);
-                          setActionsId(inv.id);
-                          toast.success("تم الاعتماد");
+                          const ok = approveInvoice(inv.id);
+                          if (ok) {
+                            setActionsId(inv.id);
+                            toast.success("تم الاعتماد");
+                          }
                         }}
                       >
                         <CheckCircle2 className="size-4" />
                         اعتماد
                       </button>
                     </>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2 text-xs font-bold text-good">
-                      <CheckCircle2 className="size-4" />
-                      معتمدة
+                  ) : inv.isCancelled ? (
+                    <span className="inline-flex items-center gap-1 px-2 text-xs font-bold text-muted">
+                      ملغاة
                     </span>
+                  ) : (
+                    <>
+                      <span className="inline-flex items-center gap-1 px-2 text-xs font-bold text-good">
+                        <CheckCircle2 className="size-4" />
+                        معتمدة
+                      </span>
+                      <button
+                        type="button"
+                        className="btn-ghost px-3 py-2 text-xs text-bad"
+                        onClick={() => {
+                          if (!confirm("إلغاء الفاتورة المعتمدة؟ سيتم عكس أثرها على المخزون والحسابات مع الإبقاء على السجل.")) return;
+                          const ok = cancelInvoice(inv.id);
+                          if (ok) toast.success("تم إلغاء الفاتورة وعكس آثارها");
+                        }}
+                      >
+                        إلغاء
+                      </button>
+                    </>
                   )}
                   <button
                     type="button"
@@ -413,6 +452,17 @@ function SalesPage() {
             <span className="label">التاريخ</span>
             <input className="input-field" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </label>
+          <div>
+            <AppSelect
+              label="المخزن"
+              value={warehouseId}
+              onChange={setWarehouseId}
+              options={(warehouses || [])
+                .filter((w) => w.isActive !== false)
+                .map((w) => ({ value: w.id, label: w.name || w.id }))}
+              searchable={false}
+            />
+          </div>
         </div>
 
         {pendingReceiptReview ? (
