@@ -127,6 +127,13 @@ const trustedOrigins: string[] = explicitBaseURL
 
 const databaseUrl = env("DATABASE_URL");
 
+function normalizeSupabaseUrl(value: string | undefined): string | undefined {
+  if (!value?.includes(".pooler.supabase.com")) return value;
+  const separator = value.includes("?") ? "&" : "?";
+  return value.replace(/([?&])sslmode=[^&]*/i, "$1sslmode=no-verify")
+    + (value.includes("sslmode=") ? "" : `${separator}sslmode=no-verify`);
+}
+
 // Static broker OAuth endpoints (skip OIDC discovery on every sign-in / callback).
 // Discovery would cost an extra network hop to the broker before the popup can
 // even redirect to Google/X — the live-preview popup felt stuck on the app for
@@ -144,7 +151,7 @@ const appUserInfoUrl = `${issuerBase}/api/auth/oauth2/userinfo`;
 const isSupabasePooler = databaseUrl?.includes(".pooler.supabase.com") ?? false;
 const database = databaseUrl
   ? new Pool({
-      connectionString: databaseUrl,
+      connectionString: normalizeSupabaseUrl(databaseUrl),
       ...(isSupabasePooler ? { ssl: { rejectUnauthorized: false } } : {}),
     })
   : { dialect: pgliteDialect(() => getPglite()), type: "postgres" as const };

@@ -21,6 +21,13 @@ import { pendingMigrations } from "./migration-plan.mjs";
 const databaseUrl = process.env.DATABASE_URL;
 const hasCloudSql = !!(process.env.SQL_HOST && process.env.SQL_USER && process.env.SQL_PASSWORD && process.env.SQL_DB_NAME);
 
+function normalizeSupabaseUrl(value) {
+  if (!value?.includes(".pooler.supabase.com")) return value;
+  const separator = value.includes("?") ? "&" : "?";
+  return value.replace(/([?&])sslmode=[^&]*/i, "$1sslmode=no-verify")
+    + (value.includes("sslmode=") ? "" : `${separator}sslmode=no-verify`);
+}
+
 if (!databaseUrl && !hasCloudSql) {
   console.log(
     "[migrate] DATABASE_URL or SQL_HOST not set — skipping (the PGLite fallback migrates itself).",
@@ -51,7 +58,7 @@ async function main() {
     database: process.env.SQL_DB_NAME,
     max: 1,
   } : {
-    connectionString: databaseUrl,
+    connectionString: normalizeSupabaseUrl(databaseUrl),
     max: 1,
     ...(databaseUrl.includes(".pooler.supabase.com")
       ? { ssl: { rejectUnauthorized: false } }
