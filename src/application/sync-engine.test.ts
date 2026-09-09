@@ -21,6 +21,7 @@ test("finalizes only after the business apply callback succeeds", async () => {
       return { status: "applied", operationId: item.operationId };
     },
     {
+      preflight: async () => ({ status: "ok" }),
       finalize: async () => {
         events.push("finalize");
         return { status: "completed", operationId: item.operationId };
@@ -39,6 +40,7 @@ test("a duplicate operation is still finalized after the business callback", asy
     [{ ...item, status: "failed", attempts: 1 }],
     async () => ({ status: "duplicate", operationId: item.operationId }),
     {
+      preflight: async () => ({ status: "ok" }),
       finalize: async () => {
         finalized = true;
         return { status: "already_applied", operationId: item.operationId };
@@ -55,10 +57,38 @@ test("finalization failure keeps the operation retryable", async () => {
     [item],
     async () => ({ status: "applied", operationId: item.operationId }),
     {
+      preflight: async () => ({ status: "ok" }),
       finalize: async () => ({ status: "error", reason: "ack_network_failure" }),
     },
   );
 
   assert.equal(result[0].status, "failed");
   assert.match(result[0].lastError || "", /ack_network_failure/);
+});
+
+test("stale offline write is blocked before business mutation", async () => {
+  let applied = false;
+  const result = await drainOutbox(
+    [{
+      ...item,
+      payload: { id: item.documentId, syncVersion: 1 },
+    }],
+    async () => {
+      applied = true;
+      return { status: "applied", operationId: item.operationId };
+    },
+    {
+      preflight: async () => ({
+        status: "conflict",
+        reason: "stale_version",
+        conflictId: "conflict:test",
+        baseVersion: 1,
+        serverVersion: 2,
+      }),
+    },
+  );
+
+  assert.equal(applied, false);
+  assert.equal(result[0].status, "failed");
+  assert.match(result[0].lastError || "", /^SYNC_CONFLICT:conflict:test:base=1:server=2$/);
 });
