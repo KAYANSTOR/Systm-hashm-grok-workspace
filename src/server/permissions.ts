@@ -1,7 +1,7 @@
 /**
  * Server permission gate — uses existing roles / permissions / role_permissions / user_roles.
  * Fail-closed when permission catalog is seeded and user lacks the required permission.
- * Backward-compatible: if catalog empty (pre-migration), allow authenticated callers.
+ * Also blocks suspended/archived employee accounts at the server boundary.
  */
 import { getSql } from "../lib/db";
 import {
@@ -46,13 +46,40 @@ export class ForbiddenError extends Error {
   }
 }
 
-/** True when roles/permissions tables have been seeded. */
+export class AccountDisabledError extends Error {
+  readonly status = 403;
+  constructor() {
+    super("Account is disabled");
+    this.name = "AccountDisabledError";
+  }
+}
+
 async function catalogReady(sql: Awaited<ReturnType<typeof getSql>>): Promise<boolean> {
   try {
     const rows = await sql`select count(*)::int as c from permissions`;
     return Number(rows[0]?.c || 0) > 0;
   } catch {
     return false;
+  }
+}
+
+async function accountEnabled(sql: Awaited<ReturnType<typeof getSql>>, userId: string): Promise<boolean> {
+  if (userId === DEV_USER_ID && !authConfigured) return true;
+  try {
+    const rows = await sql`
+      select eu.user_id
+      from employee_users eu
+      join employees e on e.id = eu.employee_id
+      where eu.user_id = ${userId}
+        and coalesce(eu.is_active, true) = true
+        and e.is_active = true
+        and e.archived_at is null
+      limit 1
+    `;
+    return rows.length > 0;
+  } catch {
+    // Migration 0018 may not have run yet; preserve compatibility for existing users.
+    return true;
   }
 }
 
@@ -74,23 +101,21 @@ export async function userHasPermission(
   return rows.length > 0;
 }
 
-/** Authenticate + authorize. Call at the top of every sensitive server mutation. */
 export async function requirePermission(
   permission: PermissionId | string,
   bearerToken?: string,
 ): Promise<string> {
   const userId = await requireUserId(bearerToken);
+  const sql = await getSql();
+  if (!(await accountEnabled(sql, userId))) throw new AccountDisabledError();
   const allowed = await userHasPermission(userId, permission);
   if (!allowed) throw new ForbiddenError(permission);
   return userId;
 }
 
-/** List permission ids for a user (for client projection / offline UX). */
 export async function listUserPermissions(userId: string): Promise<string[]> {
   const sql = await getSql();
-  if (!(await catalogReady(sql))) {
-    return Object.values(PERMS);
-  }
+  if (!(await catalogReady(sql))) return Object.values(PERMS);
   const rows = await sql`
     select distinct rp.permission_id as id
     from user_roles ur
