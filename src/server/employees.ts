@@ -95,6 +95,8 @@ export const setEmployeeRole = createServerFn({ method: "POST" })
       limit 1
     `;
     if (!rows.length) throw new Error("لا يوجد حساب دخول مرتبط بالموظف");
+    const roleExists = await sql`select 1 from roles where id=${roleId} limit 1`;
+    if (!roleExists.length) throw new Error("الدور غير موجود");
     await sql.transaction(async (tx) => {
       await tx`delete from user_roles where user_id=${rows[0].user_id}`;
       await tx`insert into user_roles (user_id, role_id) values (${rows[0].user_id}, ${roleId})`;
@@ -132,6 +134,8 @@ export const createEmployeeAccount = createServerFn({ method: "POST" })
     `;
 
     const roleId = String(data.roleId || "operator").trim();
+    const roleExists = await sql`select 1 from roles where id=${roleId} limit 1`;
+    if (!roleExists.length) throw new Error("الدور غير موجود");
     await sql`
       insert into user_roles (user_id, role_id)
       values (${userId}, ${roleId})
@@ -162,18 +166,38 @@ export const listPermissions = createServerFn({ method: "GET" })
     return await sql`select id, name from permissions order by id`;
   });
 
+export const listRolePermissionIds = createServerFn({ method: "GET" })
+  .validator((data: { roleId: string }) => data)
+  .handler(async ({ data }) => {
+    await requirePermission(ROLE_MANAGE);
+    const roleId = String(data.roleId || "").trim();
+    if (!roleId) throw new Error("معرّف الدور مطلوب");
+    const sql = await getSql();
+    const rows = await sql`select permission_id from role_permissions where role_id=${roleId} order by permission_id`;
+    return rows.map((row) => String(row.permission_id));
+  });
+
 export const setRolePermissions = createServerFn({ method: "POST" })
   .validator((data: { roleId: string; permissionIds: string[] }) => data)
   .handler(async ({ data }) => {
     await requirePermission(ROLE_MANAGE);
     const roleId = String(data.roleId || "").trim();
-    const permissionIds = Array.isArray(data.permissionIds) ? data.permissionIds.map(String).filter(Boolean) : [];
+    const permissionIds = Array.isArray(data.permissionIds) ? [...new Set(data.permissionIds.map(String).filter(Boolean))] : [];
     if (!roleId) throw new Error("معرّف الدور مطلوب");
+    if (roleId === "admin") throw new Error("لا يمكن تعديل صلاحيات مدير النظام الأساسية");
     const sql = await getSql();
+    const roleExists = await sql`select 1 from roles where id=${roleId} limit 1`;
+    if (!roleExists.length) throw new Error("الدور غير موجود");
+    const invalid = await sql`select id from permissions where id = any(${permissionIds}) is false`;
+    if (invalid.length) throw new Error("يوجد صلاحية غير معروفة");
     await sql.transaction(async (tx) => {
       await tx`delete from role_permissions where role_id=${roleId}`;
-      for (const permissionId of permissionIds) {
-        await tx`insert into role_permissions (role_id, permission_id) values (${roleId}, ${permissionId}) on conflict do nothing`;
+      if (permissionIds.length) {
+        await tx`
+          insert into role_permissions (role_id, permission_id)
+          select ${roleId}, p.id from permissions p where p.id = any(${permissionIds})
+          on conflict do nothing
+        `;
       }
     });
     return { roleId, permissionIds };
