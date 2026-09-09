@@ -1,9 +1,14 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { AppShell } from "@/components/app-shell";
+import { startCloudSync } from "@/lib/cloud-sync-bootstrap";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "معمل هاشم";
+
+if (typeof window !== "undefined") {
+  startCloudSync();
+}
 
 export const Route = createRootRoute({
   head: () => ({
@@ -34,7 +39,7 @@ export const Route = createRootRoute({
         <HeadContent />
       </head>
       <body>
-          <AuthProvider>
+        <AuthProvider>
           <AppShell>
             <Outlet />
           </AppShell>
