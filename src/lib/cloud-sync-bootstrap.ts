@@ -18,11 +18,12 @@ async function syncNow() {
     if (typeof navigator === "undefined" || !navigator.onLine) return;
 
     const store = useStore.getState();
-    // Never fall back to legacy full-store migration merely because an
-    // outbox item exists. Current mutations are already represented by the
-    // idempotent outbox and must be ACKed before pulling the shared snapshot.
+    // A persisted counter can outlive the actual local outbox. In that case
+    // fetchFromDb must not route into the legacy migration path.
     if (store.outbox.length) {
       await store.drainPendingOutbox();
+    } else if (store.pendingSyncCount > 0) {
+      useStore.setState({ pendingSyncCount: 0 });
     }
 
     await useStore.getState().fetchFromDb();
