@@ -73,8 +73,8 @@ export function SignInButtons() {
 
   const submit = async () => {
     setError("");
-    if (!phone.trim() || password.length < 6 || (mode === "signup" && !name.trim())) {
-      setError(mode === "signup" ? "أدخل الاسم ورقم الهاتف وكلمة مرور من 6 أحرف على الأقل." : "أدخل رقم الهاتف وكلمة المرور الصحيحة.");
+    if (!phone.trim() || password.length < 8 || (mode === "signup" && !name.trim())) {
+      setError(mode === "signup" ? "أدخل الاسم ورقم الهاتف وكلمة مرور من 8 أحرف على الأقل." : "أدخل رقم الهاتف وكلمة المرور الصحيحة.");
       return;
     }
     setBusy(true);
@@ -87,7 +87,13 @@ export function SignInButtons() {
       window.location.reload();
     } catch (err) {
       const message = err instanceof Error ? err.message : "تعذر تسجيل الدخول";
-      setError(/invalid|credential|password|user/i.test(message) ? "رقم الهاتف أو كلمة المرور غير صحيحة." : message);
+      if (/too short|password.*short/i.test(message)) {
+        setError("كلمة المرور قصيرة. استخدم 8 أحرف على الأقل.");
+      } else if (/invalid|credential|password|user/i.test(message)) {
+        setError(mode === "signup" ? "تعذر إنشاء الحساب. تأكد من البيانات أو جرّب رقمًا آخر." : "رقم الهاتف أو كلمة المرور غير صحيحة.");
+      } else {
+        setError(message);
+      }
     } finally {
       setBusy(false);
     }
@@ -97,7 +103,7 @@ export function SignInButtons() {
     <div className="flex w-full max-w-sm flex-col gap-3 text-right">
       {mode === "signup" && <input className="input-field" placeholder="اسم المستخدم" value={name} onChange={(e) => setName(e.target.value)} />}
       <input className="input-field" type="tel" dir="ltr" placeholder="رقم الهاتف" value={phone} onChange={(e) => setPhone(e.target.value)} />
-      <input className="input-field" type="password" dir="ltr" placeholder="كلمة المرور (6 أحرف على الأقل)" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <input className="input-field" type="password" dir="ltr" placeholder="كلمة المرور (8 أحرف على الأقل)" value={password} onChange={(e) => setPassword(e.target.value)} />
       {error && <p className="rounded-xl bg-bad/10 p-3 text-sm font-bold text-bad">{error}</p>}
       <button type="button" disabled={busy} onClick={() => void submit()} className="btn-primary w-full">
         {busy ? "جارٍ التحقق…" : mode === "signup" ? "إنشاء الحساب" : "تسجيل الدخول"}
