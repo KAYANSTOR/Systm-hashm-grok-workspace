@@ -50,7 +50,13 @@ async function main() {
     password: process.env.SQL_ADMIN_PASSWORD || process.env.SQL_PASSWORD,
     database: process.env.SQL_DB_NAME,
     max: 1,
-  } : { connectionString: databaseUrl, max: 1 };
+  } : {
+    connectionString: databaseUrl,
+    max: 1,
+    ...(databaseUrl.includes(".pooler.supabase.com")
+      ? { ssl: { rejectUnauthorized: false } }
+      : {}),
+  };
   const pool = new pg.Pool(poolConfig);
   const client = await pool.connect();
   try {
