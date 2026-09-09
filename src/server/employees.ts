@@ -5,11 +5,11 @@ import { requirePermission, PERMS } from "./permissions.ts";
 
 const EMPLOYEE_MANAGE = "employees.manage";
 const USER_MANAGE = "users.manage";
+const ROLE_MANAGE = "roles.manage";
 
 export const listEmployees = createServerFn({ method: "GET" })
   .handler(async () => {
-    const userId = await requirePermission(PERMS.EMPLOYEES_READ);
-    void userId;
+    await requirePermission(PERMS.EMPLOYEES_READ);
     const sql = await getSql();
     return await sql`
       select e.id, e.organization_id, e.name, e.phone, e.job_title, e.department,
@@ -51,11 +51,12 @@ export const updateEmployee = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     await requirePermission(EMPLOYEE_MANAGE);
     const id = String(data.id || "").trim();
-    if (!id) throw new Error("معرّف الموظف مطلوب");
+    const name = String(data.name || "").trim();
+    if (!id || !name) throw new Error("معرّف واسم الموظف مطلوبان");
     const sql = await getSql();
     await sql`
       update employees
-      set name=${String(data.name || "").trim()},
+      set name=${name},
           phone=${String(data.phone || "").trim() || null},
           job_title=${String(data.jobTitle || "").trim() || null},
           department=${String(data.department || "").trim() || null}
@@ -79,7 +80,7 @@ export const archiveEmployee = createServerFn({ method: "POST" })
     return { id };
   });
 
-export const assignEmployeeRole = createServerFn({ method: "POST" })
+export const setEmployeeRole = createServerFn({ method: "POST" })
   .validator((data: { employeeId: string; roleId: string }) => data)
   .handler(async ({ data }) => {
     await requirePermission(USER_MANAGE);
@@ -94,23 +95,11 @@ export const assignEmployeeRole = createServerFn({ method: "POST" })
       limit 1
     `;
     if (!rows.length) throw new Error("لا يوجد حساب دخول مرتبط بالموظف");
-    await sql`
-      insert into user_roles (user_id, role_id)
-      values (${rows[0].user_id}, ${roleId})
-      on conflict do nothing
-    `;
+    await sql.transaction(async (tx) => {
+      await tx`delete from user_roles where user_id=${rows[0].user_id}`;
+      await tx`insert into user_roles (user_id, role_id) values (${rows[0].user_id}, ${roleId})`;
+    });
     return { employeeId, userId: rows[0].user_id, roleId };
-  });
-
-export const removeEmployeeRole = createServerFn({ method: "POST" })
-  .validator((data: { employeeId: string; roleId: string }) => data)
-  .handler(async ({ data }) => {
-    await requirePermission(USER_MANAGE);
-    const sql = await getSql();
-    const rows = await sql`select user_id from employee_users where employee_id=${String(data.employeeId || "").trim()} limit 1`;
-    if (!rows.length) throw new Error("لا يوجد حساب دخول مرتبط بالموظف");
-    await sql`delete from user_roles where user_id=${rows[0].user_id} and role_id=${String(data.roleId || "").trim()}`;
-    return { employeeId: data.employeeId, roleId: data.roleId };
   });
 
 export const createEmployeeAccount = createServerFn({ method: "POST" })
@@ -164,4 +153,28 @@ export const getEmployeeRoles = createServerFn({ method: "GET" })
       group by r.id, r.name, r.description
       order by r.id
     `;
+  });
+
+export const listPermissions = createServerFn({ method: "GET" })
+  .handler(async () => {
+    await requirePermission(ROLE_MANAGE);
+    const sql = await getSql();
+    return await sql`select id, name from permissions order by id`;
+  });
+
+export const setRolePermissions = createServerFn({ method: "POST" })
+  .validator((data: { roleId: string; permissionIds: string[] }) => data)
+  .handler(async ({ data }) => {
+    await requirePermission(ROLE_MANAGE);
+    const roleId = String(data.roleId || "").trim();
+    const permissionIds = Array.isArray(data.permissionIds) ? data.permissionIds.map(String).filter(Boolean) : [];
+    if (!roleId) throw new Error("معرّف الدور مطلوب");
+    const sql = await getSql();
+    await sql.transaction(async (tx) => {
+      await tx`delete from role_permissions where role_id=${roleId}`;
+      for (const permissionId of permissionIds) {
+        await tx`insert into role_permissions (role_id, permission_id) values (${roleId}, ${permissionId}) on conflict do nothing`;
+      }
+    });
+    return { roleId, permissionIds };
   });
