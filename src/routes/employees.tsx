@@ -1,13 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   archiveEmployee,
-  assignEmployeeRole,
   createEmployee,
   createEmployeeAccount,
   getEmployeeRoles,
   listEmployees,
-  updateEmployee,
+  setEmployeeRole,
 } from "../server/employees";
 
 export const Route = createFileRoute("/employees")({ component: EmployeesPage });
@@ -51,7 +50,7 @@ export default function EmployeesPage() {
 
   useEffect(() => { void load(); }, []);
 
-  async function onCreateEmployee(e: React.FormEvent) {
+  async function onCreateEmployee(e: FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) return;
     setSaving(true);
@@ -78,14 +77,14 @@ export default function EmployeesPage() {
 
   async function onRole(employeeId: string, roleId: string) {
     try {
-      await assignEmployeeRole({ data: { employeeId, roleId } });
+      await setEmployeeRole({ data: { employeeId, roleId } });
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "تعذر تحديث الدور");
     }
   }
 
-  async function onAccount(e: React.FormEvent) {
+  async function onAccount(e: FormEvent) {
     e.preventDefault();
     if (!account.employeeId || !account.email || !account.password) return;
     setSaving(true);
@@ -120,7 +119,7 @@ export default function EmployeesPage() {
               ].map(([key, label]) => (
                 <label key={key} className="text-sm">
                   <span className="mb-1 block text-zinc-600">{label}</span>
-                  <input className="w-full rounded-xl border border-zinc-200 px-3 py-2 outline-none focus:border-amber-600" value={(form as any)[key]} onChange={(e) => setForm((v) => ({ ...v, [key]: e.target.value }))} />
+                  <input required={key === "name"} className="w-full rounded-xl border border-zinc-200 px-3 py-2 outline-none focus:border-amber-600" value={(form as any)[key]} onChange={(e) => setForm((v) => ({ ...v, [key]: e.target.value }))} />
                 </label>
               ))}
             </div>
@@ -131,13 +130,13 @@ export default function EmployeesPage() {
             <h2 className="mb-4 font-semibold">إنشاء حساب دخول</h2>
             <div className="space-y-3">
               <label className="block text-sm"><span className="mb-1 block text-zinc-600">الموظف</span>
-                <select className="w-full rounded-xl border border-zinc-200 px-3 py-2" value={account.employeeId} onChange={(e) => setAccount((v) => ({ ...v, employeeId: e.target.value }))}>
+                <select required className="w-full rounded-xl border border-zinc-200 px-3 py-2" value={account.employeeId} onChange={(e) => setAccount((v) => ({ ...v, employeeId: e.target.value }))}>
                   <option value="">اختر موظفًا</option>
                   {employees.filter((e) => e.is_active && !e.user_id).map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
                 </select>
               </label>
-              <label className="block text-sm"><span className="mb-1 block text-zinc-600">البريد الإلكتروني</span><input type="email" className="w-full rounded-xl border border-zinc-200 px-3 py-2" value={account.email} onChange={(e) => setAccount((v) => ({ ...v, email: e.target.value }))} /></label>
-              <label className="block text-sm"><span className="mb-1 block text-zinc-600">كلمة المرور</span><input type="password" minLength={8} className="w-full rounded-xl border border-zinc-200 px-3 py-2" value={account.password} onChange={(e) => setAccount((v) => ({ ...v, password: e.target.value }))} /></label>
+              <label className="block text-sm"><span className="mb-1 block text-zinc-600">البريد الإلكتروني</span><input required type="email" className="w-full rounded-xl border border-zinc-200 px-3 py-2" value={account.email} onChange={(e) => setAccount((v) => ({ ...v, email: e.target.value }))} /></label>
+              <label className="block text-sm"><span className="mb-1 block text-zinc-600">كلمة المرور</span><input required type="password" minLength={8} className="w-full rounded-xl border border-zinc-200 px-3 py-2" value={account.password} onChange={(e) => setAccount((v) => ({ ...v, password: e.target.value }))} /></label>
               <label className="block text-sm"><span className="mb-1 block text-zinc-600">الدور</span>
                 <select className="w-full rounded-xl border border-zinc-200 px-3 py-2" value={account.roleId} onChange={(e) => setAccount((v) => ({ ...v, roleId: e.target.value }))}>
                   {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -162,7 +161,7 @@ export default function EmployeesPage() {
                     <td className="px-4 py-3">
                       {e.user_id ? <select className="rounded-lg border px-2 py-1" value={e.roles?.[0] || "operator"} onChange={(ev) => void onRole(e.id, ev.target.value)}>{roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select> : "—"}
                     </td>
-                    <td className="px-4 py-3">{e.is_active && <button onClick={() => void onArchive(e.id)} className="rounded-lg border border-red-200 px-3 py-1 text-red-700">أرشفة</button>}</td>
+                    <td className="px-4 py-3">{e.is_active && <button type="button" onClick={() => void onArchive(e.id)} className="rounded-lg border border-red-200 px-3 py-1 text-red-700">أرشفة</button>}</td>
                   </tr>)}
                   {!employees.length && <tr><td colSpan={5} className="p-8 text-center text-zinc-500">لا يوجد موظفون بعد.</td></tr>}
                 </tbody>
