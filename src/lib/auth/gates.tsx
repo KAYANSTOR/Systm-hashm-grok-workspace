@@ -1,6 +1,6 @@
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { Navigate } from "@tanstack/react-router";
-import { APP_PROVIDERS, authEnabled, signIn, signOut } from "./client";
+import { authClient, authEnabled, signInWithPhone, signOut, signUpWithPhone } from "./client";
 import { hasGateSessionMarker } from "./gate-session-marker";
 import { resolveSignInGateState } from "./sign-in-gate";
 import { useCurrentUser, useCurrentUserState } from "./use-current-user";
@@ -64,18 +64,47 @@ export function SignInGate({
 }
 
 export function SignInButtons() {
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    setError("");
+    if (!phone.trim() || password.length < 6 || (mode === "signup" && !name.trim())) {
+      setError(mode === "signup" ? "أدخل الاسم ورقم الهاتف وكلمة مرور من 6 أحرف على الأقل." : "أدخل رقم الهاتف وكلمة المرور الصحيحة.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = mode === "signup"
+        ? await signUpWithPhone(phone, password, name.trim())
+        : await signInWithPhone(phone, password);
+      if (result.error) throw new Error(result.error.message || "تعذر تسجيل الدخول");
+      await authClient.getSession();
+      window.location.reload();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "تعذر تسجيل الدخول";
+      setError(/invalid|credential|password|user/i.test(message) ? "رقم الهاتف أو كلمة المرور غير صحيحة." : message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <div className="flex w-full max-w-sm flex-col gap-2">
-      {APP_PROVIDERS.map((p) => (
-        <button
-          key={p.providerId}
-          type="button"
-          onClick={() => signIn(p.providerId, { callbackURL: "/" })}
-          className="w-full cursor-pointer rounded-md border border-neutral-300 px-4 py-2 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900"
-        >
-          Continue with {p.label}
-        </button>
-      ))}
+    <div className="flex w-full max-w-sm flex-col gap-3 text-right">
+      {mode === "signup" && <input className="input-field" placeholder="اسم المستخدم" value={name} onChange={(e) => setName(e.target.value)} />}
+      <input className="input-field" type="tel" dir="ltr" placeholder="رقم الهاتف" value={phone} onChange={(e) => setPhone(e.target.value)} />
+      <input className="input-field" type="password" dir="ltr" placeholder="كلمة المرور (6 أحرف على الأقل)" value={password} onChange={(e) => setPassword(e.target.value)} />
+      {error && <p className="rounded-xl bg-bad/10 p-3 text-sm font-bold text-bad">{error}</p>}
+      <button type="button" disabled={busy} onClick={() => void submit()} className="btn-primary w-full">
+        {busy ? "جارٍ التحقق…" : mode === "signup" ? "إنشاء الحساب" : "تسجيل الدخول"}
+      </button>
+      <button type="button" disabled={busy} onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(""); }} className="btn-ghost w-full text-center">
+        {mode === "signin" ? "إنشاء حساب مستخدم جديد" : "لدي حساب بالفعل"}
+      </button>
     </div>
   );
 }

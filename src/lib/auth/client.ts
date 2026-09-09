@@ -37,6 +37,20 @@ export const authClient = createAuthClient({
  */
 export const authEnabled = import.meta.env.VITE_AUTH_ENABLED !== "false";
 
+/** Store phone credentials through Better Auth's email/password adapter. */
+export function phoneAccountEmail(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  return `phone-${digits}@accounts.hashem.local`;
+}
+
+export async function signInWithPhone(phone: string, password: string) {
+  return authClient.signIn.email({ email: phoneAccountEmail(phone), password });
+}
+
+export async function signUpWithPhone(phone: string, password: string, name: string) {
+  return authClient.signUp.email({ email: phoneAccountEmail(phone), password, name });
+}
+
 /** The upstream providers to render sign-in buttons for. */
 export { APP_PROVIDERS };
 
