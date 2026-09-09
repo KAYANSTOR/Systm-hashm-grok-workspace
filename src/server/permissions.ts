@@ -26,6 +26,14 @@ export const PERMS = {
   AUDIT_READ: "audit.read",
   REPORTS_READ: "reports.read",
   DB_RESET: "db.reset",
+  EMPLOYEES_READ: "employees.read",
+  EMPLOYEES_MANAGE: "employees.manage",
+  USERS_MANAGE: "users.manage",
+  ROLES_MANAGE: "roles.manage",
+  INVOICE_CREATE: "invoice.create",
+  INVOICE_EDIT: "invoice.edit",
+  INVENTORY_ISSUE: "inventory.issue",
+  INVENTORY_ADJUST: "inventory.adjust",
 } as const;
 
 export type PermissionId = (typeof PERMS)[keyof typeof PERMS];
@@ -53,7 +61,7 @@ export async function userHasPermission(
   permission: PermissionId | string,
 ): Promise<boolean> {
   const sql = await getSql();
-  if (!(await catalogReady(sql))) return true; // pre-seed compatibility
+  if (!(await catalogReady(sql))) return true;
 
   const rows = await sql`
     select 1 as ok
@@ -66,16 +74,12 @@ export async function userHasPermission(
   return rows.length > 0;
 }
 
-/**
- * Authenticate + authorize. Call at the top of every sensitive server mutation.
- * Returns the verified userId on success.
- */
+/** Authenticate + authorize. Call at the top of every sensitive server mutation. */
 export async function requirePermission(
   permission: PermissionId | string,
   bearerToken?: string,
 ): Promise<string> {
   const userId = await requireUserId(bearerToken);
-  // Auth disabled local/dev path already returned DEV_USER_ID; still enforce catalog.
   const allowed = await userHasPermission(userId, permission);
   if (!allowed) throw new ForbiddenError(permission);
   return userId;
