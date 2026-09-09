@@ -81,6 +81,13 @@ function toSql(run: Run): Sql {
   return sql;
 }
 
+function normalizeSupabaseUrl(value: string | undefined): string | undefined {
+  if (!value?.includes(".pooler.supabase.com")) return value;
+  const separator = value.includes("?") ? "&" : "?";
+  return value.replace(/([?&])sslmode=[^&]*/i, "$1sslmode=no-verify")
+    + (value.includes("sslmode=") ? "" : `${separator}sslmode=no-verify`);
+}
+
 function createNeonSql(): Promise<Sql> {
   globalRef.__pgSqlPromise__ ??= (async () => {
     // Regular Postgres driver: node-postgres (`pg`) — works directly with Neon's
@@ -89,13 +96,17 @@ function createNeonSql(): Promise<Sql> {
     types.setTypeParser(OID_INT8, Number);
     types.setTypeParser(OID_DATE, identity);
     types.setTypeParser(OID_INTERVAL, identity);
+    const isSupabasePooler = databaseUrl?.includes(".pooler.supabase.com") ?? false;
     const poolConfig = hasCloudSql ? {
       host: process.env.SQL_HOST,
       user: process.env.SQL_USER,
       password: process.env.SQL_PASSWORD,
       database: process.env.SQL_DB_NAME,
       max: 10,
-    } : { connectionString: databaseUrl };
+    } : {
+      connectionString: normalizeSupabaseUrl(databaseUrl),
+      ...(isSupabasePooler ? { ssl: { rejectUnauthorized: false } } : {}),
+    };
     const pool = new Pool(poolConfig);
     const sql = toSql(async <T>(text: string, params: unknown[]) => {
       const res = await pool.query(text, params);
