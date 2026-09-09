@@ -1,11 +1,28 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
+import { SignInButtons, SignInGate } from "@/lib/auth/gates";
 import { AppShell } from "@/components/app-shell";
 import { startCloudSync } from "@/lib/cloud-sync-bootstrap";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "معمل هاشم";
+
+function LoginScreen() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-canvas px-5 py-10" dir="rtl">
+      <section className="card w-full max-w-md p-7 text-center shadow-xl">
+        <img src="/icons/icon-192.png" alt="شعار معمل هاشم" className="mx-auto mb-5 size-24 rounded-3xl object-contain" />
+        <h1 className="text-2xl font-black text-brand-dark">تسجيل الدخول إلى معمل هاشم</h1>
+        <p className="mt-2 text-sm leading-7 text-muted">سجّل الدخول للوصول إلى البيانات المشتركة ومزامنة هذا الجهاز مع بقية الأجهزة.</p>
+        <div className="mt-6 flex justify-center">
+          <SignInButtons />
+        </div>
+        <p className="mt-5 text-xs text-muted">لا تستخدم بيانات Cloud SQL هنا. استخدم حساب الدخول الخاص بالتطبيق.</p>
+      </section>
+    </main>
+  );
+}
 
 if (typeof window !== "undefined") {
   startCloudSync();
@@ -25,9 +42,11 @@ function RootDocument() {
       </head>
       <body>
         <AuthProvider>
-          <AppShell>
-            <Outlet />
-          </AppShell>
+          <SignInGate fallback={<LoginScreen />}>
+            <AppShell>
+              <Outlet />
+            </AppShell>
+          </SignInGate>
         </AuthProvider>
         <Scripts />
       </body>
