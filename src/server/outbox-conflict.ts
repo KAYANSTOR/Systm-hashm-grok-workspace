@@ -33,10 +33,26 @@ export const preflightOutboxConflict = createServerFn({ method: "POST" })
       return { status: "ok", reason: "no_version_precondition" };
     }
 
+    const sql = await getSql();
+
+    // Idempotent retry must reach the normal duplicate/ACK path even when its
+    // original base version is now older than the server revision.
+    const processed = await sql`
+      select claim_status
+      from processed_operations
+      where operation_id = ${operationId}
+      limit 1
+    `;
+    if (processed.length) {
+      return {
+        status: "ok",
+        reason: String((processed[0] as any).claim_status || "processed_operation"),
+      };
+    }
+
     const entity = entityFor(operationType);
     if (!entity) return { status: "ok", reason: "unsupported_entity" };
 
-    const sql = await getSql();
     let rows: any[] = [];
     if (entity.table === "parties") rows = await sql`select * from parties where id = ${documentId} limit 1` as any[];
     if (entity.table === "products") rows = await sql`select * from products where id = ${documentId} limit 1` as any[];
