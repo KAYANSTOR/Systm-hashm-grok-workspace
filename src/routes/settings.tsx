@@ -57,6 +57,13 @@ function SettingsPage() {
       expenses: data.expenses,
       settings: data.settings,
       organization: data.organization,
+      warehouses: data.warehouses,
+      productCategories: data.productCategories,
+      auditLog: data.auditLog,
+      warehouseStocks: data.warehouseStocks,
+      userPermissions: data.userPermissions,
+      userId: data.userId,
+      defaultWarehouseId: data.defaultWarehouseId,
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);

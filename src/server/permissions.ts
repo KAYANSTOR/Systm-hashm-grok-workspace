@@ -92,7 +92,7 @@ export async function listUserPermissions(userId: string): Promise<string[]> {
     join role_permissions rp on rp.role_id = ur.role_id
     where ur.user_id = ${userId}
   `;
-  return rows.map((r: { id: string }) => r.id);
+  return rows.map((r) => String(r.id));
 }
 
 export { authConfigured, DEV_USER_ID };

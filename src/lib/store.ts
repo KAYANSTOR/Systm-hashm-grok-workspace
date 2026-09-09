@@ -41,7 +41,10 @@ function serverFail(userMessage: string, err: unknown) {
 
 function applyBundle(get: any, set: any, result: any, failMsg: string) {
   if (!result.ok) {
-    try { toast.error(result.error.message || ERROR_MESSAGES_AR[result.error.code]); } catch {}
+    try {
+      const code = result.error.code as keyof typeof ERROR_MESSAGES_AR;
+      toast.error(result.error.message || ERROR_MESSAGES_AR[code]);
+    } catch {}
     return false;
   }
   const audit = result.value.audit;
@@ -182,6 +185,10 @@ export const useStore = create<Store>()(
       fetchFromDb: async () => {
         const now = Date.now();
         if (fetchInFlight || now - lastFetchAt < 15_000) return;
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          set({ connectionState: "offline", lastSyncMessage: "أنت غير متصل — يتم عرض البيانات المحفوظة على الجهاز" });
+          return;
+        }
         if (get().pendingSyncCount > 0) return get().syncLegacyDb();
         fetchInFlight = true;
         lastFetchAt = now;
@@ -598,6 +605,14 @@ export const useStore = create<Store>()(
         transactions: s.transactions,
         expenses: s.expenses,
         settings: s.settings,
+        organization: s.organization,
+        warehouses: s.warehouses,
+        productCategories: s.productCategories,
+        auditLog: s.auditLog,
+        warehouseStocks: s.warehouseStocks,
+        userPermissions: s.userPermissions,
+        userId: s.userId,
+        defaultWarehouseId: s.defaultWarehouseId,
         connectionState: s.connectionState,
         pendingSyncCount: s.pendingSyncCount,
         lastSyncMessage: s.lastSyncMessage,

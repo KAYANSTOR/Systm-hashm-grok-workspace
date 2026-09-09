@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { FileText, Printer, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -34,6 +34,8 @@ function ReportsPage() {
   const warehouses = useStore((s) => s.warehouses || []);
   const auditLog = useStore((s) => s.auditLog || []);
   const settings = useStore((s) => s.settings);
+  const connectionState = useStore((s) => s.connectionState);
+  const fetchFromDb = useStore((s) => s.fetchFromDb);
 
   const [tab, setTab] = useState<ReportTab>("overview");
   const [from, setFrom] = useState(daysAgoIso(30));
@@ -43,7 +45,14 @@ function ReportsPage() {
   const [q, setQ] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
 
-  const inRange = (date: string) => date >= from && date <= to;
+  useEffect(() => {
+    void fetchFromDb().catch(() => undefined);
+  }, [fetchFromDb]);
+
+  const inRange = (date: string) => {
+    const day = String(date || "").slice(0, 10);
+    return day >= from && day <= to;
+  };
 
   const sales = useMemo(
     () =>
@@ -90,7 +99,8 @@ function ReportsPage() {
     const map = new Map<string, number>();
     for (let n = 6; n >= 0; n--) map.set(daysAgoIso(n), 0);
     for (const inv of sales) {
-      if (map.has(inv.date)) map.set(inv.date, (map.get(inv.date) || 0) + inv.total);
+      const day = inv.date.slice(0, 10);
+      if (map.has(day)) map.set(day, (map.get(day) || 0) + inv.total);
     }
     return [...map.entries()].map(([date, total]) => ({ date: date.slice(5), total }));
   }, [sales]);
@@ -140,6 +150,7 @@ function ReportsPage() {
   ];
 
   const detail = detailId ? auditLog.find((a) => a.auditId === detailId) : null;
+  const isLoading = connectionState === "syncing" && !invoices.length && !customers.length && !inventory.length;
 
   return (
     <div className="space-y-4">
@@ -182,6 +193,11 @@ function ReportsPage() {
           ))}
         </div>
       </div>
+      {isLoading ? (
+        <div className="card p-8 text-center text-sm font-bold text-muted" role="status">
+          جاري تحميل بيانات التقارير…
+        </div>
+      ) : null}
 
       {tab === "overview" && (
         <>

@@ -102,7 +102,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const syncLegacyDb = useStore((s) => s.syncLegacyDb);
 
   useEffect(() => {
-    const logo = organizationLogo || "/favicon.svg";
+    const logo = organizationLogo || "/icons/icon-192.png";
     document.querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="apple-touch-icon"]').forEach((link) => {
       link.href = logo;
     });
@@ -159,7 +159,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex min-h-dvh w-full">
         <aside className="no-print sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-l border-line bg-paper p-4 lg:flex">
           <div className="mb-6 flex items-center gap-3 px-2">
-            <img src={organizationLogo || "/favicon.svg"} alt="شعار معمل هاشم" className="size-11 rounded-2xl object-contain shadow-sm" />
+            <img src={organizationLogo || "/icons/icon-192.png"} alt="شعار معمل هاشم" className="size-11 rounded-2xl object-contain shadow-sm" />
             <div>
               <p className="text-sm font-black leading-tight text-brand">معمل هاشم</p>
               <p className="text-[11px] font-medium text-muted">إدارة المعمل</p>
@@ -283,7 +283,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 )}
               </div>
 
-              <img src={organizationLogo || "/favicon.svg"} alt="شعار معمل هاشم" className="size-10 rounded-2xl object-contain shadow-sm" />
+              <img src={organizationLogo || "/icons/icon-192.png"} alt="شعار معمل هاشم" className="size-10 rounded-2xl object-contain shadow-sm" />
             </div>
           </header>
 
