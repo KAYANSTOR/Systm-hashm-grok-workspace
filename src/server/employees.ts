@@ -14,7 +14,7 @@ export const listEmployees = createServerFn({ method: "GET" })
     return await sql`
       select e.id, e.organization_id, e.name, e.phone, e.job_title, e.department,
              e.is_active, e.archived_at, e.created_at, e.updated_at,
-             eu.user_id,
+             eu.user_id, coalesce(eu.is_active, true) as account_active,
              u.email as user_email,
              coalesce(array_agg(ur.role_id) filter (where ur.role_id is not null), '{}') as roles
       from employees e
@@ -22,7 +22,7 @@ export const listEmployees = createServerFn({ method: "GET" })
       left join "user" u on u.id = eu.user_id
       left join user_roles ur on ur.user_id = eu.user_id
       where e.organization_id = 'default_org'
-      group by e.id, eu.user_id, u.email
+      group by e.id, eu.user_id, eu.is_active, u.email
       order by e.is_active desc, e.name asc
     `;
   });
@@ -35,13 +35,9 @@ export const createEmployee = createServerFn({ method: "POST" })
     const id = String(data.id || crypto.randomUUID()).trim();
     const name = String(data.name || "").trim();
     if (!name) throw new Error("اسم الموظف مطلوب");
-    const phone = String(data.phone || "").trim() || null;
-    const jobTitle = String(data.jobTitle || "").trim() || null;
-    const department = String(data.department || "").trim() || null;
-
     await sql`
       insert into employees (id, organization_id, name, phone, job_title, department)
-      values (${id}, 'default_org', ${name}, ${phone}, ${jobTitle}, ${department})
+      values (${id}, 'default_org', ${name}, ${String(data.phone || '').trim() || null}, ${String(data.jobTitle || '').trim() || null}, ${String(data.department || '').trim() || null})
     `;
     return { id };
   });
@@ -56,10 +52,7 @@ export const updateEmployee = createServerFn({ method: "POST" })
     const sql = await getSql();
     await sql`
       update employees
-      set name=${name},
-          phone=${String(data.phone || "").trim() || null},
-          job_title=${String(data.jobTitle || "").trim() || null},
-          department=${String(data.department || "").trim() || null}
+      set name=${name}, phone=${String(data.phone || '').trim() || null}, job_title=${String(data.jobTitle || '').trim() || null}, department=${String(data.department || '').trim() || null}
       where id=${id} and organization_id='default_org'
     `;
     return { id };
@@ -72,12 +65,28 @@ export const archiveEmployee = createServerFn({ method: "POST" })
     const id = String(data.id || "").trim();
     if (!id) throw new Error("معرّف الموظف مطلوب");
     const sql = await getSql();
-    await sql`
-      update employees
-      set is_active=false, archived_at=now()
-      where id=${id} and organization_id='default_org'
-    `;
+    await sql.transaction(async (tx) => {
+      await tx`update employees set is_active=false, archived_at=now() where id=${id} and organization_id='default_org'`;
+      await tx`update employee_users set is_active=false, updated_at=now() where employee_id=${id}`;
+    });
     return { id };
+  });
+
+export const setEmployeeAccountStatus = createServerFn({ method: "POST" })
+  .validator((data: { employeeId: string; isActive: boolean }) => data)
+  .handler(async ({ data }) => {
+    await requirePermission(USER_MANAGE);
+    const employeeId = String(data.employeeId || "").trim();
+    if (!employeeId) throw new Error("معرّف الموظف مطلوب");
+    const sql = await getSql();
+    const rows = await sql`
+      select eu.user_id from employee_users eu
+      join employees e on e.id=eu.employee_id
+      where eu.employee_id=${employeeId} and e.organization_id='default_org' limit 1
+    `;
+    if (!rows.length) throw new Error("لا يوجد حساب دخول مرتبط بالموظف");
+    await sql`update employee_users set is_active=${Boolean(data.isActive)}, updated_at=now() where employee_id=${employeeId}`;
+    return { employeeId, isActive: Boolean(data.isActive) };
   });
 
 export const setEmployeeRole = createServerFn({ method: "POST" })
@@ -88,12 +97,7 @@ export const setEmployeeRole = createServerFn({ method: "POST" })
     const roleId = String(data.roleId || "").trim();
     if (!employeeId || !roleId) throw new Error("الموظف والدور مطلوبان");
     const sql = await getSql();
-    const rows = await sql`
-      select eu.user_id from employee_users eu
-      join employees e on e.id=eu.employee_id
-      where eu.employee_id=${employeeId} and e.organization_id='default_org'
-      limit 1
-    `;
+    const rows = await sql`select eu.user_id from employee_users eu join employees e on e.id=eu.employee_id where eu.employee_id=${employeeId} and e.organization_id='default_org' limit 1`;
     if (!rows.length) throw new Error("لا يوجد حساب دخول مرتبط بالموظف");
     const roleExists = await sql`select 1 from roles where id=${roleId} limit 1`;
     if (!roleExists.length) throw new Error("الدور غير موجود");
@@ -113,35 +117,22 @@ export const createEmployeeAccount = createServerFn({ method: "POST" })
     const password = String(data.password || "");
     if (!employeeId || !email || !password) throw new Error("بيانات الحساب غير مكتملة");
     if (password.length < 8) throw new Error("كلمة المرور يجب ألا تقل عن 8 أحرف");
-
     const sql = await getSql();
     const employee = await sql`select id,name,is_active from employees where id=${employeeId} and organization_id='default_org' limit 1`;
     if (!employee.length) throw new Error("الموظف غير موجود");
     if (!employee[0].is_active) throw new Error("لا يمكن إنشاء حساب لموظف مؤرشف");
-
     const existing = await sql`select employee_id from employee_users where employee_id=${employeeId} limit 1`;
     if (existing.length) throw new Error("الموظف لديه حساب دخول بالفعل");
-
-    const result = await auth.api.signUpEmail({
-      body: { email, password, name: String(employee[0].name) },
-    });
+    const result = await auth.api.signUpEmail({ body: { email, password, name: String(employee[0].name) } });
     const userId = String((result as any)?.user?.id || "").trim();
     if (!userId) throw new Error("تعذر إنشاء حساب الدخول");
-
-    await sql`
-      insert into employee_users (employee_id, user_id)
-      values (${employeeId}, ${userId})
-    `;
-
     const roleId = String(data.roleId || "operator").trim();
     const roleExists = await sql`select 1 from roles where id=${roleId} limit 1`;
     if (!roleExists.length) throw new Error("الدور غير موجود");
-    await sql`
-      insert into user_roles (user_id, role_id)
-      values (${userId}, ${roleId})
-      on conflict do nothing
-    `;
-
+    await sql.transaction(async (tx) => {
+      await tx`insert into employee_users (employee_id,user_id,is_active) values (${employeeId},${userId},true)`;
+      await tx`insert into user_roles (user_id,role_id) values (${userId},${roleId}) on conflict do nothing`;
+    });
     return { employeeId, userId, roleId, email };
   });
 
@@ -149,21 +140,26 @@ export const getEmployeeRoles = createServerFn({ method: "GET" })
   .handler(async () => {
     await requirePermission(PERMS.EMPLOYEES_READ);
     const sql = await getSql();
-    return await sql`
-      select r.id, r.name, r.description,
-             count(rp.permission_id)::int as permission_count
-      from roles r
-      left join role_permissions rp on rp.role_id=r.id
-      group by r.id, r.name, r.description
-      order by r.id
-    `;
+    return await sql`select r.id, r.name, r.description, count(rp.permission_id)::int as permission_count from roles r left join role_permissions rp on rp.role_id=r.id group by r.id,r.name,r.description order by r.id`;
+  });
+
+export const createRole = createServerFn({ method: "POST" })
+  .validator((data: { id: string; name: string; description?: string }) => data)
+  .handler(async ({ data }) => {
+    await requirePermission(ROLE_MANAGE);
+    const id = String(data.id || "").trim().toLowerCase();
+    const name = String(data.name || "").trim();
+    if (!/^[a-z0-9._-]+$/.test(id) || !name) throw new Error("معرّف الدور واسم الدور غير صالحين");
+    const sql = await getSql();
+    await sql`insert into roles (id,name,description) values (${id},${name},${String(data.description || '').trim() || null})`;
+    return { id };
   });
 
 export const listPermissions = createServerFn({ method: "GET" })
   .handler(async () => {
     await requirePermission(ROLE_MANAGE);
     const sql = await getSql();
-    return await sql`select id, name from permissions order by id`;
+    return await sql`select id,name from permissions order by id`;
   });
 
 export const listRolePermissionIds = createServerFn({ method: "GET" })
@@ -188,17 +184,13 @@ export const setRolePermissions = createServerFn({ method: "POST" })
     const sql = await getSql();
     const roleExists = await sql`select 1 from roles where id=${roleId} limit 1`;
     if (!roleExists.length) throw new Error("الدور غير موجود");
-    const invalid = await sql`select id from permissions where id = any(${permissionIds}) is false`;
-    if (invalid.length) throw new Error("يوجد صلاحية غير معروفة");
+    if (permissionIds.length) {
+      const invalid = await sql`select count(*)::int as c from permissions where id = any(${permissionIds})`;
+      if (Number(invalid[0]?.c || 0) !== permissionIds.length) throw new Error("يوجد صلاحية غير معروفة");
+    }
     await sql.transaction(async (tx) => {
       await tx`delete from role_permissions where role_id=${roleId}`;
-      if (permissionIds.length) {
-        await tx`
-          insert into role_permissions (role_id, permission_id)
-          select ${roleId}, p.id from permissions p where p.id = any(${permissionIds})
-          on conflict do nothing
-        `;
-      }
+      if (permissionIds.length) await tx`insert into role_permissions(role_id,permission_id) select ${roleId},p.id from permissions p where p.id=any(${permissionIds}) on conflict do nothing`;
     });
     return { roleId, permissionIds };
   });
