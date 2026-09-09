@@ -24,7 +24,7 @@ function invoiceKindLabel(invoice: Invoice): string {
 export default function InvoicePrintTemplate({ invoice, partyName, onClose }: InvoicePrintTemplateProps) {
   const [isGenerating, setIsGenerating] = React.useState(false);
   const printRef = useRef<HTMLDivElement>(null);
-  const { customers, suppliers, approveInvoice, settings: companySettings } = useStore();
+  const { customers, suppliers, approveInvoice, settings: companySettings, organization } = useStore();
 
   const party = invoice.type === "sale"
     ? customers.find((customer) => customer.id === invoice.partyId)
@@ -177,12 +177,12 @@ export default function InvoicePrintTemplate({ invoice, partyName, onClose }: In
           <div ref={printRef} className="invoice-print-page mx-auto">
             <header className="invoice-brand-header">
               <div className="invoice-brand-copy">
-              <h1 className="invoice-company-name">{companySettings.name}</h1>
-                <div className="invoice-company-meta">{companySettings.location}</div>
-                <div className="invoice-company-phone">{[companySettings.phone1, companySettings.phone2].filter(Boolean).join(" · ")}</div>
+              <h1 className="invoice-company-name">{organization.name || companySettings.name}</h1>
+                <div className="invoice-company-meta">{organization.address || companySettings.location}</div>
+                <div className="invoice-company-phone">{organization.phone || [companySettings.phone1, companySettings.phone2].filter(Boolean).join(" · ")}</div>
               </div>
               <div className="invoice-logo-box">
-                <img src="/favicon.svg" alt="شعار المنشأة" />
+                <img src={organization.logo || "/favicon.svg"} alt="شعار المنشأة" />
               </div>
             </header>
 

@@ -26,7 +26,7 @@ interface ReceiptPrintProps {
 }
 
 export default function ReceiptPrint({ data, onClose }: ReceiptPrintProps) {
-  const { settings: companySettings } = useStore();
+  const { settings: companySettings, organization } = useStore();
   const [isGenerating, setIsGenerating] = React.useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -200,20 +200,20 @@ export default function ReceiptPrint({ data, onClose }: ReceiptPrintProps) {
 
                 <div className="receipt-company">
                   <div className="receipt-company-name">
-                    {companySettings.name}
+                    {organization.name || companySettings.name}
                   </div>
 
                   <div className="receipt-company-address">
-                    {companySettings.location}
+                    {organization.address || companySettings.location}
                   </div>
 
                   <div className="receipt-company-phone" dir="ltr">
-                    {[companySettings.phone1, companySettings.phone2].filter(Boolean).join(' - ')}
+                    {organization.phone || [companySettings.phone1, companySettings.phone2].filter(Boolean).join(' - ')}
                   </div>
                 </div>
 
                 <div className="receipt-logo" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                  <img src={"/logo.svg"} style={{ width: '100%', height: 'auto', objectFit: 'contain', maxHeight: '45px' }} alt={"هاشم"} />
+                  <img src={organization.logo || "/favicon.svg"} style={{ width: '100%', height: 'auto', objectFit: 'contain', maxHeight: '45px' }} alt={"شعار المنشأة"} />
                 </div>
               </header>
 

@@ -196,6 +196,7 @@ export const useStore = create<Store>()(
 
       importData: (data) =>
         set({
+          organization: { ...EMPTY_DATA.organization, ...data.organization },
           customers: data.customers ?? [],
           suppliers: data.suppliers ?? [],
           inventory: data.inventory ?? [],
@@ -372,6 +373,7 @@ export const useStore = create<Store>()(
       name: "hashem-workshop-v2",
       skipHydration: true,
       partialize: (s) => ({
+        organization: s.organization,
         customers: s.customers,
         suppliers: s.suppliers,
         inventory: s.inventory,
