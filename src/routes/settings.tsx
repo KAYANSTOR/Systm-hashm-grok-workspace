@@ -19,10 +19,13 @@ import { useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { syncErrorMessage, useStore } from "@/lib/store";
 import type { AppData } from "@/lib/types";
+import { signOut } from "@/lib/auth/client";
+import { useCurrentUser } from "@/lib/auth/use-current-user";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
 function SettingsPage() {
+  const user = useCurrentUser();
   const settings = useStore((s) => s.settings);
   const updateSettings = useStore((s) => s.updateSettings);
   const org = useStore((s) => s.organization);
@@ -339,6 +342,35 @@ function SettingsPage() {
     
 
         {/* المزامنة السحابية */}
+        <section className="card overflow-hidden">
+          <div className="flex items-center gap-3 border-b border-line bg-canvas/50 px-5 py-4">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-brand-soft text-brand">
+              <ShieldCheck className="size-5" />
+            </div>
+            <div>
+              <h2 className="font-black text-brand-dark">الحساب</h2>
+              <p className="text-xs text-muted">يبقى تسجيل الدخول محفوظًا حتى تختار تسجيل الخروج</p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-3 p-5">
+            <div>
+              <p className="font-bold">{user?.displayName || "المستخدم الحالي"}</p>
+              <p className="text-xs text-muted">الحساب متصل بهذا الجهاز</p>
+            </div>
+            <button
+              type="button"
+              className="btn-ghost text-bad"
+              onClick={() => {
+                void signOut("/").catch((error) => {
+                  toast.error(error instanceof Error ? error.message : "تعذر تسجيل الخروج");
+                });
+              }}
+            >
+              تسجيل الخروج
+            </button>
+          </div>
+        </section>
+
         <section className="card overflow-hidden">
           <div className="flex items-center gap-3 border-b border-line bg-canvas/50 px-5 py-4">
             <div className="flex size-10 items-center justify-center rounded-xl bg-accent/10 text-accent">
