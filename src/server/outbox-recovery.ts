@@ -3,17 +3,11 @@ import { getSql } from "../lib/db";
 import { requirePermission, PERMS } from "./permissions.ts";
 
 /**
- * Releases an idempotency claim when the legacy business mutation failed after
- * applyOutboxOperation claimed the operation.
+ * Transitional recovery for an in-flight idempotency claim.
  *
- * This is a transitional recovery path only. The final Foundation design is
- * atomic server-side mutation + idempotency registration + audit in one DB
- * transaction, so a claim should never need to be released after the business
- * mutation starts.
- *
- * The claim is scoped to operation_id + device_id. Audit events are deliberately
- * NOT deleted here because audit_events is an append-only trail; a failed retry
- * must not rewrite audit history.
+ * Only a `processing` claim owned by this device may be released. Completed
+ * (`applied`) operations are never deleted by recovery, which prevents a late
+ * retry/error path from erasing a durable ACK.
  */
 export const releaseOutboxClaim = createServerFn({ method: "POST" })
   .validator((data: { operationId: string; deviceId: string }) => data)
@@ -31,6 +25,7 @@ export const releaseOutboxClaim = createServerFn({ method: "POST" })
         delete from processed_operations
         where operation_id = ${operationId}
           and device_id = ${deviceId}
+          and claim_status = 'processing'
       `;
     });
 
