@@ -46,26 +46,55 @@ export const fetchAllData = createServerFn({ method: "GET" }).handler(
 export const syncLegacyData = createServerFn({ method: "POST" })
   .validator((data: any) => data)
   .handler(async ({ data }) => {
-    await requirePermission(PERMS.SETTINGS_WRITE);
+    await requirePermission(PERMS.SYNC_WRITE);
     const sql = await getSql();
-    
+    const customers = Array.isArray(data.customers) ? data.customers : [];
+    const suppliers = Array.isArray(data.suppliers) ? data.suppliers : [];
+    const inventory = Array.isArray(data.inventory) ? data.inventory : [];
+    const invoices = Array.isArray(data.invoices) ? data.invoices : [];
+    const vouchers = Array.isArray(data.vouchers) ? data.vouchers : [];
+    const transactions = Array.isArray(data.transactions) ? data.transactions : [];
+    const expenses = Array.isArray(data.expenses) ? data.expenses : [];
+    const warehouses = Array.isArray(data.warehouses) ? data.warehouses : [];
+    const productCategories = Array.isArray(data.productCategories) ? data.productCategories : [];
+
     await sql.transaction(async (tx) => {
+      // Snapshot sync merges the durable local snapshot. It must not replay
+      // the live stock gate because warehouse_stock already contains the
+      // final local balance and invoices/movements are historical records.
+      for (const warehouse of warehouses) {
+        await tx`insert into warehouses (id, name, location, is_active, created_at)
+                 values (${warehouse.id}, ${warehouse.name}, ${warehouse.location || null}, ${warehouse.isActive !== false}, ${warehouse.createdAt || new Date().toISOString()})
+                 on conflict (id) do update set name=EXCLUDED.name, location=EXCLUDED.location, is_active=EXCLUDED.is_active`;
+      }
+      for (const category of productCategories) {
+        await tx`insert into product_categories (id, name, is_active)
+                 values (${category.id}, ${category.name}, ${category.isActive !== false})
+                 on conflict (id) do update set name=EXCLUDED.name, is_active=EXCLUDED.is_active`;
+      }
+      if (data.organization) {
+        const org = data.organization;
+        await tx`insert into organization_profile (id, name, description, logo, phone, address, email, website, tax_number, commercial_number, footer_text)
+                 values ('default_org', ${org.name || 'معمل هاشم'}, ${org.description || null}, ${org.logo || null}, ${org.phone || null}, ${org.address || null}, ${org.email || null}, ${org.website || null}, ${org.taxNumber || null}, ${org.commercialNumber || null}, ${org.footerText || null})
+                 on conflict (id) do update set name=EXCLUDED.name, description=EXCLUDED.description, logo=EXCLUDED.logo, phone=EXCLUDED.phone, address=EXCLUDED.address, email=EXCLUDED.email, website=EXCLUDED.website, tax_number=EXCLUDED.tax_number, commercial_number=EXCLUDED.commercial_number, footer_text=EXCLUDED.footer_text, updated_at=now()`;
+      }
+
       // 1. Insert Customers
-      for (const c of data.customers) {
+      for (const c of customers) {
         await tx`insert into parties (id, type, name, phone, address, created_at) 
                  values (${c.id}, 'customer', ${c.name}, ${c.phone}, ${c.address}, ${c.createdAt})
                  on conflict (id) do update set name=EXCLUDED.name, phone=EXCLUDED.phone, address=EXCLUDED.address`;
       }
       
       // 2. Insert Suppliers
-      for (const s of data.suppliers) {
+      for (const s of suppliers) {
         await tx`insert into parties (id, type, name, phone, company, created_at)
                  values (${s.id}, 'supplier', ${s.name}, ${s.phone}, ${s.company}, ${s.createdAt})
                  on conflict (id) do update set name=EXCLUDED.name, phone=EXCLUDED.phone, company=EXCLUDED.company`;
       }
       
       // 3. Insert Inventory as Products
-      for (const i of data.inventory) {
+      for (const i of inventory) {
         await tx`insert into products (id, name, category, unit, cost_price, selling_price, min_stock, created_at)
                  values (${i.id}, ${i.name}, ${i.category}, ${i.unit}, ${i.costPrice}, ${i.sellingPrice}, ${i.minQuantity}, ${i.lastUpdated})
                  on conflict (id) do update set name=EXCLUDED.name, category=EXCLUDED.category, unit=EXCLUDED.unit, cost_price=EXCLUDED.cost_price, selling_price=EXCLUDED.selling_price, min_stock=EXCLUDED.min_stock`;
@@ -88,7 +117,7 @@ export const syncLegacyData = createServerFn({ method: "POST" })
       await tx`insert into parties (id, type, name, phone, address, created_at)
                values ('PENDING_RECEIPT', 'supplier', 'مورد توريد مخزني - بانتظار تحديد المورد', '-', '-', now())
                on conflict (id) do nothing`;
-      for (const inv of data.invoices) {
+      for (const inv of invoices) {
         await tx`insert into invoices (id, invoice_number, type, invoice_type, party_id, date, sub_total, discount, total, paid_amount, remaining_amount, payment_type, payment_method, status, is_approved, notes, created_at)
                  values (${inv.id}, ${inv.invoiceNumber}, ${inv.type}, ${inv.invoiceType || null}, ${inv.partyId}, ${inv.date}, ${inv.subTotal}, ${inv.discount}, ${inv.total}, ${inv.paidAmount}, ${inv.remainingAmount}, ${inv.paymentType}, ${inv.paymentMethod || null}, ${inv.status}, ${inv.isApproved}, ${inv.notes || null}, ${inv.createdAt})
                  on conflict (id) do update set invoice_number=EXCLUDED.invoice_number, type=EXCLUDED.type, invoice_type=EXCLUDED.invoice_type, party_id=EXCLUDED.party_id, date=EXCLUDED.date, sub_total=EXCLUDED.sub_total, discount=EXCLUDED.discount, total=EXCLUDED.total, paid_amount=EXCLUDED.paid_amount, remaining_amount=EXCLUDED.remaining_amount, payment_type=EXCLUDED.payment_type, payment_method=EXCLUDED.payment_method, status=EXCLUDED.status, is_approved=EXCLUDED.is_approved, notes=EXCLUDED.notes`;
@@ -106,15 +135,9 @@ export const syncLegacyData = createServerFn({ method: "POST" })
             if (item.inventoryItemId && item.inventoryItemId !== 'SERVICE') {
               const whId = resolveWarehouseId(inv.warehouseId);
               const qty = inv.type === 'sale' ? -item.quantity : item.quantity;
-              if (inv.type === 'sale' && item.inventoryItemId && item.inventoryItemId !== 'SERVICE') {
-                const stockRows = await tx`select quantity from warehouse_stock where warehouse_id=${whId} and product_id=${item.inventoryItemId} for update`;
-                const available = stockRows.length ? Number(stockRows[0].quantity) : 0;
-                if (item.quantity > available + 1e-9) {
-                  throw new Error(`INSUFFICIENT_STOCK: المخزن ${whId} — المادة ${item.inventoryItemId} المتاح ${available} المطلوب ${item.quantity}`);
-                }
-              }
               await tx`insert into inventory_movements (id, product_id, warehouse_id, movement_type, quantity, reference_type, reference_id)
-                       values (${item.id + '_mov'}, ${item.inventoryItemId}, ${whId}, ${inv.type}, ${qty}, 'invoice', ${inv.id})`;
+                       values (${item.id + '_mov'}, ${item.inventoryItemId}, ${whId}, ${inv.type}, ${qty}, 'invoice', ${inv.id})
+                       on conflict (id) do update set quantity=EXCLUDED.quantity, warehouse_id=EXCLUDED.warehouse_id, movement_type=EXCLUDED.movement_type`;
             }
           }
           const partyDebit = inv.type === 'sale' ? inv.total : 0;
@@ -132,21 +155,21 @@ export const syncLegacyData = createServerFn({ method: "POST" })
       
       
       // 5.5 Insert Transactions
-      for (const t of data.transactions) {
+      for (const t of transactions) {
         await tx`insert into financial_transactions (id, account_id, party_id, amount, debit, credit, reference_type, reference_id, description, created_at)
                  values (${t.id}, ${t.cashIn > 0 || t.cashOut > 0 ? 'cash' : (t.partyType === 'customer' ? 'accounts_receivable' : 'accounts_payable')}, ${t.partyId || null}, ${t.debit - t.credit}, ${t.debit}, ${t.credit}, ${t.documentType}, ${t.documentId}, ${t.description}, ${t.date})
                  on conflict (id) do update set amount=EXCLUDED.amount, debit=EXCLUDED.debit, credit=EXCLUDED.credit`;
       }
       
       // 6. Insert Vouchers
-      for (const v of data.vouchers) {
+      for (const v of vouchers) {
         await tx`insert into vouchers (id, voucher_number, type, party_type, party_id, amount, date, payment_method, description, created_at)
                  values (${v.id}, ${v.voucherNumber}, ${v.type}, ${v.partyType}, ${v.partyId || null}, ${v.amount}, ${v.date}, ${v.paymentMethod}, ${v.description}, ${v.createdAt})
                  on conflict (id) do update set amount=EXCLUDED.amount, date=EXCLUDED.date, payment_method=EXCLUDED.payment_method, description=EXCLUDED.description`;
       }
       
       // 7. Insert Expenses
-      for (const e of data.expenses) {
+      for (const e of expenses) {
         await tx`insert into expenses (id, category, amount, date, payment_method, type, description, created_at)
                  values (${e.id}, ${e.category}, ${e.amount}, ${e.date}, ${e.paymentMethod}, ${e.type}, ${e.description}, ${e.createdAt})
                  on conflict (id) do update set amount=EXCLUDED.amount, date=EXCLUDED.date, payment_method=EXCLUDED.payment_method, description=EXCLUDED.description`;

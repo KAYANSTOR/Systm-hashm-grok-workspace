@@ -21,6 +21,7 @@ export const PERMS = {
   PRODUCT_WRITE: "product.write",
   WAREHOUSE_WRITE: "warehouse.write",
   CATEGORY_WRITE: "category.write",
+  SYNC_WRITE: "sync.write",
   SETTINGS_WRITE: "settings.write",
   AUDIT_READ: "audit.read",
   REPORTS_READ: "reports.read",

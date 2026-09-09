@@ -39,6 +39,15 @@ function serverFail(userMessage: string, err: unknown) {
   try { toast.error(userMessage); } catch { /* SSR */ }
 }
 
+export function syncErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error || "");
+  if (/Unauthorized|401/i.test(message)) return "انتهت جلسة الدخول. سجّل الدخول ثم أعد المزامنة.";
+  if (/Forbidden|sync\.write|settings\.write|403/i.test(message)) return "حسابك لا يملك صلاحية مزامنة البيانات. اطلب من مدير النظام تفعيل صلاحية المزامنة.";
+  if (/Failed to fetch|NetworkError|offline|ERR_NETWORK/i.test(message)) return "تعذر الوصول إلى السحابة. تحقق من الإنترنت ثم أعد المحاولة.";
+  if (/INSUFFICIENT_STOCK/i.test(message)) return "تعذر استيراد حركة قديمة بسبب فحص المخزون. أعد المحاولة بعد تحديث التطبيق.";
+  return message && message.length < 180 ? `فشلت المزامنة: ${message}` : "فشلت المزامنة بسبب خطأ غير متوقع. راجع سجل الخادم.";
+}
+
 function applyBundle(get: any, set: any, result: any, failMsg: string) {
   if (!result.ok) {
     try {
@@ -384,13 +393,16 @@ export const useStore = create<Store>()(
           vouchers: s.vouchers,
           transactions: s.transactions,
           expenses: s.expenses,
-          settings: s.settings
+          settings: s.settings,
+          organization: s.organization,
+          warehouses: s.warehouses,
+          productCategories: s.productCategories
         }}).then(async () => {
           set({ connectionState: "online", pendingSyncCount: 0, lastSyncMessage: "تم ترحيل البيانات إلى السحابة بنجاح" });
           lastFetchAt = 0;
           await get().fetchFromDb();
         }).catch((error) => {
-          set({ connectionState: "offline", pendingSyncCount: 1, lastSyncMessage: "تعذّر الترحيل مؤقتًا، ستتم إعادة المحاولة تلقائيًا" });
+          set({ connectionState: "offline", pendingSyncCount: 1, lastSyncMessage: syncErrorMessage(error) });
           throw error;
         }).finally(() => { syncPromise = null; });
         return syncPromise;

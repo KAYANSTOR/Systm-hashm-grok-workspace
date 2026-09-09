@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
 import { toast } from "sonner";
-import { useStore } from "@/lib/store";
+import { syncErrorMessage, useStore } from "@/lib/store";
 import type { AppData } from "@/lib/types";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
@@ -111,8 +111,8 @@ function SettingsPage() {
     try {
       await syncLegacyDb();
       toast.success("تم رفع بيانات هذا الجهاز وتحديث النسخة المشتركة");
-    } catch {
-      toast.error("تعذرت المزامنة. ستبقى البيانات محفوظة على هذا الجهاز وتتم إعادة المحاولة لاحقًا.");
+    } catch (error) {
+      toast.error(`${syncErrorMessage(error)} ستبقى البيانات محفوظة على هذا الجهاز.`);
     } finally {
       setIsSyncing(false);
     }
