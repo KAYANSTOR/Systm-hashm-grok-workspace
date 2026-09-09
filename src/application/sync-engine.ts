@@ -2,24 +2,30 @@ import type { OutboxItem } from "../domain/outbox.ts";
 import { mergeOutboxStatus, pendingItems } from "../domain/outbox.ts";
 import { releaseOutboxClaim } from "../server/outbox-recovery";
 import { completeOutboxOperation } from "../server/outbox-completion";
+import { preflightOutboxConflict } from "../server/outbox-conflict";
 
 export type ApplyFn = (item: OutboxItem) => Promise<{ status: string; operationId?: string; reason?: string }>;
 export type FinalizeFn = (item: OutboxItem) => Promise<{ status: string; operationId?: string; reason?: string }>;
+export type ConflictPreflightFn = (item: OutboxItem) => Promise<{ status: string; reason?: string; conflictId?: string; baseVersion?: number; serverVersion?: number }>;
 
-/**
- * Drain pending outbox items in order.
- *
- * The server claim is now explicitly `processing` until this function finishes
- * the business mutation callback. Only then is the durable `applied` ACK set.
- * If the browser crashes after the claim but before mutation, the next retry
- * is still allowed to run the idempotent business mutation before finalizing.
- */
 export async function drainOutbox(
   items: OutboxItem[],
   apply: ApplyFn,
-  opts?: { maxAttempts?: number; finalize?: FinalizeFn },
+  opts?: { maxAttempts?: number; finalize?: FinalizeFn; preflight?: ConflictPreflightFn },
 ): Promise<OutboxItem[]> {
   const maxAttempts = opts?.maxAttempts ?? 8;
+  const preflight: ConflictPreflightFn = opts?.preflight ?? (async (item) =>
+    (await preflightOutboxConflict({
+      data: {
+        operationId: item.operationId,
+        operationType: item.operationType,
+        documentId: item.documentId,
+        orgId: item.orgId,
+        deviceId: item.deviceId,
+        payload: item.payload,
+      },
+    })) as any
+  );
   const finalize: FinalizeFn = opts?.finalize ?? (async (item) =>
     (await completeOutboxOperation({
       data: { operationId: item.operationId, deviceId: item.deviceId },
@@ -41,11 +47,19 @@ export async function drainOutbox(
     };
 
     try {
-      const res = await apply(next[i]);
+      const gate = await preflight(next[i]);
+      if (gate.status === "conflict") {
+        next[i] = {
+          ...next[i],
+          status: "failed",
+          lastError: `SYNC_CONFLICT:${gate.conflictId || "unknown"}:base=${gate.baseVersion ?? "?"}:server=${gate.serverVersion ?? "?"}`,
+          updatedAt: new Date().toISOString(),
+        };
+        continue;
+      }
 
+      const res = await apply(next[i]);
       if (res.status === "applied" || res.status === "duplicate") {
-        // The store callback performs the actual business mutation before it
-        // returns here. Finalize only after that mutation has completed.
         const finalized = await finalize(next[i]);
         if (
           finalized.status !== "completed" &&
@@ -54,7 +68,6 @@ export async function drainOutbox(
         ) {
           throw new Error(finalized.reason || finalized.status || "outbox_finalize_failed");
         }
-
         next[i] = {
           ...next[i],
           status: mergeOutboxStatus(next[i].status, "done"),
@@ -64,14 +77,9 @@ export async function drainOutbox(
       } else {
         try {
           await releaseOutboxClaim({
-            data: {
-              operationId: next[i].operationId,
-              deviceId: next[i].deviceId,
-            },
+            data: { operationId: next[i].operationId, deviceId: next[i].deviceId },
           });
-        } catch {
-          // Keep the item failed; retry can attempt recovery again.
-        }
+        } catch {}
         next[i] = {
           ...next[i],
           status: "failed",
@@ -82,14 +90,9 @@ export async function drainOutbox(
     } catch (e: any) {
       try {
         await releaseOutboxClaim({
-          data: {
-            operationId: next[i].operationId,
-            deviceId: next[i].deviceId,
-          },
+          data: { operationId: next[i].operationId, deviceId: next[i].deviceId },
         });
-      } catch {
-        // Preserve the failed item for retry.
-      }
+      } catch {}
       next[i] = {
         ...next[i],
         status: "failed",
