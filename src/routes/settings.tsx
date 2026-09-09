@@ -8,6 +8,7 @@ import {
   MapPin, 
   Phone, 
   RotateCcw, 
+  RefreshCw,
   Save, 
   Store, 
   Upload, 
@@ -33,6 +34,8 @@ function SettingsPage() {
   const [form, setForm] = useState(settings);
   const [orgForm, setOrgForm] = useState(org);
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const syncLegacyDb = useStore((s) => s.syncLegacyDb);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -87,6 +90,22 @@ function SettingsPage() {
       toast.success("تم استعادة البيانات بنجاح");
     } catch {
       toast.error("تعذر قراءة الملف. تأكد من صحة ملف النسخة الاحتياطية.");
+    }
+  };
+
+  const syncNow = async () => {
+    if (!isOnline) {
+      toast.error("لا يمكن المزامنة قبل عودة الإنترنت");
+      return;
+    }
+    setIsSyncing(true);
+    try {
+      await syncLegacyDb();
+      toast.success("تم رفع بيانات هذا الجهاز وتحديث النسخة المشتركة");
+    } catch {
+      toast.error("تعذرت المزامنة. ستبقى البيانات محفوظة على هذا الجهاز وتتم إعادة المحاولة لاحقًا.");
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -270,6 +289,15 @@ function SettingsPage() {
                 يعمل النظام بتقنية Offline-First، مما يتيح لك الاستمرار في العمل وإصدار الفواتير حتى في حال انقطاع الإنترنت. يتم حفظ كل شيء بأمان.
               </p>
             </div>
+            <button
+              type="button"
+              className="btn-primary mt-4 w-full py-3"
+              disabled={!isOnline || isSyncing}
+              onClick={() => void syncNow()}
+            >
+              <RefreshCw className={`size-5 ${isSyncing ? "animate-spin" : ""}`} />
+              {isSyncing ? "جارٍ رفع وتحديث البيانات…" : "مزامنة بيانات هذا الجهاز الآن"}
+            </button>
           </div>
         </section>
 

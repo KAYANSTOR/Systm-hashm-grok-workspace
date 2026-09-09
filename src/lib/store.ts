@@ -385,8 +385,10 @@ export const useStore = create<Store>()(
           transactions: s.transactions,
           expenses: s.expenses,
           settings: s.settings
-        }}).then(() => {
+        }}).then(async () => {
           set({ connectionState: "online", pendingSyncCount: 0, lastSyncMessage: "تم ترحيل البيانات إلى السحابة بنجاح" });
+          lastFetchAt = 0;
+          await get().fetchFromDb();
         }).catch((error) => {
           set({ connectionState: "offline", pendingSyncCount: 1, lastSyncMessage: "تعذّر الترحيل مؤقتًا، ستتم إعادة المحاولة تلقائيًا" });
           throw error;

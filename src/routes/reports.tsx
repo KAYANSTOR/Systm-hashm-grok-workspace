@@ -22,17 +22,21 @@ export const Route = createFileRoute("/reports")({ component: ReportsPage });
 
 type ReportTab = "overview" | "sales" | "cash" | "stock" | "party" | "activity";
 
+function arrayOrEmpty<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
 function ReportsPage() {
-  const invoices = useStore((s) => s.invoices);
-  const customers = useStore((s) => s.customers);
-  const suppliers = useStore((s) => s.suppliers);
-  const transactions = useStore((s) => s.transactions);
-  const inventory = useStore((s) => s.inventory);
-  const warehouseStocks = useStore((s) => s.warehouseStocks || []);
-  const expenses = useStore((s) => s.expenses);
-  const vouchers = useStore((s) => s.vouchers);
-  const warehouses = useStore((s) => s.warehouses || []);
-  const auditLog = useStore((s) => s.auditLog || []);
+  const invoices = useStore((s) => arrayOrEmpty<any>(s.invoices));
+  const customers = useStore((s) => arrayOrEmpty<any>(s.customers));
+  const suppliers = useStore((s) => arrayOrEmpty<any>(s.suppliers));
+  const transactions = useStore((s) => arrayOrEmpty<any>(s.transactions));
+  const inventory = useStore((s) => arrayOrEmpty<any>(s.inventory));
+  const warehouseStocks = useStore((s) => arrayOrEmpty<any>(s.warehouseStocks));
+  const expenses = useStore((s) => arrayOrEmpty<any>(s.expenses));
+  const vouchers = useStore((s) => arrayOrEmpty<any>(s.vouchers));
+  const warehouses = useStore((s) => arrayOrEmpty<any>(s.warehouses));
+  const auditLog = useStore((s) => arrayOrEmpty<any>(s.auditLog));
   const settings = useStore((s) => s.settings);
   const connectionState = useStore((s) => s.connectionState);
   const fetchFromDb = useStore((s) => s.fetchFromDb);
