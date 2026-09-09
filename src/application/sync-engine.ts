@@ -1,5 +1,6 @@
 import type { OutboxItem } from "../domain/outbox.ts";
 import { mergeOutboxStatus, pendingItems } from "../domain/outbox.ts";
+import { releaseOutboxClaim } from "../server/outbox-recovery";
 
 export type ApplyFn = (item: OutboxItem) => Promise<{ status: string; operationId?: string; reason?: string }>;
 
@@ -37,6 +38,14 @@ export async function drainOutbox(
           updatedAt: new Date().toISOString(),
         };
       } else {
+        // applyOutboxOperation claims idempotency before the legacy server
+        // mutation runs. If the mutation reports a non-success result, release
+        // that claim so the operation can be retried safely.
+        try {
+          await releaseOutboxClaim({ data: { operationId: next[i].operationId, deviceId: next[i].deviceId } });
+        } catch {
+          // Keep the item failed; the next retry can attempt the release again.
+        }
         next[i] = {
           ...next[i],
           status: "failed",
@@ -45,6 +54,15 @@ export async function drainOutbox(
         };
       }
     } catch (e: any) {
+      // A transport/server error can happen after the idempotency row was
+      // claimed but before the business mutation completed. Remove only our
+      // own claim; if the mutation actually committed, the processed row stays
+      // intact and the next retry will receive a duplicate ACK.
+      try {
+        await releaseOutboxClaim({ data: { operationId: next[i].operationId, deviceId: next[i].deviceId } });
+      } catch {
+        // Preserve the failed item for retry.
+      }
       next[i] = {
         ...next[i],
         status: "failed",
