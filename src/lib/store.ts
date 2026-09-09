@@ -174,9 +174,13 @@ export const useStore = create<Store>()(
           }
           return ack as any;
         });
-        const pending = outboxPendingCount(drained);
+        // Completed operations are durable on the server and must not remain in
+        // the local queue. Keeping them here makes a persisted snapshot look
+        // pending after reload and can repeatedly trigger synchronization.
+        const remaining = drained.filter((item) => item.status !== "done");
+        const pending = outboxPendingCount(remaining);
         set({
-          outbox: drained,
+          outbox: remaining,
           pendingSyncCount: pending,
           connectionState: pending > 0 ? "syncing" : "online",
           lastSyncMessage: pending > 0 ? "بعض العمليات بانتظار الترحيل" : "تمت مزامنة العمليات",
@@ -198,7 +202,10 @@ export const useStore = create<Store>()(
           set({ connectionState: "offline", lastSyncMessage: "أنت غير متصل — يتم عرض البيانات المحفوظة على الجهاز" });
           return;
         }
-        if (get().pendingSyncCount > 0) return get().syncLegacyDb();
+        // The persisted counter is only a display/status hint and may outlive
+        // the queue after a successful drain. Never use it to replay a full
+        // legacy snapshot; inspect the actual retryable operations instead.
+        if (outboxPendingCount(get().outbox) > 0) return get().drainPendingOutbox();
         fetchInFlight = true;
         lastFetchAt = now;
         try {
@@ -642,8 +649,10 @@ if (typeof window !== "undefined") {
   const debouncedSync = () => {
     if (syncTimeout) clearTimeout(syncTimeout);
     syncTimeout = setTimeout(() => {
-      if (navigator.onLine) {
-         useStore.getState().syncLegacyDb().catch(console.error);
+      if (!navigator.onLine) return;
+      const state = useStore.getState();
+      if (outboxPendingCount(state.outbox) > 0) {
+        state.drainPendingOutbox().catch(console.error);
       }
     }, 2000);
   };
@@ -666,11 +675,18 @@ if (typeof window !== "undefined") {
          state.vouchers !== prevState.vouchers ||
          state.expenses !== prevState.expenses
       ) {
-         useStore.setState({
-           pendingSyncCount: Math.max(1, state.pendingSyncCount),
-           connectionState: navigator.onLine ? "syncing" : "offline",
-         });
-         debouncedSync();
+         // A server refresh also changes these references. Only local
+         // operations represented in the retryable outbox may schedule a
+         // drain; otherwise every refresh would upload the whole snapshot
+         // again and again.
+         const pending = outboxPendingCount(state.outbox);
+         if (pending > 0) {
+           useStore.setState({
+             pendingSyncCount: pending,
+             connectionState: navigator.onLine ? "syncing" : "offline",
+           });
+           debouncedSync();
+         }
       }
   });
 
