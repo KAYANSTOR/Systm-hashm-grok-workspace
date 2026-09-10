@@ -11,7 +11,7 @@ export const listEmployees = createServerFn({ method: "GET" })
   .handler(async () => {
     await requirePermission(PERMS.EMPLOYEES_READ);
     const sql = await getSql();
-    return await sql`
+    return (await sql`
       select e.id, e.organization_id, e.name, e.phone, e.job_title, e.department,
              e.is_active, e.archived_at, e.created_at, e.updated_at,
              eu.user_id, coalesce(eu.is_active, true) as account_active,
@@ -24,7 +24,7 @@ export const listEmployees = createServerFn({ method: "GET" })
       where e.organization_id = 'default_org'
       group by e.id, eu.user_id, eu.is_active, u.email
       order by e.is_active desc, e.name asc
-    `;
+    `) as any[];
   });
 
 export const createEmployee = createServerFn({ method: "POST" })
@@ -105,7 +105,7 @@ export const setEmployeeRole = createServerFn({ method: "POST" })
       await tx`delete from user_roles where user_id=${rows[0].user_id}`;
       await tx`insert into user_roles (user_id, role_id) values (${rows[0].user_id}, ${roleId})`;
     });
-    return { employeeId, userId: rows[0].user_id, roleId };
+    return { employeeId, userId: String(rows[0].user_id), roleId };
   });
 
 export const createEmployeeAccount = createServerFn({ method: "POST" })
@@ -140,7 +140,7 @@ export const getEmployeeRoles = createServerFn({ method: "GET" })
   .handler(async () => {
     await requirePermission(PERMS.EMPLOYEES_READ);
     const sql = await getSql();
-    return await sql`select r.id, r.name, r.description, count(rp.permission_id)::int as permission_count from roles r left join role_permissions rp on rp.role_id=r.id group by r.id,r.name,r.description order by r.id`;
+    return (await sql`select r.id, r.name, r.description, count(rp.permission_id)::int as permission_count from roles r left join role_permissions rp on rp.role_id=r.id group by r.id,r.name,r.description order by r.id`) as any[];
   });
 
 export const createRole = createServerFn({ method: "POST" })
@@ -159,7 +159,7 @@ export const listPermissions = createServerFn({ method: "GET" })
   .handler(async () => {
     await requirePermission(ROLE_MANAGE);
     const sql = await getSql();
-    return await sql`select id,name from permissions order by id`;
+    return (await sql`select id,name from permissions order by id`) as any[];
   });
 
 export const listRolePermissionIds = createServerFn({ method: "GET" })

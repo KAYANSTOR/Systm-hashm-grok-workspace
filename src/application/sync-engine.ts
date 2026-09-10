@@ -1,12 +1,40 @@
 import type { OutboxItem } from "../domain/outbox.ts";
 import { mergeOutboxStatus, pendingItems } from "../domain/outbox.ts";
-import { releaseOutboxClaim } from "../server/outbox-recovery";
-import { completeOutboxOperation } from "../server/outbox-completion";
-import { preflightOutboxConflict } from "../server/outbox-conflict";
 
 export type ApplyFn = (item: OutboxItem) => Promise<{ status: string; operationId?: string; reason?: string }>;
 export type FinalizeFn = (item: OutboxItem) => Promise<{ status: string; operationId?: string; reason?: string }>;
 export type ConflictPreflightFn = (item: OutboxItem) => Promise<{ status: string; reason?: string; conflictId?: string; baseVersion?: number; serverVersion?: number }>;
+
+// Keep the pure sync engine importable in Node domain tests. The server
+// adapters are only loaded when production synchronization actually needs
+// their defaults; callers can inject deterministic adapters in tests.
+async function defaultPreflight(item: OutboxItem) {
+  const { preflightOutboxConflict } = await import("../server/outbox-conflict.ts");
+  return (await preflightOutboxConflict({
+    data: {
+      operationId: item.operationId,
+      operationType: item.operationType,
+      documentId: item.documentId,
+      orgId: item.orgId,
+      deviceId: item.deviceId,
+      payload: item.payload,
+    },
+  })) as any;
+}
+
+async function defaultFinalize(item: OutboxItem) {
+  const { completeOutboxOperation } = await import("../server/outbox-completion.ts");
+  return (await completeOutboxOperation({
+    data: { operationId: item.operationId, deviceId: item.deviceId },
+  })) as any;
+}
+
+async function releaseClaim(item: OutboxItem) {
+  const { releaseOutboxClaim } = await import("../server/outbox-recovery.ts");
+  await releaseOutboxClaim({
+    data: { operationId: item.operationId, deviceId: item.deviceId },
+  });
+}
 
 export async function drainOutbox(
   items: OutboxItem[],
@@ -14,23 +42,8 @@ export async function drainOutbox(
   opts?: { maxAttempts?: number; finalize?: FinalizeFn; preflight?: ConflictPreflightFn },
 ): Promise<OutboxItem[]> {
   const maxAttempts = opts?.maxAttempts ?? 8;
-  const preflight: ConflictPreflightFn = opts?.preflight ?? (async (item) =>
-    (await preflightOutboxConflict({
-      data: {
-        operationId: item.operationId,
-        operationType: item.operationType,
-        documentId: item.documentId,
-        orgId: item.orgId,
-        deviceId: item.deviceId,
-        payload: item.payload,
-      },
-    })) as any
-  );
-  const finalize: FinalizeFn = opts?.finalize ?? (async (item) =>
-    (await completeOutboxOperation({
-      data: { operationId: item.operationId, deviceId: item.deviceId },
-    })) as any
-  );
+  const preflight: ConflictPreflightFn = opts?.preflight ?? defaultPreflight;
+  const finalize: FinalizeFn = opts?.finalize ?? defaultFinalize;
 
   const next = items.map((i) => ({ ...i }));
   for (let i = 0; i < next.length; i++) {
@@ -76,10 +89,10 @@ export async function drainOutbox(
         };
       } else {
         try {
-          await releaseOutboxClaim({
-            data: { operationId: next[i].operationId, deviceId: next[i].deviceId },
-          });
-        } catch {}
+          await releaseClaim(next[i]);
+        } catch {
+          // The original apply error remains authoritative; claim cleanup is best-effort.
+        }
         next[i] = {
           ...next[i],
           status: "failed",
@@ -89,10 +102,10 @@ export async function drainOutbox(
       }
     } catch (e: any) {
       try {
-        await releaseOutboxClaim({
-          data: { operationId: next[i].operationId, deviceId: next[i].deviceId },
-        });
-      } catch {}
+        await releaseClaim(next[i]);
+      } catch {
+        // The original network/apply error remains authoritative.
+      }
       next[i] = {
         ...next[i],
         status: "failed",

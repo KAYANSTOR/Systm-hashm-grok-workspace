@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CashboxRouteImport } from './routes/cashbox'
+import { Route as EmployeesRouteImport } from './routes/employees'
 import { Route as ExpensesRouteImport } from './routes/expenses'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as PartiesRouteImport } from './routes/parties'
@@ -18,6 +19,7 @@ import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as SalesRouteImport } from './routes/sales'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as VouchersRouteImport } from './routes/vouchers'
+import { Route as SettingsAccessControlRouteImport } from './routes/settings.access-control'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({
@@ -28,6 +30,11 @@ const IndexRoute = IndexRouteImport.update({
 const CashboxRoute = CashboxRouteImport.update({
   id: '/cashbox',
   path: '/cashbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmployeesRoute = EmployeesRouteImport.update({
+  id: '/employees',
+  path: '/employees',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ExpensesRoute = ExpensesRouteImport.update({
@@ -65,6 +72,11 @@ const VouchersRoute = VouchersRouteImport.update({
   path: '/vouchers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsAccessControlRoute = SettingsAccessControlRouteImport.update({
+  id: '/access-control',
+  path: '/access-control',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -74,38 +86,44 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cashbox': typeof CashboxRoute
+  '/employees': typeof EmployeesRoute
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRoute
   '/parties': typeof PartiesRoute
   '/reports': typeof ReportsRoute
   '/sales': typeof SalesRoute
-  '/settings': typeof SettingsRoute
+  '/settings': typeof SettingsRouteWithChildren
   '/vouchers': typeof VouchersRoute
+  '/settings/access-control': typeof SettingsAccessControlRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cashbox': typeof CashboxRoute
+  '/employees': typeof EmployeesRoute
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRoute
   '/parties': typeof PartiesRoute
   '/reports': typeof ReportsRoute
   '/sales': typeof SalesRoute
-  '/settings': typeof SettingsRoute
+  '/settings': typeof SettingsRouteWithChildren
   '/vouchers': typeof VouchersRoute
+  '/settings/access-control': typeof SettingsAccessControlRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/cashbox': typeof CashboxRoute
+  '/employees': typeof EmployeesRoute
   '/expenses': typeof ExpensesRoute
   '/inventory': typeof InventoryRoute
   '/parties': typeof PartiesRoute
   '/reports': typeof ReportsRoute
   '/sales': typeof SalesRoute
-  '/settings': typeof SettingsRoute
+  '/settings': typeof SettingsRouteWithChildren
   '/vouchers': typeof VouchersRoute
+  '/settings/access-control': typeof SettingsAccessControlRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
@@ -113,6 +131,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/cashbox'
+    | '/employees'
     | '/expenses'
     | '/inventory'
     | '/parties'
@@ -120,11 +139,13 @@ export interface FileRouteTypes {
     | '/sales'
     | '/settings'
     | '/vouchers'
+    | '/settings/access-control'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/cashbox'
+    | '/employees'
     | '/expenses'
     | '/inventory'
     | '/parties'
@@ -132,11 +153,13 @@ export interface FileRouteTypes {
     | '/sales'
     | '/settings'
     | '/vouchers'
+    | '/settings/access-control'
     | '/api/auth/$'
   id:
     | '__root__'
     | '/'
     | '/cashbox'
+    | '/employees'
     | '/expenses'
     | '/inventory'
     | '/parties'
@@ -144,18 +167,20 @@ export interface FileRouteTypes {
     | '/sales'
     | '/settings'
     | '/vouchers'
+    | '/settings/access-control'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CashboxRoute: typeof CashboxRoute
+  EmployeesRoute: typeof EmployeesRoute
   ExpensesRoute: typeof ExpensesRoute
   InventoryRoute: typeof InventoryRoute
   PartiesRoute: typeof PartiesRoute
   ReportsRoute: typeof ReportsRoute
   SalesRoute: typeof SalesRoute
-  SettingsRoute: typeof SettingsRoute
+  SettingsRoute: typeof SettingsRouteWithChildren
   VouchersRoute: typeof VouchersRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
@@ -174,6 +199,13 @@ declare module '@tanstack/react-router' {
       path: '/cashbox'
       fullPath: '/cashbox'
       preLoaderRoute: typeof CashboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/employees': {
+      id: '/employees'
+      path: '/employees'
+      fullPath: '/employees'
+      preLoaderRoute: typeof EmployeesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/expenses': {
@@ -225,6 +257,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VouchersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/access-control': {
+      id: '/settings/access-control'
+      path: '/access-control'
+      fullPath: '/settings/access-control'
+      preLoaderRoute: typeof SettingsAccessControlRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -235,15 +274,28 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface SettingsRouteChildren {
+  SettingsAccessControlRoute: typeof SettingsAccessControlRoute
+}
+
+const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsAccessControlRoute: SettingsAccessControlRoute,
+}
+
+const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
+  SettingsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CashboxRoute: CashboxRoute,
+  EmployeesRoute: EmployeesRoute,
   ExpensesRoute: ExpensesRoute,
   InventoryRoute: InventoryRoute,
   PartiesRoute: PartiesRoute,
   ReportsRoute: ReportsRoute,
   SalesRoute: SalesRoute,
-  SettingsRoute: SettingsRoute,
+  SettingsRoute: SettingsRouteWithChildren,
   VouchersRoute: VouchersRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }

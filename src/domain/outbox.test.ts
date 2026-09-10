@@ -139,6 +139,9 @@ describe("sync drain", () => {
       calls++;
       if (item.operationId === "op1") return { status: "applied", operationId: "op1" };
       return { status: "duplicate", operationId: "op2" };
+    }, {
+      preflight: async () => ({ status: "ok" }),
+      finalize: async (item) => ({ status: "completed", operationId: item.operationId }),
     });
     assert.equal(calls, 2);
     assert.equal(drained.every((i) => i.status === "done"), true);
@@ -155,6 +158,9 @@ describe("sync drain", () => {
     ];
     const drained = await drainOutbox(items, async () => {
       throw new Error("network down");
+    }, {
+      preflight: async () => ({ status: "ok" }),
+      finalize: async (item) => ({ status: "completed", operationId: item.operationId }),
     });
     assert.equal(drained[0].status, "failed");
     assert.equal(drained[0].attempts, 1);
@@ -212,8 +218,8 @@ describe("multi-device offline merge", () => {
   });
 
   it("two offline sales on different docs produce independent stock effects when applied", () => {
-    let stateA = base();
-    let stateB = base();
+    const stateA = base();
+    const stateB = base();
     const invA = sale("invA");
     invA.items[0].quantity = 10;
     const invB = sale("invB");
