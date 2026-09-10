@@ -14,6 +14,8 @@ import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { APP_PROVIDERS } from "./providers";
 import { pgliteDialect } from "./pglite-dialect";
 import { APP_ISSUER_DEFAULT, PREVIEW_ALLOWED_HOSTS, PREVIEW_CLIENT_ID, PREVIEW_CLIENT_SECRET } from "./preview";
+import { phoneAccountEmailCandidates } from "./phone";
+import { createAuthMiddleware } from "@better-auth/core/api";
 
 void ensureDbReady();
 const globalAuthRef = globalThis as typeof globalThis & { __appAuthPreviewSecret__?: string };
@@ -81,6 +83,32 @@ const appOAuthPlugin = authConfigured
       })),
     })
   : null;
+const phoneIdentityPlugin = {
+  id: "phone-identity",
+  hooks: {
+    before: [
+      {
+        matcher: (ctx: { path?: string }) => ctx.path === "/sign-in/email",
+        handler: createAuthMiddleware(async (ctx) => {
+          const body = ctx.body as { email?: unknown };
+          const email = typeof body.email === "string" ? body.email : "";
+          if (!email.startsWith("phone-") || !email.endsWith("@accounts.hashem.local")) return;
+          const phone = email.slice("phone-".length, -"@accounts.hashem.local".length);
+          for (const candidate of phoneAccountEmailCandidates(phone)) {
+            const user = await ctx.context.adapter.findOne<{ email: string }>({
+              model: "user",
+              where: [{ field: "email", value: candidate }],
+            });
+            if (user?.email) {
+              body.email = user.email;
+              return;
+            }
+          }
+        }),
+      },
+    ],
+  },
+};
 
 export const auth = betterAuth({
   baseURL,
@@ -113,7 +141,7 @@ export const auth = betterAuth({
       dont_remember: { name: "__Host-app-auth.dont_remember" },
     },
   },
-  plugins: [gateIdentitySessions(), ...(appOAuthPlugin ? [appOAuthPlugin] : []), bearer(), tanstackStartCookies()],
+  plugins: [gateIdentitySessions(), phoneIdentityPlugin, ...(appOAuthPlugin ? [appOAuthPlugin] : []), bearer(), tanstackStartCookies()],
 });
 
 export function readSessionToken(): string | null {
