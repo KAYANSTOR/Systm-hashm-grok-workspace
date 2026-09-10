@@ -27,7 +27,7 @@ const env = (key: string): string | undefined => {
 };
 const authDisabled = env("VITE_AUTH_ENABLED") === "false";
 const appIssuer = env("APP_AUTH_ISSUER") ?? APP_ISSUER_DEFAULT;
-const appClientId = env("APP_AUTH_CLIENT_ID") ?? PREVIEW_CLIENT_ID;
+const appClientId = env("APP_CLIENT_ID") ?? PREVIEW_CLIENT_ID;
 const appClientSecret = env("APP_AUTH_CLIENT_SECRET") ?? PREVIEW_CLIENT_SECRET;
 export const authConfigured = !authDisabled && Boolean(appClientId && appClientSecret);
 const explicitBaseURL = env("BETTER_AUTH_URL");
@@ -41,6 +41,9 @@ const baseURL = explicitBaseURL ?? {
 
 const trustedOrigins: string[] = [
   ...(explicitBaseURL ? [explicitBaseURL] : []),
+  "https://systm-hashm-grok-workspace.vercel.app",
+  "https://systm-hashm-grok-workspace-kayanonlain-7126s-projects.vercel.app",
+  "https://systm-hashm-grok-workspace-git-main-kayanonlain-7126s-projects.vercel.app",
   "https://systm-hashm-grok.vercel.app",
   "https://systm-hashm-grok-kayanonlain-7126s-projects.vercel.app",
   "https://*.vercel.app",
