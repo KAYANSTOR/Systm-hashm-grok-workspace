@@ -1,6 +1,6 @@
 /**
  * Server permission gate — uses existing roles / permissions / role_permissions / user_roles.
- * Fail-closed when permission catalog is seeded and user lacks the required permission.
+ * Fail-closed whenever the permission catalog cannot be verified.
  * Also blocks suspended/archived employee accounts at the server boundary.
  */
 import { getSql } from "../lib/db";
@@ -59,6 +59,7 @@ async function catalogReady(sql: Awaited<ReturnType<typeof getSql>>): Promise<bo
     const rows = await sql`select count(*)::int as c from permissions`;
     return Number(rows[0]?.c || 0) > 0;
   } catch {
+    // A missing/unavailable permission catalog is never a reason to grant access.
     return false;
   }
 }
@@ -78,8 +79,8 @@ async function accountEnabled(sql: Awaited<ReturnType<typeof getSql>>, userId: s
     `;
     return rows.length > 0;
   } catch {
-    // Migration 0018 may not have run yet; preserve compatibility for existing users.
-    return true;
+    // Account state is security-sensitive; fail closed when it cannot be verified.
+    return false;
   }
 }
 
@@ -88,7 +89,7 @@ export async function userHasPermission(
   permission: PermissionId | string,
 ): Promise<boolean> {
   const sql = await getSql();
-  if (!(await catalogReady(sql))) return true;
+  if (!(await catalogReady(sql))) return false;
 
   const rows = await sql`
     select 1 as ok
@@ -115,7 +116,7 @@ export async function requirePermission(
 
 export async function listUserPermissions(userId: string): Promise<string[]> {
   const sql = await getSql();
-  if (!(await catalogReady(sql))) return Object.values(PERMS);
+  if (!(await catalogReady(sql))) return [];
   const rows = await sql`
     select distinct rp.permission_id as id
     from user_roles ur
