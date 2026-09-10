@@ -1,7 +1,8 @@
 -- Supabase production hardening.
 -- App data is accessed through trusted server-side Postgres connections; browser
--- clients must not receive direct table access. RLS therefore stays enabled with
--- no permissive policies until a browser-side Data API access path is introduced.
+-- clients must not receive direct table access. RLS stays enabled and direct
+-- anon/authenticated table privileges are revoked until a browser Data API path
+-- is deliberately introduced with matching organization-scoped policies.
 
 alter table public.user enable row level security;
 alter table public._migrations enable row level security;
@@ -32,6 +33,16 @@ alter table public.expenses enable row level security;
 alter table public.sync_conflicts enable row level security;
 alter table public.employees enable row level security;
 alter table public.employee_users enable row level security;
+
+revoke all on table public.user, public._migrations, public.session, public.account,
+  public.verification, public.roles, public.role_permissions, public.permissions,
+  public.warehouses, public.warehouse_stock, public.inventory_movements,
+  public.accounts, public.financial_transactions, public.product_categories,
+  public.audit_events, public.user_roles, public.invoice_items, public.audit_logs,
+  public.organization_profile, public.sync_outbox, public.processed_operations,
+  public.invoices, public.parties, public.products, public.vouchers, public.expenses,
+  public.sync_conflicts, public.employees, public.employee_users
+from anon, authenticated;
 
 alter function public.assign_default_operator_role()
   set search_path = public, pg_catalog;
