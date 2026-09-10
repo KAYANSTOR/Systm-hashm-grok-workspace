@@ -1,7 +1,7 @@
 /**
- * Server permission gate — uses existing roles / permissions / role_permissions / user_roles.
- * Fail-closed whenever the permission catalog cannot be verified.
- * Also blocks suspended/archived employee accounts at the server boundary.
+ * Server permission gate — uses the real roles / permissions tables.
+ * Access is fail-closed for normal users and accounts without an active employee linkage.
+ * A verified admin role is the explicit bootstrap path so the first employee can be created.
  */
 import { getSql } from "../lib/db";
 import {
@@ -59,13 +59,29 @@ async function catalogReady(sql: Awaited<ReturnType<typeof getSql>>): Promise<bo
     const rows = await sql`select count(*)::int as c from permissions`;
     return Number(rows[0]?.c || 0) > 0;
   } catch {
-    // A missing/unavailable permission catalog is never a reason to grant access.
     return false;
   }
 }
 
 async function accountEnabled(sql: Awaited<ReturnType<typeof getSql>>, userId: string): Promise<boolean> {
   if (userId === DEV_USER_ID && !authConfigured) return true;
+
+  // Bootstrap path: a database-seeded administrator is a valid application
+  // principal even before an employee profile exists. This is what permits the
+  // first real employee/user to be created without weakening normal RBAC.
+  try {
+    const adminRows = await sql`
+      select 1
+      from user_roles ur
+      where ur.user_id = ${userId}
+        and ur.role_id = 'admin'
+      limit 1
+    `;
+    if (adminRows.length > 0) return true;
+  } catch {
+    return false;
+  }
+
   try {
     const rows = await sql`
       select eu.user_id
@@ -79,7 +95,6 @@ async function accountEnabled(sql: Awaited<ReturnType<typeof getSql>>, userId: s
     `;
     return rows.length > 0;
   } catch {
-    // Account state is security-sensitive; fail closed when it cannot be verified.
     return false;
   }
 }
