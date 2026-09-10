@@ -4,3 +4,9 @@ dist/
 .env
 .env.*
 !.env.example
+.nitro/
+.output/
+artifacts/
+test-results/
+playwright-report/
+*.local.ts
