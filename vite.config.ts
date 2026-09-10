@@ -142,13 +142,13 @@ function authPopupPlugin(): Plugin {
   };
 }
 
-// `0.0.0.0:3000` is the live-preview contract — don't change host/port.
+// `0.0.0.0:8080` is the live-preview contract — don't change host/port.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
 export default defineConfig(({ command, isPreview }) => ({
   server: {
     host: "0.0.0.0",
-    port: 3000,
+    port: 8080,
     strictPort: true,
     allowedHosts: "all",
   },
@@ -169,6 +169,13 @@ export default defineConfig(({ command, isPreview }) => ({
       "react/jsx-dev-runtime",
       "use-sync-external-store",
       "use-sync-external-store/shim/with-selector",
+      // `pg` is CommonJS and must execute in Node during dev SSR; bundling it
+      // through Vite's ESM module runner makes its internal `require` fail.
+      "pg",
+      // PGlite resolves its bundled data/WASM relative to its own package.
+      // Externalizing it keeps that runtime asset available to the preview
+      // server instead of emitting a broken SSR-relative path.
+      "@electric-sql/pglite",
     ],
   },
   plugins: [

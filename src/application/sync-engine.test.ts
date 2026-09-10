@@ -34,6 +34,27 @@ test("finalizes only after the business apply callback succeeds", async () => {
   assert.equal(result[0].attempts, 1);
 });
 
+test("does not register or finalize an operation when its business mutation fails", async () => {
+  const events: string[] = [];
+  const result = await drainOutbox(
+    [item],
+    async () => {
+      events.push("business");
+      throw new Error("business mutation failed");
+    },
+    {
+      preflight: async () => ({ status: "ok" }),
+      finalize: async () => {
+        events.push("finalize");
+        return { status: "completed", operationId: item.operationId };
+      },
+    },
+  );
+
+  assert.deepEqual(events, ["business"]);
+  assert.equal(result[0].status, "failed");
+});
+
 test("a duplicate operation is still finalized after the business callback", async () => {
   let finalized = false;
   const result = await drainOutbox(

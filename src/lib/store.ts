@@ -53,7 +53,9 @@ function applyBundle(get: any, set: any, result: any, failMsg: string) {
     try {
       const code = result.error.code as keyof typeof ERROR_MESSAGES_AR;
       toast.error(result.error.message || ERROR_MESSAGES_AR[code]);
-    } catch {}
+    } catch {
+      // Toast is optional during SSR.
+    }
     return false;
   }
   const audit = result.value.audit;
@@ -147,7 +149,12 @@ export const useStore = create<Store>()(
           return;
         }
         const drained = await drainOutbox(items, async (item) => {
-          const ack = await applyOutboxOperation({ data: item });
+          // Apply the idempotent business projection before recording the
+          // operation claim.  Previously the claim was written first and the
+          // mutation was sent in a second request: a disconnect in between
+          // made a retry look like a duplicate and silently lost the change.
+          // Each repository mutation is document-idempotent, so a retry in
+          // this small pre-claim window safely converges to the same state.
           const p = item.payload as any;
           if (item.operationType === "invoice.save" || item.operationType === "invoice.approve") {
             await saveInvoice({ data: p });
@@ -172,7 +179,11 @@ export const useStore = create<Store>()(
           } else if (item.operationType === "product.delete") {
             await deleteProduct({ data: { id: p?.id || item.documentId } });
           }
-          return ack as any;
+
+          // The durable idempotency claim and audit event are written only
+          // after the business transaction succeeded.  drainOutbox finalizes
+          // this processing claim into the durable ACK in its next step.
+          return await applyOutboxOperation({ data: item }) as any;
         });
         // Completed operations are durable on the server and must not remain in
         // the local queue. Keeping them here makes a persisted snapshot look
@@ -603,7 +614,7 @@ export const useStore = create<Store>()(
           if (data.isActive === false) {
             const used = s.inventory.some((i) => i.category === id || i.category === cat?.name);
             if (used) {
-              try { toast.error("لا يمكن تعطيل فئة مرتبطة بأصناف — عطّل الأصناف أولاً أو أبقِ الفئة"); } catch {}
+              try { toast.error("لا يمكن تعطيل فئة مرتبطة بأصناف — عطّل الأصناف أولاً أو أبقِ الفئة"); } catch { /* Toast is optional during SSR. */ }
               return s;
             }
           }
