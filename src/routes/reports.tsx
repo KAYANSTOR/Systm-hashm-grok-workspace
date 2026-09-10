@@ -75,8 +75,14 @@ function ReportsPage() {
   const receipts = useMemo(() => vouchers.filter((v) => v.type === "receipt" && inRange(v.date)).reduce((sum, v) => sum + num(v.amount), 0), [vouchers, from, to]);
 
   const cash = useMemo(() => {
-    const normalized = transactions.map((t) => ({ ...t, debit: num(t.debit), credit: num(t.credit), cashIn: num(t.cashIn), cashOut: num(t.cashOut) }));
-    return num(cashBalance({ transactions: normalized } as any));
+    const normalized = transactions.map((t) => ({
+      ...t,
+      debit: num(t.debit),
+      credit: num(t.credit),
+      cashIn: num(t.cashIn),
+      cashOut: num(t.cashOut),
+    }));
+    return num(cashBalance(normalized as any));
   }, [transactions]);
 
   const partyRunning = useMemo(() => {
