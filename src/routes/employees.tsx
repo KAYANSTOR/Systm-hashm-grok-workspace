@@ -7,6 +7,7 @@ import {
   createEmployeeAccount,
   getEmployeeRoles,
   listEmployees,
+  resetEmployeePassword,
   setEmployeeAccountStatus,
   setEmployeeRole,
 } from "../server/employees";
@@ -88,6 +89,13 @@ export default function EmployeesPage() {
     catch (e) { setError(e instanceof Error ? e.message : "تعذر تحديث حالة الحساب"); }
   }
 
+  async function onResetPassword(employeeId: string) {
+    const password = window.prompt("اكتب كلمة مرور جديدة للحساب (8 أحرف على الأقل):") || "";
+    if (password.length < 8) { setError("كلمة المرور يجب ألا تقل عن 8 أحرف"); return; }
+    try { await resetEmployeePassword({ data: { employeeId, password } }); setError(""); window.alert("تم تغيير كلمة المرور. استخدم الرقم وكلمة المرور الجديدة للدخول."); }
+    catch (e) { setError(e instanceof Error ? e.message : "تعذر تغيير كلمة المرور"); }
+  }
+
   return (
     <main dir="rtl" className="min-h-screen bg-stone-100 p-6 text-zinc-900">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -116,7 +124,7 @@ export default function EmployeesPage() {
         <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
           <div className="border-b border-zinc-200 p-4 font-semibold">قائمة الموظفين</div>
           {loading ? <div className="p-6 text-sm text-zinc-500">جاري التحميل…</div> : <div className="overflow-x-auto"><table className="min-w-full text-sm"><thead className="bg-zinc-50 text-zinc-500"><tr><th className="px-4 py-3 text-right">الموظف</th><th className="px-4 py-3 text-right">الحساب</th><th className="px-4 py-3 text-right">الحالة</th><th className="px-4 py-3 text-right">الدور</th><th className="px-4 py-3 text-right">الإجراء</th></tr></thead>
-            <tbody className="divide-y divide-zinc-100">{employees.map((e) => <tr key={e.id} className={!e.is_active ? "opacity-50" : ""}><td className="px-4 py-3"><div className="font-medium">{e.name}</div><div className="text-xs text-zinc-500">{e.phone || "—"}</div></td><td className="px-4 py-3">{e.user_id ? "مرتبط بحساب دخول" : "غير مرتبط"}</td><td className="px-4 py-3">{e.user_id ? <button type="button" onClick={() => void onAccountStatus(e.id, e.account_active !== true)} className={`rounded-full px-3 py-1 text-xs font-bold ${e.account_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{e.account_active ? "حساب فعال" : "حساب موقوف"}</button> : <span className="text-zinc-400">بدون حساب</span>}</td><td className="px-4 py-3">{e.user_id ? <select className="rounded-lg border px-2 py-1" value={e.roles?.[0] || "viewer"} onChange={(ev) => void onRole(e.id, ev.target.value)}>{roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select> : "—"}</td><td className="px-4 py-3">{e.is_active && <button type="button" onClick={() => void onArchive(e.id)} className="rounded-lg border border-red-200 px-3 py-1 text-red-700">أرشفة</button>}</td></tr>)}
+            <tbody className="divide-y divide-zinc-100">{employees.map((e) => <tr key={e.id} className={!e.is_active ? "opacity-50" : ""}><td className="px-4 py-3"><div className="font-medium">{e.name}</div><div className="text-xs text-zinc-500">{e.phone || "—"}</div></td><td className="px-4 py-3">{e.user_id ? "مرتبط بحساب دخول" : "غير مرتبط"}</td><td className="px-4 py-3">{e.user_id ? <button type="button" onClick={() => void onAccountStatus(e.id, e.account_active !== true)} className={`rounded-full px-3 py-1 text-xs font-bold ${e.account_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{e.account_active ? "حساب فعال" : "حساب موقوف"}</button> : <span className="text-zinc-400">بدون حساب</span>}</td><td className="px-4 py-3">{e.user_id ? <select className="rounded-lg border px-2 py-1" value={e.roles?.[0] || "viewer"} onChange={(ev) => void onRole(e.id, ev.target.value)}>{roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select> : "—"}</td><td className="flex flex-wrap gap-2 px-4 py-3">{e.user_id && e.is_active && <button type="button" onClick={() => void onResetPassword(e.id)} className="rounded-lg border border-amber-300 px-3 py-1 text-amber-800">تغيير كلمة المرور</button>}{e.is_active && <button type="button" onClick={() => void onArchive(e.id)} className="rounded-lg border border-red-200 px-3 py-1 text-red-700">أرشفة</button>}</td></tr>)}
             {!employees.length && <tr><td colSpan={5} className="p-8 text-center text-zinc-500">لا يوجد موظفون بعد.</td></tr>}</tbody></table></div>}
         </section>
       </div>

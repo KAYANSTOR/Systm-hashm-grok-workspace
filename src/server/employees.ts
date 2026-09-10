@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { auth } from "../lib/auth/server";
+import { hashPassword } from "better-auth/crypto";
 import { getSql } from "../lib/db";
 import { requirePermission, PERMS, userHasPermission } from "./permissions.ts";
 import { normalizePhone } from "../lib/auth/phone";
@@ -174,6 +175,29 @@ export const createEmployeeAccount = createServerFn({ method: "POST" })
       await tx`insert into user_roles (user_id,role_id) values (${userId},${roleId}) on conflict do nothing`;
     });
     return { employeeId, userId, roleId, phone };
+  });
+
+export const resetEmployeePassword = createServerFn({ method: "POST" })
+  .validator((data: { employeeId: string; password: string }) => data)
+  .handler(async ({ data }) => {
+    await requirePermission(USER_MANAGE);
+    const employeeId = String(data.employeeId || "").trim();
+    const password = String(data.password || "");
+    if (!employeeId || password.length < 8) throw new Error("رقم الموظف وكلمة مرور من 8 أحرف مطلوبان");
+    const sql = await getSql();
+    const rows = await sql`
+      select eu.user_id
+      from employee_users eu join employees e on e.id=eu.employee_id
+      where eu.employee_id=${employeeId} and e.organization_id='default_org' and e.is_active=true
+      limit 1
+    `;
+    if (!rows.length) throw new Error("لا يوجد حساب دخول فعال لهذا الموظف");
+    const passwordHash = await hashPassword(password);
+    await sql`
+      update "account" set "password"=${passwordHash}, "updatedAt"=now()
+      where "userId"=${String(rows[0].user_id)} and "providerId"='credential'
+    `;
+    return { employeeId };
   });
 
 export const getEmployeeRoles = createServerFn({ method: "GET" }).handler(async () => {
