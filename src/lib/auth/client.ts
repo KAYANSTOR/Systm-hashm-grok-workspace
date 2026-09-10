@@ -2,6 +2,7 @@ import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { runPreSignInSignOut, runSignOut } from "../../../scripts/sign-out-plan.mjs";
 import { APP_PROVIDERS } from "./providers";
+import { phoneAccountEmail, phoneAccountEmailCandidates } from "./phone";
 
 /**
  * Better Auth client for this React SPA (browser-side).
@@ -21,18 +22,24 @@ export const authClient = createAuthClient({
 
 export const authEnabled = import.meta.env.VITE_AUTH_ENABLED !== "false";
 
-export function phoneAccountEmail(phone: string): string {
-  const digits = phone.replace(/\D/g, "");
-  return `phone-${digits}@accounts.hashem.local`;
-}
+export { phoneAccountEmail } from "./phone";
 
 /** Credential login asks Better Auth to remember this device. */
 export async function signInWithPhone(phone: string, password: string) {
-  return authClient.signIn.email({
+  let lastResult = await authClient.signIn.email({
     email: phoneAccountEmail(phone),
     password,
     rememberMe: true,
   });
+  // Existing accounts may contain a country code or trunk zero in the
+  // synthetic email identity. Try those legacy identities transparently.
+  for (const email of phoneAccountEmailCandidates(phone).filter(
+    (candidate) => candidate !== phoneAccountEmail(phone),
+  )) {
+    if (!lastResult.error) break;
+    lastResult = await authClient.signIn.email({ email, password, rememberMe: true });
+  }
+  return lastResult;
 }
 
 /** Kept for internal compatibility; public self-registration is disabled by the UI. */

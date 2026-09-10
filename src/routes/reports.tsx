@@ -85,7 +85,7 @@ function ReportsPage() {
     return num(cashBalance(normalized as any));
   }, [transactions]);
 
-  const partyRunning = useMemo(() => {
+  const partyRunning = useMemo<AnyRow[]>(() => {
     if (partyId === "all") return [];
     let balance = 0;
     return transactions
@@ -101,7 +101,7 @@ function ReportsPage() {
   }, [transactions, partyId]);
   const partyBalance = partyRunning.at(-1)?.running ?? 0;
 
-  const stockRows = useMemo(() => {
+  const stockRows = useMemo<AnyRow[]>(() => {
     return inventory
       .filter((i) => !q || String(i.name ?? "").toLowerCase().includes(q.toLowerCase()))
       .map((i) => {
@@ -110,7 +110,7 @@ function ReportsPage() {
           : warehouseStocks.filter((s) => String(s.productId) === String(i.id) && String(s.warehouseId) === warehouseId).reduce((sum, s) => sum + num(s.quantity), 0);
         const costPrice = num(i.costPrice);
         const minQuantity = num(i.minQuantity);
-        return { ...i, quantity, costPrice, status: quantity <= 0 ? "نفد" : quantity <= minQuantity ? "منخفض" : "متوفر" };
+        return { ...i, quantity, costPrice, status: quantity <= 0 ? "نفد" : quantity <= minQuantity ? "منخفض" : "متوفر" } as AnyRow;
       })
       .filter((i) => warehouseId === "all" || i.quantity > 0 || warehouseStocks.some((s) => String(s.productId) === String(i.id) && String(s.warehouseId) === warehouseId));
   }, [inventory, warehouseStocks, warehouseId, q]);

@@ -2,15 +2,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { auth } from "../lib/auth/server";
 import { getSql } from "../lib/db";
 import { requirePermission, PERMS, userHasPermission } from "./permissions.ts";
+import { normalizePhone } from "../lib/auth/phone";
 
 const EMPLOYEE_MANAGE = "employees.manage";
 const USER_MANAGE = "users.manage";
 const ROLE_MANAGE = "roles.manage";
 const ADMIN_ROLE = "admin";
-
-function normalizePhone(value: unknown): string {
-  return String(value ?? "").replace(/\D/g, "");
-}
 
 function employeeLoginEmail(phone: string): string {
   return `phone-${phone}@accounts.hashem.local`;
