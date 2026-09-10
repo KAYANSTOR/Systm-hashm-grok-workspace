@@ -1,15 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { FileText, Printer, Search } from "lucide-react";
+import { FileText, Printer, RefreshCw, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AppDatePicker } from "@/components/ui/AppDatePicker";
 import { AppSelect } from "@/components/ui/AppSelect";
 import { EmptyState } from "@/components/empty-state";
@@ -19,25 +11,27 @@ import { useStore } from "@/lib/store";
 import { daysAgoIso, formatCurrency, formatDate, formatMoney, todayIso } from "@/lib/utils";
 
 export const Route = createFileRoute("/reports")({ component: ReportsPage });
-
 type ReportTab = "overview" | "sales" | "cash" | "stock" | "party" | "activity";
+type AnyRow = Record<string, any>;
 
-function arrayOrEmpty<T>(value: unknown): T[] {
-  return Array.isArray(value) ? value : [];
-}
+const rows = <T,>(value: unknown): T[] => (Array.isArray(value) ? value : []);
+const num = (value: unknown): number => {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+const day = (value: unknown) => String(value ?? "").slice(0, 10);
 
 function ReportsPage() {
-  const invoices = useStore((s) => arrayOrEmpty<any>(s.invoices));
-  const customers = useStore((s) => arrayOrEmpty<any>(s.customers));
-  const suppliers = useStore((s) => arrayOrEmpty<any>(s.suppliers));
-  const transactions = useStore((s) => arrayOrEmpty<any>(s.transactions));
-  const inventory = useStore((s) => arrayOrEmpty<any>(s.inventory));
-  const warehouseStocks = useStore((s) => arrayOrEmpty<any>(s.warehouseStocks));
-  const expenses = useStore((s) => arrayOrEmpty<any>(s.expenses));
-  const vouchers = useStore((s) => arrayOrEmpty<any>(s.vouchers));
-  const warehouses = useStore((s) => arrayOrEmpty<any>(s.warehouses));
-  const auditLog = useStore((s) => arrayOrEmpty<any>(s.auditLog));
-  const settings = useStore((s) => s.settings);
+  const invoices = useStore((s) => rows<AnyRow>(s.invoices));
+  const customers = useStore((s) => rows<AnyRow>(s.customers));
+  const suppliers = useStore((s) => rows<AnyRow>(s.suppliers));
+  const transactions = useStore((s) => rows<AnyRow>(s.transactions));
+  const inventory = useStore((s) => rows<AnyRow>(s.inventory));
+  const warehouseStocks = useStore((s) => rows<AnyRow>(s.warehouseStocks));
+  const expenses = useStore((s) => rows<AnyRow>(s.expenses));
+  const vouchers = useStore((s) => rows<AnyRow>(s.vouchers));
+  const warehouses = useStore((s) => rows<AnyRow>(s.warehouses));
+  const auditLog = useStore((s) => rows<AnyRow>(s.auditLog));
   const connectionState = useStore((s) => s.connectionState);
   const fetchFromDb = useStore((s) => s.fetchFromDb);
 
@@ -48,385 +42,155 @@ function ReportsPage() {
   const [warehouseId, setWarehouseId] = useState("all");
   const [q, setQ] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [dataError, setDataError] = useState("");
 
-  useEffect(() => {
-    void fetchFromDb().catch(() => undefined);
-  }, [fetchFromDb]);
+  const refresh = async () => {
+    setRefreshing(true);
+    setDataError("");
+    try {
+      await fetchFromDb();
+    } catch (error) {
+      setDataError(error instanceof Error ? error.message : "تعذر تحديث بيانات التقارير");
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
-  const inRange = (date: string) => {
-    const day = String(date || "").slice(0, 10);
-    return day >= from && day <= to;
+  useEffect(() => { void refresh(); }, [fetchFromDb]);
+
+  const validRange = from <= to;
+  const inRange = (value: unknown) => {
+    const d = day(value);
+    return validRange && Boolean(d) && d >= from && d <= to;
   };
 
   const sales = useMemo(
-    () =>
-      invoices.filter(
-        (i) =>
-          i.type === "sale" &&
-          i.isApproved &&
-          !i.isCancelled &&
-          inRange(i.date) &&
-          (partyId === "all" || i.partyId === partyId),
-      ),
+    () => invoices.filter((i) => i.type === "sale" && i.isApproved && !i.isCancelled && inRange(i.date) && (partyId === "all" || String(i.partyId) === partyId)),
     [invoices, from, to, partyId],
   );
+  const salesTotal = useMemo(() => sales.reduce((sum, i) => sum + num(i.total), 0), [sales]);
+  const collected = useMemo(() => sales.reduce((sum, i) => sum + num(i.paidAmount), 0), [sales]);
+  const expenseTotal = useMemo(() => expenses.filter((e) => inRange(e.date)).reduce((sum, e) => sum + num(e.amount), 0), [expenses, from, to]);
+  const receipts = useMemo(() => vouchers.filter((v) => v.type === "receipt" && inRange(v.date)).reduce((sum, v) => sum + num(v.amount), 0), [vouchers, from, to]);
 
-  const salesTotal = sales.reduce((s, i) => s + i.total, 0);
-  const collected = sales.reduce((s, i) => s + i.paidAmount, 0);
-  const expenseTotal = expenses.filter((e) => inRange(e.date)).reduce((s, e) => s + e.amount, 0);
-  const receipts = vouchers
-    .filter((v) => v.type === "receipt" && inRange(v.date))
-    .reduce((s, v) => s + v.amount, 0);
-  const cash = cashBalance({ transactions } as any);
-
-  // Party ledger from transactions (open account — not invoice allocation)
-  const partyLedger = useMemo(() => {
-    if (partyId === "all") return [];
-    return transactions
-      .filter((t) => t.partyId === partyId)
-      .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
-  }, [transactions, partyId]);
+  const cash = useMemo(() => {
+    const normalized = transactions.map((t) => ({ ...t, debit: num(t.debit), credit: num(t.credit), cashIn: num(t.cashIn), cashOut: num(t.cashOut) }));
+    return num(cashBalance({ transactions: normalized } as any));
+  }, [transactions]);
 
   const partyRunning = useMemo(() => {
-    let bal = 0;
-    return partyLedger.map((t) => {
-      const delta = (t.debit || 0) - (t.credit || 0);
-      // customer: debit increases receivable; supplier inverse already in posted signs
-      bal += delta;
-      return { ...t, running: bal };
-    });
-  }, [partyLedger]);
-
-  const partyBalance = partyRunning.length ? partyRunning[partyRunning.length - 1].running : 0;
-
-  const chart = useMemo(() => {
-    const map = new Map<string, number>();
-    for (let n = 6; n >= 0; n--) map.set(daysAgoIso(n), 0);
-    for (const inv of sales) {
-      const day = inv.date.slice(0, 10);
-      if (map.has(day)) map.set(day, (map.get(day) || 0) + inv.total);
-    }
-    return [...map.entries()].map(([date, total]) => ({ date: date.slice(5), total }));
-  }, [sales]);
+    if (partyId === "all") return [];
+    let balance = 0;
+    return transactions
+      .filter((t) => String(t.partyId) === partyId)
+      .slice()
+      .sort((a, b) => day(a.date).localeCompare(day(b.date)) || String(a.id).localeCompare(String(b.id)))
+      .map((t) => {
+        const debit = num(t.debit);
+        const credit = num(t.credit);
+        balance += debit - credit;
+        return { ...t, debit, credit, running: balance };
+      });
+  }, [transactions, partyId]);
+  const partyBalance = partyRunning.at(-1)?.running ?? 0;
 
   const stockRows = useMemo(() => {
     return inventory
-      .filter((i) => {
-        if (q && !i.name.includes(q)) return false;
-        return true;
-      })
+      .filter((i) => !q || String(i.name ?? "").toLowerCase().includes(q.toLowerCase()))
       .map((i) => {
-        const qty =
-          warehouseId === "all"
-            ? i.quantity
-            : warehouseStocks
-                .filter((s) => s.productId === i.id && s.warehouseId === warehouseId)
-                .reduce((sum, s) => sum + s.quantity, 0);
-        return {
-          ...i,
-          quantity: qty,
-          status: qty <= 0 ? "نفد" : qty <= i.minQuantity ? "منخفض" : "متوفر",
-        };
+        const quantity = warehouseId === "all"
+          ? num(i.quantity)
+          : warehouseStocks.filter((s) => String(s.productId) === String(i.id) && String(s.warehouseId) === warehouseId).reduce((sum, s) => sum + num(s.quantity), 0);
+        const costPrice = num(i.costPrice);
+        const minQuantity = num(i.minQuantity);
+        return { ...i, quantity, costPrice, status: quantity <= 0 ? "نفد" : quantity <= minQuantity ? "منخفض" : "متوفر" };
       })
-      .filter((i) => warehouseId === "all" || i.quantity > 0 || warehouseStocks.some((s) => s.productId === i.id && s.warehouseId === warehouseId));
-  }, [inventory, q, warehouseId, warehouseStocks]);
+      .filter((i) => warehouseId === "all" || i.quantity > 0 || warehouseStocks.some((s) => String(s.productId) === String(i.id) && String(s.warehouseId) === warehouseId));
+  }, [inventory, warehouseStocks, warehouseId, q]);
+  const stockValue = useMemo(() => stockRows.reduce((sum, i) => sum + num(i.quantity) * num(i.costPrice), 0), [stockRows]);
 
-  const stockValue = inventory.reduce((s, i) => s + i.quantity * i.costPrice, 0);
+  const chart = useMemo(() => {
+    if (!validRange) return [];
+    const start = new Date(`${from}T00:00:00`);
+    const end = new Date(`${to}T00:00:00`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return [];
+    const maxDays = 31;
+    const span = Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
+    if (span > maxDays) end.setTime(start.getTime() + (maxDays - 1) * 86400000);
+    const totals = new Map<string, number>();
+    for (const invoice of sales) {
+      const d = day(invoice.date);
+      totals.set(d, num(totals.get(d)) + num(invoice.total));
+    }
+    const result: { date: string; total: number }[] = [];
+    for (let cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+      const d = cursor.toISOString().slice(0, 10);
+      result.push({ date: d.slice(5), total: num(totals.get(d)) });
+    }
+    return result;
+  }, [sales, from, to, validRange]);
 
-  const partyOptions = [
+  const parties = [
     { value: "all", label: "كل الأطراف" },
-    ...customers.map((c) => ({ value: c.id, label: c.name, description: "عميل" })),
-    ...suppliers.map((s) => ({ value: s.id, label: s.name, description: "مورد" })),
+    ...customers.map((c) => ({ value: String(c.id), label: String(c.name), description: "عميل" })),
+    ...suppliers.map((s) => ({ value: String(s.id), label: String(s.name), description: "مورد" })),
   ];
-
   const warehouseOptions = [
     { value: "all", label: "كل المخازن" },
-    ...warehouses.filter((w) => w.isActive).map((w) => ({ value: w.id, label: w.name })),
+    ...warehouses.filter((w) => w.isActive).map((w) => ({ value: String(w.id), label: String(w.name) })),
   ];
-
   const tabs: { id: ReportTab; label: string }[] = [
-    { id: "overview", label: "ملخص" },
-    { id: "sales", label: "المبيعات" },
-    { id: "cash", label: "الصندوق" },
-    { id: "stock", label: "المخزون" },
-    { id: "party", label: "كشف حساب" },
-    { id: "activity", label: "العمليات" },
+    { id: "overview", label: "ملخص" }, { id: "sales", label: "المبيعات" }, { id: "cash", label: "الصندوق" },
+    { id: "stock", label: "المخزون" }, { id: "party", label: "كشف حساب" }, { id: "activity", label: "العمليات" },
   ];
-
   const detail = detailId ? auditLog.find((a) => a.auditId === detailId) : null;
-  const isLoading = connectionState === "syncing" && !invoices.length && !customers.length && !inventory.length;
+  const loading = connectionState === "syncing" && !invoices.length && !customers.length && !inventory.length;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="page-title">التقارير</h1>
-          <p className="text-sm text-muted">من مصادر الحقيقة: القيود · الحركات · المستندات</p>
+        <div><h1 className="page-title">التقارير</h1><p className="text-sm text-muted">من مصادر الحقيقة: القيود · الحركات · المستندات</p></div>
+        <div className="flex gap-2">
+          <button type="button" className="btn-secondary" disabled={refreshing} onClick={() => void refresh()}><RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} />تحديث</button>
+          <button type="button" className="btn-secondary" onClick={() => window.print()}><Printer className="size-4" />طباعة</button>
         </div>
-        <button type="button" className="btn-secondary" onClick={() => window.print()}>
-          <Printer className="size-4" />
-          طباعة
-        </button>
       </div>
 
       <div className="card space-y-3 p-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <AppDatePicker label="من تاريخ" value={from} onChange={setFrom} />
           <AppDatePicker label="إلى تاريخ" value={to} onChange={setTo} />
-          <AppSelect label="الطرف" value={partyId} onChange={setPartyId} options={partyOptions} searchable />
-          <AppSelect
-            label="المخزن"
-            value={warehouseId}
-            onChange={setWarehouseId}
-            options={warehouseOptions}
-            searchable={false}
-          />
+          <AppSelect label="الطرف" value={partyId} onChange={setPartyId} options={parties} searchable />
+          <AppSelect label="المخزن" value={warehouseId} onChange={setWarehouseId} options={warehouseOptions} searchable={false} />
         </div>
-        <div className="flex flex-wrap gap-2">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className={`rounded-xl px-3 py-2 text-xs font-bold transition ${
-                tab === t.id ? "bg-brand text-brand-fg" : "bg-canvas text-muted hover:bg-brand-soft"
-              }`}
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        {!validRange && <p className="rounded-xl bg-bad/10 px-3 py-2 text-xs font-bold text-bad">تاريخ البداية يجب أن يكون قبل تاريخ النهاية.</p>}
+        {dataError && <p className="rounded-xl bg-bad/10 px-3 py-2 text-xs font-bold text-bad">تعذر تحديث البيانات: {dataError}</p>}
+        <div className="flex flex-wrap gap-2">{tabs.map((t) => <button key={t.id} type="button" disabled={!validRange} onClick={() => setTab(t.id)} className={`rounded-xl px-3 py-2 text-xs font-bold transition ${tab === t.id ? "bg-brand text-brand-fg" : "bg-canvas text-muted hover:bg-brand-soft"}`}>{t.label}</button>)}</div>
       </div>
-      {isLoading ? (
-        <div className="card p-8 text-center text-sm font-bold text-muted" role="status">
-          جاري تحميل بيانات التقارير…
-        </div>
-      ) : null}
 
-      {tab === "overview" && (
-        <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Kpi title="مبيعات الفترة" value={formatCurrency(salesTotal)} />
-            <Kpi title="المقبوض (فواتير)" value={formatCurrency(collected)} />
-            <Kpi title="سندات قبض" value={formatCurrency(receipts)} />
-            <Kpi title="مصروفات" value={formatCurrency(expenseTotal)} />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Kpi title="رصيد الصندوق (من القيود)" value={formatCurrency(cash)} />
-            <Kpi title="قيمة المخزون (تكلفة)" value={formatCurrency(stockValue)} />
-          </div>
-          <div className="card p-4">
-            <h2 className="mb-3 font-black">مبيعات آخر 7 أيام</h2>
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chart}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} width={48} />
-                  <Tooltip formatter={(v: number) => formatMoney(v)} />
-                  <Bar dataKey="total" fill="var(--color-brand)" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </>
-      )}
+      {loading && <div className="card p-8 text-center text-sm font-bold text-muted" role="status">جاري تحميل بيانات التقارير…</div>}
 
-      {tab === "sales" && (
-        <div className="card overflow-hidden">
-          <div className="border-b border-line px-4 py-3 text-sm font-bold text-muted">
-            {sales.length} فاتورة · الإجمالي {formatCurrency(salesTotal)}
-          </div>
-          {sales.length === 0 ? (
-            <EmptyState icon={FileText} title="لا مبيعات في الفترة" />
-          ) : (
-            <ul className="divide-y divide-line">
-              {sales.map((inv) => (
-                <li key={inv.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                  <div>
-                    <p className="font-black">{inv.invoiceNumber}</p>
-                    <p className="text-xs text-muted">
-                      {formatDate(inv.date)} ·{" "}
-                      {customers.find((c) => c.id === inv.partyId)?.name || inv.partyId}
-                    </p>
-                  </div>
-                  <p className="font-black tabular-nums">{formatCurrency(inv.total)}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+      {tab === "overview" && validRange && <>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4"><Kpi title="مبيعات الفترة" value={formatCurrency(salesTotal)} /><Kpi title="المقبوض (فواتير)" value={formatCurrency(collected)} /><Kpi title="سندات قبض" value={formatCurrency(receipts)} /><Kpi title="مصروفات" value={formatCurrency(expenseTotal)} /></div>
+        <div className="grid gap-3 sm:grid-cols-2"><Kpi title="رصيد الصندوق (من القيود)" value={formatCurrency(cash)} /><Kpi title={`قيمة المخزون (${warehouseId === "all" ? "كل المخازن" : "المخزن المختار"})`} value={formatCurrency(stockValue)} /></div>
+        <div className="card p-4"><h2 className="mb-3 font-black">المبيعات اليومية</h2>{chart.length ? <div className="h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={chart}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" /><XAxis dataKey="date" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} width={48} /><Tooltip formatter={(v: number) => formatMoney(num(v))} /><Bar dataKey="total" fill="var(--color-brand)" radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer></div> : <EmptyState icon={FileText} title="لا توجد مبيعات في الفترة المحددة" />}</div>
+      </>}
 
-      {tab === "cash" && (
-        <div className="card overflow-hidden">
-          <div className="border-b border-line px-4 py-3 text-sm font-bold">
-            حركة الصندوق من القيود · الرصيد {formatCurrency(cash)}
-          </div>
-          <ul className="divide-y divide-line">
-            {transactions
-              .filter((t) => (t.cashIn || t.cashOut) && inRange(t.date))
-              .slice(0, 100)
-              .map((t) => (
-                <li key={t.id} className="flex justify-between gap-3 px-4 py-3 text-sm">
-                  <div>
-                    <p className="font-bold">{t.description}</p>
-                    <p className="text-xs text-muted">{formatDate(t.date)}</p>
-                  </div>
-                  <p className={`font-black tabular-nums ${t.cashIn ? "text-good" : "text-bad"}`}>
-                    {t.cashIn ? `+${formatCurrency(t.cashIn)}` : `-${formatCurrency(t.cashOut)}`}
-                  </p>
-                </li>
-              ))}
-          </ul>
-        </div>
-      )}
+      {tab === "sales" && validRange && <div className="card overflow-hidden"><div className="border-b border-line px-4 py-3 text-sm font-bold text-muted">{sales.length} فاتورة · الإجمالي {formatCurrency(salesTotal)}</div>{sales.length ? <ul className="divide-y divide-line">{sales.map((inv) => <li key={inv.id} className="flex items-center justify-between gap-3 px-4 py-3"><div><p className="font-black">{inv.invoiceNumber}</p><p className="text-xs text-muted">{formatDate(inv.date)} · {customers.find((c) => String(c.id) === String(inv.partyId))?.name || inv.partyId}</p></div><p className="font-black tabular-nums">{formatCurrency(num(inv.total))}</p></li>)}</ul> : <EmptyState icon={FileText} title="لا مبيعات في الفترة" />}</div>}
 
-      {tab === "stock" && (
-        <div className="space-y-3">
-          <div className="relative">
-            <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
-            <input
-              className="input-field pr-10"
-              placeholder="بحث صنف…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </div>
-          <p className="text-xs text-muted">
-            الأرصدة حسب المخزن من warehouse_stock. اختيار «كل المخازن» يجمع الكميات.
-          </p>
-          <div className="card overflow-hidden">
-            <ul className="divide-y divide-line">
-              {stockRows.map((i) => (
-                <li key={i.id} className="flex items-center justify-between px-4 py-3">
-                  <div>
-                    <p className="font-black">{i.name}</p>
-                    <p className="text-xs text-muted">{i.category}</p>
-                  </div>
-                  <div className="text-left">
-                    <p className="font-black tabular-nums">{i.quantity}</p>
-                    <span
-                      className={`text-xs font-bold ${
-                        i.status === "نفد" ? "text-bad" : i.status === "منخفض" ? "text-warn" : "text-good"
-                      }`}
-                    >
-                      {i.status}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
+      {tab === "cash" && validRange && <div className="card overflow-hidden"><div className="border-b border-line px-4 py-3 text-sm font-bold">حركة الصندوق · الرصيد {formatCurrency(cash)}</div><ul className="divide-y divide-line">{transactions.filter((t) => (num(t.cashIn) || num(t.cashOut)) && inRange(t.date)).slice(0, 100).map((t) => <li key={t.id} className="flex justify-between gap-3 px-4 py-3 text-sm"><div><p className="font-bold">{t.description || "حركة صندوق"}</p><p className="text-xs text-muted">{formatDate(t.date)}</p></div><p className={`font-black tabular-nums ${num(t.cashIn) ? "text-good" : "text-bad"}`}>{num(t.cashIn) ? `+${formatCurrency(num(t.cashIn))}` : `-${formatCurrency(num(t.cashOut))}`}</p></li>)}</ul></div>}
 
-      {tab === "party" && (
-        <div className="space-y-3">
-          {partyId === "all" ? (
-            <div className="card p-6">
-              <EmptyState icon={FileText} title="اختر عميلاً أو مورداً لعرض كشف الحساب العام" />
-            </div>
-          ) : (
-            <>
-              <div className="card p-4">
-                <p className="text-sm text-muted">حساب مفتوح — الدفعات غير مربوطة بفاتورة</p>
-                <p className="mt-1 text-2xl font-black tabular-nums">{formatCurrency(partyBalance)}</p>
-              </div>
-              <div className="card overflow-hidden">
-                <div className="grid grid-cols-5 gap-1 border-b border-line bg-canvas px-3 py-2 text-[11px] font-bold text-muted">
-                  <span>التاريخ</span>
-                  <span className="col-span-2">البيان</span>
-                  <span>مدين</span>
-                  <span>دائن</span>
-                </div>
-                {partyRunning.length === 0 ? (
-                  <p className="p-4 text-sm text-muted">لا حركات على هذا الحساب</p>
-                ) : (
-                  partyRunning.map((t) => (
-                    <div key={t.id} className="grid grid-cols-5 gap-1 border-b border-line px-3 py-2 text-xs">
-                      <span className="tabular-nums text-muted">{formatDate(t.date)}</span>
-                      <span className="col-span-2 font-bold">{t.description}</span>
-                      <span className="tabular-nums">{t.debit ? formatCurrency(t.debit) : "—"}</span>
-                      <span className="tabular-nums">{t.credit ? formatCurrency(t.credit) : "—"}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      )}
+      {tab === "stock" && validRange && <div className="space-y-3"><div className="relative"><Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" /><input className="input-field pr-10" placeholder="بحث صنف…" value={q} onChange={(e) => setQ(e.target.value)} /></div><div className="card overflow-hidden"><ul className="divide-y divide-line">{stockRows.length ? stockRows.map((i) => <li key={i.id} className="flex items-center justify-between px-4 py-3"><div><p className="font-black">{i.name}</p><p className="text-xs text-muted">{i.category}</p></div><div className="text-left"><p className="font-black tabular-nums">{i.quantity}</p><span className={`text-xs font-bold ${i.status === "نفد" ? "text-bad" : i.status === "منخفض" ? "text-warn" : "text-good"}`}>{i.status}</span></div></li>) : <li><EmptyState icon={Search} title="لا توجد أصناف مطابقة" /></li>}</ul></div></div>}
 
-      {tab === "activity" && (
-        <div className="card overflow-hidden">
-          <div className="border-b border-line px-4 py-3 text-sm font-bold text-muted">
-            سجل العمليات (محلي + خادم، مدمج بـ operation_id) · {Math.min(auditLog.length, 100)}
-          </div>
-          {auditLog.length === 0 ? (
-            <EmptyState icon={FileText} title="لا سجلات بعد — نفّذ عمليات معتمدة" />
-          ) : (
-            <ul className="divide-y divide-line">
-              {auditLog.slice(0, 100).map((a) => (
-                <li key={a.auditId}>
-                  <button
-                    type="button"
-                    className="flex w-full items-start justify-between gap-3 px-4 py-3 text-right hover:bg-canvas"
-                    onClick={() => setDetailId(a.auditId)}
-                  >
-                    <div>
-                      <p className="font-black">{a.summary || `${a.action} · ${a.entityType}`}</p>
-                      <p className="text-xs text-muted">
-                        {formatDate(a.createdAt.slice(0, 10))} · {a.entityId}
-                      </p>
-                    </div>
-                    <span
-                      className={`shrink-0 rounded-lg px-2 py-0.5 text-[10px] font-bold ${
-                        a.status === "success" ? "bg-good-soft text-good" : "bg-warn-soft text-warn"
-                      }`}
-                    >
-                      {a.status === "success" ? "نجحت" : a.status || "—"}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+      {tab === "party" && validRange && <div className="space-y-3">{partyId === "all" ? <div className="card p-6"><EmptyState icon={FileText} title="اختر عميلاً أو مورداً لعرض كشف الحساب" /></div> : <><div className="card p-4"><p className="text-sm text-muted">الرصيد المتحرك من القيود الخاصة بالطرف</p><p className="mt-1 text-2xl font-black tabular-nums">{formatCurrency(partyBalance)}</p></div><div className="card overflow-hidden"><div className="grid grid-cols-5 gap-1 border-b border-line bg-canvas px-3 py-2 text-[11px] font-bold text-muted"><span>التاريخ</span><span className="col-span-2">البيان</span><span>مدين</span><span>دائن</span></div>{partyRunning.length ? partyRunning.map((t) => <div key={t.id} className="grid grid-cols-5 gap-1 border-b border-line px-3 py-2 text-xs"><span className="text-muted">{formatDate(t.date)}</span><span className="col-span-2 font-bold">{t.description}</span><span>{t.debit ? formatCurrency(t.debit) : "—"}</span><span>{t.credit ? formatCurrency(t.credit) : "—"}</span></div>) : <p className="p-4 text-sm text-muted">لا حركات على هذا الحساب</p>}</div></>}</div>}
 
-      <Modal open={!!detail} onClose={() => setDetailId(null)} title="تفاصيل العملية">
-        {detail ? (
-          <div className="space-y-3 text-sm">
-            <Row k="العملية" v={detail.summary || detail.action} />
-            <Row k="الكيان" v={`${detail.entityType} / ${detail.entityId}`} />
-            <Row k="Operation ID" v={detail.operationId || "—"} />
-            <Row k="Audit ID" v={detail.auditId} />
-            <Row k="الجهاز" v={detail.deviceId || "—"} />
-            <Row k="التاريخ" v={detail.createdAt} />
-            <Row k="الحالة" v={detail.status || "—"} />
-            <p className="text-xs text-muted">يُعرض فقط ما هو محفوظ في سجل التدقيق المحلي.</p>
-          </div>
-        ) : null}
-      </Modal>
+      {tab === "activity" && validRange && <div className="card overflow-hidden"><div className="border-b border-line px-4 py-3 text-sm font-bold text-muted">سجل العمليات · {Math.min(auditLog.length, 100)}</div>{auditLog.length ? <ul className="divide-y divide-line">{auditLog.slice(0, 100).map((a) => <li key={a.auditId}><button type="button" className="flex w-full items-start justify-between gap-3 px-4 py-3 text-right hover:bg-canvas" onClick={() => setDetailId(a.auditId)}><div><p className="font-black">{a.summary || `${a.action} · ${a.entityType}`}</p><p className="text-xs text-muted">{formatDate(day(a.createdAt))} · {a.entityId}</p></div><span className={`rounded-lg px-2 py-0.5 text-[10px] font-bold ${a.status === "success" ? "bg-good-soft text-good" : "bg-warn-soft text-warn"}`}>{a.status === "success" ? "نجحت" : a.status || "—"}</span></button></li>)}</ul> : <EmptyState icon={FileText} title="لا سجلات بعد" />}</div>}
+
+      <Modal open={!!detail} onClose={() => setDetailId(null)} title="تفاصيل العملية">{detail ? <div className="space-y-3 text-sm"><Row k="العملية" v={detail.summary || detail.action} /><Row k="الكيان" v={`${detail.entityType} / ${detail.entityId}`} /><Row k="Operation ID" v={detail.operationId || "—"} /><Row k="Audit ID" v={detail.auditId} /><Row k="الجهاز" v={detail.deviceId || "—"} /><Row k="التاريخ" v={detail.createdAt} /></div> : null}</Modal>
     </div>
   );
 }
 
-function Kpi({ title, value }: { title: string; value: string }) {
-  return (
-    <div className="card p-4">
-      <p className="text-xs font-bold text-muted">{title}</p>
-      <p className="mt-2 text-xl font-black tabular-nums">{value}</p>
-    </div>
-  );
-}
-
-function Row({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="flex justify-between gap-3 border-b border-line pb-2">
-      <span className="text-muted">{k}</span>
-      <span className="font-bold text-ink break-all text-left">{v}</span>
-    </div>
-  );
-}
+function Kpi({ title, value }: { title: string; value: string }) { return <div className="card p-4"><p className="text-xs font-bold text-muted">{title}</p><p className="mt-2 text-xl font-black tabular-nums">{value}</p></div>; }
+function Row({ k, v }: { k: string; v: string }) { return <div className="flex justify-between gap-3 border-b border-line pb-2"><span className="text-muted">{k}</span><span className="break-all text-left font-bold text-ink">{v}</span></div>; }
