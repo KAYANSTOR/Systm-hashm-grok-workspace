@@ -2,7 +2,7 @@ import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { runPreSignInSignOut, runSignOut } from "../../../scripts/sign-out-plan.mjs";
 import { APP_PROVIDERS } from "./providers";
-import { phoneAccountEmail, phoneAccountEmailCandidates } from "./phone";
+import { phoneAccountEmail } from "./phone";
 
 /**
  * Better Auth client for this React SPA (browser-side).
@@ -26,20 +26,15 @@ export { phoneAccountEmail } from "./phone";
 
 /** Credential login asks Better Auth to remember this device. */
 export async function signInWithPhone(phone: string, password: string) {
-  let lastResult = await authClient.signIn.email({
+  // Always make exactly one auth request. Retrying several legacy identities
+  // client-side trips Better Auth's rate limiter and produces "Too many
+  // requests" even when the credentials are valid. Migration 0022 keeps the
+  // stored identities canonical before this request reaches production.
+  return authClient.signIn.email({
     email: phoneAccountEmail(phone),
     password,
     rememberMe: true,
   });
-  // Existing accounts may contain a country code or trunk zero in the
-  // synthetic email identity. Try those legacy identities transparently.
-  for (const email of phoneAccountEmailCandidates(phone).filter(
-    (candidate) => candidate !== phoneAccountEmail(phone),
-  )) {
-    if (!lastResult.error) break;
-    lastResult = await authClient.signIn.email({ email, password, rememberMe: true });
-  }
-  return lastResult;
 }
 
 /** Kept for internal compatibility; public self-registration is disabled by the UI. */
