@@ -100,6 +100,9 @@ export function SignInButtons() {
       <button type="button" disabled={busy} onClick={() => void submit()} className="btn-primary w-full">
         {busy ? "جارٍ التحقق…" : "تسجيل الدخول"}
       </button>
+      <a href="/recovery" className="text-center text-sm font-bold text-brand underline underline-offset-4">
+        استعادة الحساب وتغيير كلمة المرور
+      </a>
     </div>
   );
 }
