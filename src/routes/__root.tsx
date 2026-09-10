@@ -1,4 +1,4 @@
-import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import { createRootRoute, HeadContent, Outlet, Scripts, useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
 import { SignInButtons, SignInGate } from "@/lib/auth/gates";
@@ -19,6 +19,9 @@ function LoginScreen() {
           <SignInButtons />
         </div>
         <p className="mt-5 text-xs text-muted">لا تستخدم بيانات Cloud SQL هنا. استخدم حساب الدخول الخاص بالتطبيق.</p>
+        <a href="/recovery" className="mt-3 inline-block text-xs font-bold text-brand-dark underline underline-offset-4">
+          لا يمكنك تسجيل الدخول؟ استعادة الحساب برمز الطوارئ
+        </a>
       </section>
     </main>
   );
@@ -28,12 +31,20 @@ if (typeof window !== "undefined") {
   startCloudSync();
 }
 
+// Routes that must render even when nobody is signed in yet. Without this,
+// SignInGate swallows every path behind the generic login screen, so a
+// locked-out employee can never reach the account-recovery form.
+const PUBLIC_ROUTES = ["/recovery"];
+
 function RootDocument() {
   useEffect(() => {
     if ("serviceWorker" in navigator && import.meta.env.PROD) {
       void navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
     }
   }, []);
+
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
 
   return (
     <html lang="ar" dir="rtl" className="antialiased" suppressHydrationWarning>
@@ -42,11 +53,15 @@ function RootDocument() {
       </head>
       <body>
         <AuthProvider>
-          <SignInGate fallback={<LoginScreen />}>
-            <AppShell>
-              <Outlet />
-            </AppShell>
-          </SignInGate>
+          {isPublicRoute ? (
+            <Outlet />
+          ) : (
+            <SignInGate fallback={<LoginScreen />}>
+              <AppShell>
+                <Outlet />
+              </AppShell>
+            </SignInGate>
+          )}
         </AuthProvider>
         <Scripts />
       </body>
