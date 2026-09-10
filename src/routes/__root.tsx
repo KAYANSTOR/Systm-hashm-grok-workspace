@@ -19,9 +19,6 @@ function LoginScreen() {
           <SignInButtons />
         </div>
         <p className="mt-5 text-xs text-muted">لا تستخدم بيانات Cloud SQL هنا. استخدم حساب الدخول الخاص بالتطبيق.</p>
-        <a href="/recovery" className="mt-3 inline-block text-xs font-bold text-brand-dark underline underline-offset-4">
-          لا يمكنك تسجيل الدخول؟ استعادة الحساب برمز الطوارئ
-        </a>
       </section>
     </main>
   );
