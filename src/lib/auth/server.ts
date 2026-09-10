@@ -92,10 +92,10 @@ export const auth = betterAuth({
       requireLocalEmailVerified: false,
     },
   },
-  // Keep a real session for 30 days and refresh it daily. The signed cookie cache
-  // avoids repeated DB reads while the persistent session is authoritative.
+  // Sessions are remembered for a long device lifetime; updateAge refreshes activity.
+  // A normal user leaves the session by explicitly signing out.
   session: {
-    expiresIn: 60 * 60 * 24 * 30,
+    expiresIn: 60 * 60 * 24 * 3650,
     updateAge: 60 * 60 * 24,
     cookieCache: { enabled: true, maxAge: 300 },
   },
