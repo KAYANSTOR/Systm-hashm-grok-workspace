@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Pencil, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import {
@@ -6,6 +6,7 @@ import {
   createEmployee,
   createEmployeeAccount,
   deleteEmployee,
+  ensureMyAccountIsAdmin,
   getEmployeeRoles,
   listEmployees,
   resetEmployeePassword,
@@ -14,7 +15,6 @@ import {
   setEmployeeRole,
   updateEmployee,
 } from "../server/employees";
-import { useCurrentUserState } from "../lib/auth/use-current-user";
 
 export const Route = createFileRoute("/employees")({ component: EmployeesPage });
 
@@ -32,9 +32,6 @@ type Employee = {
 type Role = { id: string; name: string; description?: string | null };
 
 export default function EmployeesPage() {
-  const { user, isPending: isSessionPending } = useCurrentUserState();
-  const userId = user?.id;
-  const loadedUserIdRef = useRef<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,10 +57,10 @@ export default function EmployeesPage() {
       }));
     } catch (e) {
       const msg = e instanceof Error ? e.message : "تعذر تحميل الموظفين";
-      if (/Unauthorized/i.test(msg)) {
-        setError("تعذر تحميل القائمة: الجلسة غير صالحة. سجّل الدخول مجددًا بحساب المدير.");
-      } else if (/Forbidden|permission/i.test(msg)) {
-        setError("حسابك لا يملك صلاحية عرض الموظفين (employees.read).");
+      if (/Unauthorized|Forbidden|permission|Account is disabled|employees\.read/i.test(msg)) {
+        setError(
+          "لا يمكن عرض الموظفين لأن حسابك بلا صلاحيات كافية أو غير مربوط كمدير. اضغط «تفعيل حسابي كمدير» مرة واحدة ثم أعد التحميل.",
+        );
       } else {
         setError(msg);
       }
@@ -72,11 +69,26 @@ export default function EmployeesPage() {
     }
   }
 
+  async function promoteMeAdmin() {
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await ensureMyAccountIsAdmin();
+      setMessage(
+        `تم تعيين حسابك كمدير النظام (${(res as any)?.permissionCount ?? "—"} صلاحية). سيتم تحديث القائمة الآن.`,
+      );
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "تعذر تعيين حسابك كمدير");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   useEffect(() => {
-    if (isSessionPending || !userId || loadedUserIdRef.current === userId) return;
-    loadedUserIdRef.current = userId;
     void load();
-  }, [isSessionPending, userId]);
+  }, []);
 
   const visible = useMemo(
     () => (showArchived ? employees : employees.filter((e) => e.is_active)),
@@ -255,8 +267,7 @@ export default function EmployeesPage() {
             </div>
             <h1 className="mt-2 text-2xl font-bold">الموظفون ومستخدمو النظام</h1>
             <p className="mt-1 text-sm text-zinc-500">
-              عرض كل الموظفين من قاعدة البيانات، تعديل بياناتهم، حذف/أرشفة، وربط حساب الدخول
-              والصلاحيات.
+              عرض كل الموظفين من قاعدة البيانات، تعديل بياناتهم، حذف/أرشفة، وربط حساب الدخول والصلاحيات.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -271,20 +282,39 @@ export default function EmployeesPage() {
         </header>
 
         {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {error}
+          <div className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            <div>{error}</div>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void promoteMeAdmin()}
+              className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+            >
+              تفعيل حسابي كمدير النظام
+            </button>
           </div>
         )}
-        {message && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-            {message}
-          </div>
-        )}
+        {message && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{message}</div>}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void promoteMeAdmin()}
+            className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-900 disabled:opacity-50"
+          >
+            تفعيل حسابي كمدير (صلاحيات كاملة)
+          </button>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => void load()}
+            className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold"
+          >
+            تحديث القائمة
+          </button>
+        </div>
 
-        <form
-          onSubmit={onCreateEmployee}
-          className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
-        >
+        <form onSubmit={onCreateEmployee} className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 flex items-center gap-2 font-semibold">
             <UserPlus className="size-4" />
             إضافة موظف ومستخدم للنظام
@@ -349,10 +379,7 @@ export default function EmployeesPage() {
         </form>
 
         {editing && (
-          <form
-            onSubmit={onSaveEdit}
-            className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 shadow-sm"
-          >
+          <form onSubmit={onSaveEdit} className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 shadow-sm">
             <h2 className="mb-4 font-semibold">تعديل الموظف: {editing.name}</h2>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="text-sm">
@@ -377,18 +404,10 @@ export default function EmployeesPage() {
               </label>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-              >
+              <button type="submit" disabled={saving} className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
                 حفظ التعديل
               </button>
-              <button
-                type="button"
-                onClick={() => setEditing(null)}
-                className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm"
-              >
+              <button type="button" onClick={() => setEditing(null)} className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm">
                 إلغاء
               </button>
             </div>
@@ -399,16 +418,10 @@ export default function EmployeesPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 p-4">
             <div className="font-semibold">
               قائمة الموظفين
-              <span className="mr-2 text-sm font-normal text-zinc-500">
-                ({visible.length} من {employees.length})
-              </span>
+              <span className="mr-2 text-sm font-normal text-zinc-500">({visible.length} من {employees.length})</span>
             </div>
             <label className="flex items-center gap-2 text-sm text-zinc-600">
-              <input
-                type="checkbox"
-                checked={showArchived}
-                onChange={(e) => setShowArchived(e.target.checked)}
-              />
+              <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
               إظهار المؤرشفين
             </label>
           </div>
@@ -444,9 +457,7 @@ export default function EmployeesPage() {
                       </td>
                       <td className="px-4 py-3">
                         {!e.is_active ? (
-                          <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-bold text-zinc-600">
-                            مؤرشف
-                          </span>
+                          <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-bold text-zinc-600">مؤرشف</span>
                         ) : e.user_id ? (
                           <button
                             type="button"
@@ -479,9 +490,7 @@ export default function EmployeesPage() {
                           <span className="text-zinc-400">—</span>
                         )}
                         {e.roles?.[0] && (
-                          <div className="mt-1 text-[11px] text-zinc-500">
-                            {roleName(e.roles[0])}
-                          </div>
+                          <div className="mt-1 text-[11px] text-zinc-500">{roleName(e.roles[0])}</div>
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -544,8 +553,7 @@ export default function EmployeesPage() {
                   {!visible.length && (
                     <tr>
                       <td colSpan={5} className="p-8 text-center text-zinc-500">
-                        لا يوجد موظفون في القائمة. إن كانوا موجودين في Supabase وتظهر هذه الرسالة،
-                        تأكد من صلاحية employees.read وتحديث الصفحة بعد رفع الإصلاح.
+                        لا يوجد موظفون في القائمة. إن كانوا موجودين في Supabase وتظهر هذه الرسالة، تأكد من صلاحية employees.read وتحديث الصفحة بعد رفع الإصلاح.
                       </td>
                     </tr>
                   )}

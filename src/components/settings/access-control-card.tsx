@@ -9,9 +9,7 @@ export function AccessControlCard() {
           <Users className="size-5" />
         </div>
         <div className="min-w-0">
-          <h2 id="access-control-title" className="font-black text-brand-dark">
-            الموظفون ومستخدمو النظام
-          </h2>
+          <h2 id="access-control-title" className="font-black text-brand-dark">الموظفون ومستخدمو النظام</h2>
           <p className="text-xs text-muted">إضافة الموظفين، حسابات الدخول، والأدوار والصلاحيات.</p>
         </div>
       </div>
@@ -26,9 +24,7 @@ export function AccessControlCard() {
             </span>
             <span className="min-w-0">
               <span className="block font-black text-brand-dark">قائمة الموظفين</span>
-              <span className="mt-1 block text-xs text-muted">
-                عرض، تعديل، حذف، وحسابات الدخول.
-              </span>
+              <span className="mt-1 block text-xs text-muted">عرض، تعديل، حذف، وحسابات الدخول.</span>
             </span>
           </span>
           <ArrowLeft className="size-5 shrink-0 text-muted transition-transform group-hover:-translate-x-1 group-hover:text-brand" />

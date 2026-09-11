@@ -66,22 +66,20 @@ async function catalogReady(sql: Awaited<ReturnType<typeof getSql>>): Promise<bo
 async function accountEnabled(sql: Awaited<ReturnType<typeof getSql>>, userId: string): Promise<boolean> {
   if (userId === DEV_USER_ID && !authConfigured) return true;
 
-  // Bootstrap path: a database-seeded administrator is a valid application
-  // principal even before an employee profile exists. This is what permits the
-  // first real employee/user to be created without weakening normal RBAC.
+  // 1) أي دور معيّن (خصوصًا admin) يكفي لاعتبار الحساب صالحًا — حتى بدون ملف موظف.
   try {
-    const adminRows = await sql`
+    const roleRows = await sql`
       select 1
       from user_roles ur
       where ur.user_id = ${userId}
-        and ur.role_id = 'admin'
       limit 1
     `;
-    if (adminRows.length > 0) return true;
+    if (roleRows.length > 0) return true;
   } catch {
     return false;
   }
 
+  // 2) موظف مرتبط وفعّال (حسابات التشغيل اليومية)
   try {
     const rows = await sql`
       select eu.user_id

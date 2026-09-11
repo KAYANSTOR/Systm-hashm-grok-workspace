@@ -23,6 +23,7 @@ import type { AppData } from "@/lib/types";
 import { signOut } from "@/lib/auth/client";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { AccessControlCard } from "@/components/settings/access-control-card";
+import { ensureMyAccountIsAdmin } from "@/server/employees";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
@@ -44,9 +45,7 @@ function SettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [orgForm, setOrgForm] = useState(org);
-  const [isOnline, setIsOnline] = useState(
-    typeof navigator !== "undefined" ? navigator.onLine : true,
-  );
+  const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [warehouseName, setWarehouseName] = useState("");
@@ -104,8 +103,7 @@ function SettingsPage() {
     try {
       const text = await file.text();
       const data = JSON.parse(text) as AppData;
-      if (!Array.isArray(data.customers) || !Array.isArray(data.invoices))
-        throw new Error("ملف غير صالح");
+      if (!Array.isArray(data.customers) || !Array.isArray(data.invoices)) throw new Error("ملف غير صالح");
       importData(data);
       toast.success("تم استعادة البيانات بنجاح");
     } catch {
@@ -156,11 +154,7 @@ function SettingsPage() {
       toast.error(`اكتب عبارة التأكيد بالضبط: ${RESET_PHRASE}`);
       return;
     }
-    if (
-      !window.confirm(
-        "تأكيد أخير: سيتم حذف الفواتير والعملاء والمنتجات والقيود من قاعدة البيانات. المتابعة؟",
-      )
-    ) {
+    if (!window.confirm("تأكيد أخير: سيتم حذف الفواتير والعملاء والمنتجات والقيود من قاعدة البيانات. المتابعة؟")) {
       return;
     }
     setIsResetting(true);
@@ -188,9 +182,7 @@ function SettingsPage() {
     <div className="mx-auto max-w-6xl space-y-5 px-1 pb-10 sm:space-y-6 sm:px-0">
       <div>
         <h1 className="page-title text-xl sm:text-2xl">الإعدادات</h1>
-        <p className="page-subtitle text-sm">
-          تخصيص النظام وإدارة بيانات المعمل — متوافق مع الهاتف والكمبيوتر.
-        </p>
+        <p className="page-subtitle text-sm">تخصيص النظام وإدارة بيانات المعمل — متوافق مع الهاتف والكمبيوتر.</p>
       </div>
 
       <AccessControlCard />
@@ -225,11 +217,7 @@ function SettingsPage() {
                 <span className="mb-2 block text-xs font-bold text-brand-dark">شعار المؤسسة</span>
                 <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                   {orgForm.logo ? (
-                    <img
-                      src={orgForm.logo}
-                      className="size-14 rounded-xl border border-line bg-white p-1 object-contain sm:size-16"
-                      alt="Logo"
-                    />
+                    <img src={orgForm.logo} className="size-14 rounded-xl border border-line bg-white p-1 object-contain sm:size-16" alt="Logo" />
                   ) : (
                     <div className="flex size-14 items-center justify-center rounded-xl border border-dashed border-line bg-canvas text-muted sm:size-16">
                       <Store className="size-6 opacity-50" />
@@ -243,8 +231,7 @@ function SettingsPage() {
                       const file = e.target.files?.[0];
                       if (file) {
                         const reader = new FileReader();
-                        reader.onload = (ev) =>
-                          setOrgForm({ ...orgForm, logo: ev.target?.result as string });
+                        reader.onload = (ev) => setOrgForm({ ...orgForm, logo: ev.target?.result as string });
                         reader.readAsDataURL(file);
                       }
                     }}
@@ -312,24 +299,55 @@ function SettingsPage() {
               </div>
               <div className="min-w-0">
                 <h2 className="font-black text-brand-dark">الحساب</h2>
-                <p className="text-xs text-muted">الجلسة الحالية على هذا الجهاز</p>
+                <p className="text-xs text-muted">الجلسة تبقى محفوظة على هذا الجهاز (حتى سنة) إلا عند تسجيل الخروج أو إيقاف الحساب</p>
               </div>
             </div>
-            <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-              <div className="min-w-0">
-                <p className="truncate font-bold">{user?.displayName || "المستخدم الحالي"}</p>
-                <p className="text-xs text-muted">الحساب متصل بهذا الجهاز</p>
+            <div className="flex flex-col gap-3 p-4 sm:p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="truncate font-bold">{user?.displayName || "المستخدم الحالي"}</p>
+                  <p className="text-xs text-muted">الحساب متصل بهذا الجهاز</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-ghost shrink-0 text-bad"
+                  onClick={() => {
+                    void signOut("/").catch((error) =>
+                      toast.error(error instanceof Error ? error.message : "تعذر تسجيل الخروج"),
+                    );
+                  }}
+                >
+                  تسجيل الخروج
+                </button>
               </div>
               <button
                 type="button"
-                className="btn-ghost shrink-0 text-bad"
+                className="btn-secondary w-full"
                 onClick={() => {
-                  void signOut("/").catch((error) =>
-                    toast.error(error instanceof Error ? error.message : "تعذر تسجيل الخروج"),
-                  );
+                  void (async () => {
+                    try {
+                      const res = await ensureMyAccountIsAdmin();
+                      toast.success(
+                        `تم تعيين حسابك كمدير النظام (${(res as any)?.permissionCount ?? "—"} صلاحية)`,
+                      );
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : "تعذر تعيين المدير");
+                    }
+                  })();
                 }}
               >
-                تسجيل الخروج
+                <ShieldCheck className="size-4" />
+                تفعيل حسابي كمدير النظام
+              </button>
+              <button
+                type="button"
+                className="btn-ghost w-full text-xs"
+                onClick={() => {
+                  useStore.getState().clearStuckOutbox?.();
+                  toast.success("تم تنظيف الطابور العالق إن وُجد");
+                }}
+              >
+                تنظيف عمليات المزامنة العالقة
               </button>
             </div>
           </section>
@@ -352,11 +370,7 @@ function SettingsPage() {
                       isOnline ? "bg-good/10 text-good" : "bg-bad/10 text-bad"
                     }`}
                   >
-                    {isOnline ? (
-                      <Wifi className="size-5 sm:size-6" />
-                    ) : (
-                      <Database className="size-5 sm:size-6" />
-                    )}
+                    {isOnline ? <Wifi className="size-5 sm:size-6" /> : <Database className="size-5 sm:size-6" />}
                   </div>
                   <div className="min-w-0">
                     <h3 className="font-black">{isOnline ? "متصل ومزامن" : "وضع عدم الاتصال"}</h3>
@@ -386,9 +400,7 @@ function SettingsPage() {
         <section className="card overflow-hidden lg:col-span-2">
           <div className="border-b border-line bg-canvas/50 px-4 py-3 sm:px-5 sm:py-4">
             <h2 className="font-black text-brand-dark">إدارة المخازن والفئات</h2>
-            <p className="text-xs text-muted">
-              تُستخدم في المخزون والتقارير وأوامر التوريد والصرف.
-            </p>
+            <p className="text-xs text-muted">تُستخدم في المخزون والتقارير وأوامر التوريد والصرف.</p>
           </div>
           <div className="grid grid-cols-1 gap-6 p-4 sm:p-5 lg:grid-cols-2">
             <div className="space-y-3">
@@ -406,20 +418,13 @@ function SettingsPage() {
                   value={warehouseLocation}
                   onChange={(e) => setWarehouseLocation(e.target.value)}
                 />
-                <button
-                  type="button"
-                  className="btn-primary w-full sm:w-auto"
-                  onClick={createWarehouse}
-                >
+                <button type="button" className="btn-primary w-full sm:w-auto" onClick={createWarehouse}>
                   إضافة
                 </button>
               </div>
               <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
                 {warehouses.map((warehouse) => (
-                  <div
-                    key={warehouse.id}
-                    className="flex flex-col gap-2 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
-                  >
+                  <div key={warehouse.id} className="flex flex-col gap-2 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                       <p className="font-bold">{warehouse.name}</p>
                       <p className="text-xs text-muted">{warehouse.location || "بدون موقع"}</p>
@@ -438,18 +443,14 @@ function SettingsPage() {
                       <button
                         type="button"
                         className="btn-ghost text-xs"
-                        onClick={() =>
-                          updateWarehouse(warehouse.id, { isActive: !warehouse.isActive })
-                        }
+                        onClick={() => updateWarehouse(warehouse.id, { isActive: !warehouse.isActive })}
                       >
                         {warehouse.isActive ? "تعطيل" : "تفعيل"}
                       </button>
                     </div>
                   </div>
                 ))}
-                {!warehouses.length && (
-                  <div className="p-4 text-center text-xs text-muted">لا توجد مخازن بعد</div>
-                )}
+                {!warehouses.length && <div className="p-4 text-center text-xs text-muted">لا توجد مخازن بعد</div>}
               </div>
             </div>
             <div className="space-y-3">
@@ -461,33 +462,21 @@ function SettingsPage() {
                   value={categoryName}
                   onChange={(e) => setCategoryName(e.target.value)}
                 />
-                <button
-                  type="button"
-                  className="btn-primary w-full sm:w-auto"
-                  onClick={createCategory}
-                >
+                <button type="button" className="btn-primary w-full sm:w-auto" onClick={createCategory}>
                   إضافة
                 </button>
               </div>
               <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
                 {productCategories.map((category) => (
-                  <div
-                    key={category.id}
-                    className="flex flex-col gap-2 p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <p
-                      className={`font-bold ${category.isActive ? "" : "text-muted line-through"}`}
-                    >
-                      {category.name}
-                    </p>
+                  <div key={category.id} className="flex flex-col gap-2 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                    <p className={`font-bold ${category.isActive ? "" : "text-muted line-through"}`}>{category.name}</p>
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         className="btn-ghost text-xs"
                         onClick={() => {
                           const name = window.prompt("اسم الفئة", category.name);
-                          if (name?.trim())
-                            updateProductCategory(category.id, { name: name.trim() });
+                          if (name?.trim()) updateProductCategory(category.id, { name: name.trim() });
                         }}
                       >
                         تعديل
@@ -495,18 +484,14 @@ function SettingsPage() {
                       <button
                         type="button"
                         className="btn-ghost text-xs"
-                        onClick={() =>
-                          updateProductCategory(category.id, { isActive: !category.isActive })
-                        }
+                        onClick={() => updateProductCategory(category.id, { isActive: !category.isActive })}
                       >
                         {category.isActive ? "تعطيل" : "تفعيل"}
                       </button>
                     </div>
                   </div>
                 ))}
-                {!productCategories.length && (
-                  <div className="p-4 text-center text-xs text-muted">لا توجد فئات بعد</div>
-                )}
+                {!productCategories.length && <div className="p-4 text-center text-xs text-muted">لا توجد فئات بعد</div>}
               </div>
             </div>
           </div>
@@ -524,18 +509,12 @@ function SettingsPage() {
             </div>
           </div>
           <div className="grid grid-cols-1 divide-y divide-line sm:grid-cols-2 sm:divide-x sm:divide-y-0 sm:divide-x-reverse">
-            <button
-              type="button"
-              className="group flex flex-col items-center justify-center gap-2 p-6 transition hover:bg-canvas sm:p-8"
-              onClick={exportJson}
-            >
+            <button type="button" className="group flex flex-col items-center justify-center gap-2 p-6 transition hover:bg-canvas sm:p-8" onClick={exportJson}>
               <span className="flex size-12 items-center justify-center rounded-full bg-brand-soft text-brand transition-transform group-hover:scale-110 sm:size-14">
                 <Download className="size-5 sm:size-6" />
               </span>
               <p className="font-bold">تنزيل نسخة احتياطية</p>
-              <p className="px-2 text-center text-xs text-muted">
-                ملف JSON بكل بيانات العمل الحالية
-              </p>
+              <p className="px-2 text-center text-xs text-muted">ملف JSON بكل بيانات العمل الحالية</p>
             </button>
             <button
               type="button"
@@ -546,9 +525,7 @@ function SettingsPage() {
                 <Upload className="size-5 sm:size-6" />
               </span>
               <p className="font-bold">استعادة من ملف</p>
-              <p className="px-2 text-center text-xs text-muted">
-                يرفع ملف JSON (يستبدل البيانات المحلية الحالية)
-              </p>
+              <p className="px-2 text-center text-xs text-muted">يرفع ملف JSON (يستبدل البيانات المحلية الحالية)</p>
             </button>
             <input
               ref={fileRef}
@@ -573,8 +550,8 @@ function SettingsPage() {
             <div className="min-w-0">
               <h2 className="font-black text-bad">منطقة الخطر — حذف وتصفية البيانات</h2>
               <p className="text-xs text-muted">
-                يحذف من الخادم والجهاز: الفواتير، العملاء، الموردين، المنتجات، القيود، المخزون،
-                والطابور. لا يحذف حسابات الدخول ولا الأدوار ولا الموظفين.
+                يحذف من الخادم والجهاز: الفواتير، العملاء، الموردين، المنتجات، القيود، المخزون، والطابور. لا يحذف
+                حسابات الدخول ولا الأدوار ولا الموظفين.
               </p>
             </div>
           </div>
@@ -596,8 +573,8 @@ function SettingsPage() {
                 <div className="flex items-start gap-2 text-sm text-bad">
                   <AlertTriangle className="mt-0.5 size-5 shrink-0" />
                   <p>
-                    اكتب عبارة التأكيد <strong className="font-black">«{RESET_PHRASE}»</strong> ثم
-                    اضغط التأكيد. هذا الإجراء لا يمكن التراجع عنه.
+                    اكتب عبارة التأكيد <strong className="font-black">«{RESET_PHRASE}»</strong> ثم اضغط التأكيد.
+                    هذا الإجراء لا يمكن التراجع عنه.
                   </p>
                 </div>
                 <input

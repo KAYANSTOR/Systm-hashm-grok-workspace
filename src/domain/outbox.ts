@@ -80,8 +80,28 @@ export function mergeOutboxStatus(
   return next;
 }
 
-export function pendingItems(items: OutboxItem[]): OutboxItem[] {
-  return items.filter((i) => i.status === "pending" || i.status === "failed");
+/** الحد الأقصى لمحاولات إعادة الترحيل — يجب أن يطابق drainOutbox */
+export const OUTBOX_MAX_ATTEMPTS = 8;
+
+/**
+ * عناصر قابلة لإعادة المحاولة فقط.
+ * العناصر الفاشلة بعد استنفاد المحاولات لا تُحتسب «معلقة» حتى لا تبقى رسالة المزامنة للأبد.
+ */
+export function pendingItems(items: OutboxItem[], maxAttempts = OUTBOX_MAX_ATTEMPTS): OutboxItem[] {
+  return items.filter((i) => {
+    if (i.status === "pending") return true;
+    if (i.status === "failed" && (i.attempts ?? 0) < maxAttempts) return true;
+    return false;
+  });
+}
+
+/** احذف العناصر المنتهية أو الفاشلة المستنفدة من الطابور المحلي */
+export function pruneSettledOutbox(items: OutboxItem[], maxAttempts = OUTBOX_MAX_ATTEMPTS): OutboxItem[] {
+  return items.filter((i) => {
+    if (i.status === "done") return false;
+    if (i.status === "failed" && (i.attempts ?? 0) >= maxAttempts) return false;
+    return true;
+  });
 }
 
 /**

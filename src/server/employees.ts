@@ -13,23 +13,13 @@ function employeeLoginEmail(phone: string): string {
   return `phone-${phone}@accounts.hashem.local`;
 }
 
-async function requireAdmin(
-  sql: Awaited<ReturnType<typeof getSql>>,
-  userId: string,
-): Promise<void> {
+async function requireAdmin(sql: Awaited<ReturnType<typeof getSql>>, userId: string): Promise<void> {
   const isAdmin = await userHasPermission(userId, ROLE_MANAGE);
   if (!isAdmin) throw new Error("لا يمكن تنفيذ هذه العملية إلا لمدير النظام");
   const rows = await sql`
     select 1 from user_roles where user_id=${userId} and role_id=${ADMIN_ROLE} limit 1
   `;
   if (!rows.length) throw new Error("لا يمكن تنفيذ هذه العملية إلا لمدير النظام");
-}
-
-async function revokeUserSessions(
-  sql: Awaited<ReturnType<typeof getSql>>,
-  userId: string,
-): Promise<void> {
-  await sql`delete from "session" where "userId" = ${userId}`;
 }
 
 function normalizeRoles(value: unknown): string[] {
@@ -99,8 +89,7 @@ export const createEmployee = createServerFn({ method: "POST" })
     if (!name) throw new Error("اسم الموظف مطلوب");
     if (!phone) throw new Error("رقم الهاتف مطلوب");
     if (phone.length < 7) throw new Error("رقم الهاتف غير صالح");
-    const duplicate =
-      await sql`select 1 from employees where organization_id='default_org' and phone=${phone} limit 1`;
+    const duplicate = await sql`select 1 from employees where organization_id='default_org' and phone=${phone} limit 1`;
     if (duplicate.length) throw new Error("رقم الهاتف مستخدم لموظف آخر");
     await sql`
       insert into employees (id, organization_id, name, phone, job_title, department)
@@ -160,8 +149,7 @@ export const archiveEmployee = createServerFn({ method: "POST" })
       where e.id=${id} limit 1
     `;
     if (!target.length) throw new Error("الموظف غير موجود");
-    if (String(target[0].user_id || "") === actorId && target[0].user_id)
-      throw new Error("لا يمكن أرشفة حسابك من شاشة الموظفين");
+    if (String(target[0].user_id || "") === actorId && target[0].user_id) throw new Error("لا يمكن أرشفة حسابك من شاشة الموظفين");
     await sql.transaction(async (tx) => {
       await tx`update employees set is_active=false, archived_at=now(), updated_at=now() where id=${id}`;
       await tx`update employee_users set is_active=false, updated_at=now() where employee_id=${id}`;
@@ -232,10 +220,7 @@ export const setEmployeeAccountStatus = createServerFn({ method: "POST" })
     if (!rows.length) throw new Error("لا يوجد حساب دخول مرتبط بالموظف");
     if (String(rows[0].user_id) === actorId) throw new Error("لا يمكنك إيقاف حسابك بنفسك");
     if (rows[0].target_is_admin) await requireAdmin(sql, actorId);
-    await sql.transaction(async (tx) => {
-      await tx`update employee_users set is_active=${Boolean(data.isActive)}, updated_at=now() where employee_id=${employeeId}`;
-      if (!Boolean(data.isActive)) await revokeUserSessions(tx, String(rows[0].user_id));
-    });
+    await sql`update employee_users set is_active=${Boolean(data.isActive)}, updated_at=now() where employee_id=${employeeId}`;
     return { employeeId, isActive: Boolean(data.isActive) };
   });
 
@@ -256,8 +241,7 @@ export const setEmployeeRole = createServerFn({ method: "POST" })
     const roleExists = await sql`select 1 from roles where id=${roleId} limit 1`;
     if (!roleExists.length) throw new Error("الدور غير موجود");
     if (roleId === ADMIN_ROLE || rows[0].target_is_admin) await requireAdmin(sql, actorId);
-    if (String(rows[0].user_id) === actorId && roleId !== ADMIN_ROLE)
-      throw new Error("لا يمكنك إزالة دور مدير النظام من حسابك بهذه الطريقة");
+    if (String(rows[0].user_id) === actorId && roleId !== ADMIN_ROLE) throw new Error("لا يمكنك إزالة دور مدير النظام من حسابك بهذه الطريقة");
     await sql.transaction(async (tx) => {
       await tx`delete from user_roles where user_id=${rows[0].user_id}`;
       await tx`insert into user_roles (user_id, role_id) values (${rows[0].user_id}, ${roleId})`;
@@ -316,7 +300,6 @@ async function provisionCredentialAccount(
       `;
       await tx`delete from user_roles where user_id = ${existingId}`;
       await tx`insert into user_roles (user_id, role_id) values (${existingId}, ${opts.roleId}) on conflict do nothing`;
-      await revokeUserSessions(tx, existingId);
     });
     return { userId: existingId, email };
   }
@@ -358,14 +341,12 @@ export const createEmployeeAccount = createServerFn({ method: "POST" })
     if (!employeeId || !password) throw new Error("بيانات الحساب غير مكتملة");
     if (password.length < 8) throw new Error("كلمة المرور يجب ألا تقل عن 8 أحرف");
     const sql = await getSql();
-    const employee =
-      await sql`select id,name,phone,is_active from employees where id=${employeeId} and organization_id='default_org' limit 1`;
+    const employee = await sql`select id,name,phone,is_active from employees where id=${employeeId} and organization_id='default_org' limit 1`;
     if (!employee.length) throw new Error("الموظف غير موجود");
     if (!employee[0].is_active) throw new Error("لا يمكن إنشاء حساب لموظف مؤرشف");
     const phone = normalizePhone(employee[0].phone);
     if (!phone) throw new Error("رقم الهاتف مطلوب قبل إنشاء الحساب");
-    const existing =
-      await sql`select employee_id from employee_users where employee_id=${employeeId} limit 1`;
+    const existing = await sql`select employee_id from employee_users where employee_id=${employeeId} limit 1`;
     if (existing.length) throw new Error("الموظف لديه حساب دخول بالفعل");
     const roleId = String(data.roleId || "operator").trim();
     const roleExists = await sql`select 1 from roles where id=${roleId} limit 1`;
@@ -388,8 +369,7 @@ export const resetEmployeePassword = createServerFn({ method: "POST" })
     await requirePermission(USER_MANAGE);
     const employeeId = String(data.employeeId || "").trim();
     const password = String(data.password || "");
-    if (!employeeId || password.length < 8)
-      throw new Error("رقم الموظف وكلمة مرور من 8 أحرف مطلوبان");
+    if (!employeeId || password.length < 8) throw new Error("رقم الموظف وكلمة مرور من 8 أحرف مطلوبان");
     const sql = await getSql();
     const rows = await sql`
       select eu.user_id
@@ -399,16 +379,10 @@ export const resetEmployeePassword = createServerFn({ method: "POST" })
     `;
     if (!rows.length) throw new Error("لا يوجد حساب دخول فعال لهذا الموظف");
     const passwordHash = await hashPassword(password);
-    const updated = await sql.transaction(async (tx) => {
-      const result = await tx`
-        update "account" set "password"=${passwordHash}, "updatedAt"=now()
-        where "userId"=${String(rows[0].user_id)} and "providerId"='credential'
-        returning "userId"
-      `;
-      if (result.length) await revokeUserSessions(tx, String(rows[0].user_id));
-      return result;
-    });
-    if (!updated.length) throw new Error("حساب الدخول غير موجود أو لا يستخدم كلمة مرور");
+    await sql`
+      update "account" set "password"=${passwordHash}, "updatedAt"=now()
+      where "userId"=${String(rows[0].user_id)} and "providerId"='credential'
+    `;
     return { employeeId };
   });
 
@@ -422,14 +396,12 @@ export const createRole = createServerFn({ method: "POST" })
   .validator((data: { id: string; name: string; description?: string }) => data)
   .handler(async ({ data }) => {
     await requirePermission(ROLE_MANAGE);
-    const id = String(data.id || "")
-      .trim()
-      .toLowerCase();
+    const id = String(data.id || "").trim().toLowerCase();
     const name = String(data.name || "").trim();
     if (!/^[a-z0-9._-]+$/.test(id) || !name) throw new Error("معرّف الدور واسم الدور غير صالحين");
     if (id === ADMIN_ROLE) throw new Error("دور مدير النظام محجوز");
     const sql = await getSql();
-    await sql`insert into roles (id,name,description) values (${id},${name},${String(data.description || "").trim() || null})`;
+    await sql`insert into roles (id,name,description) values (${id},${name},${String(data.description || '').trim() || null})`;
     return { id };
   });
 
@@ -446,8 +418,7 @@ export const listRolePermissionIds = createServerFn({ method: "GET" })
     const roleId = String(data.roleId || "").trim();
     if (!roleId) throw new Error("معرّف الدور مطلوب");
     const sql = await getSql();
-    const rows =
-      await sql`select permission_id from role_permissions where role_id=${roleId} order by permission_id`;
+    const rows = await sql`select permission_id from role_permissions where role_id=${roleId} order by permission_id`;
     return rows.map((row) => String(row.permission_id));
   });
 
@@ -456,24 +427,101 @@ export const setRolePermissions = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const actorId = await requirePermission(ROLE_MANAGE);
     const roleId = String(data.roleId || "").trim();
-    const permissionIds = Array.isArray(data.permissionIds)
-      ? [...new Set(data.permissionIds.map(String).filter(Boolean))]
-      : [];
+    const permissionIds = Array.isArray(data.permissionIds) ? [...new Set(data.permissionIds.map(String).filter(Boolean))] : [];
     if (!roleId) throw new Error("معرّف الدور مطلوب");
     if (roleId === ADMIN_ROLE) throw new Error("لا يمكن تعديل صلاحيات مدير النظام الأساسية");
     const sql = await getSql();
     const roleExists = await sql`select 1 from roles where id=${roleId} limit 1`;
     if (!roleExists.length) throw new Error("الدور غير موجود");
     if (permissionIds.length) {
-      const invalid =
-        await sql`select count(*)::int as c from permissions where id = any(${permissionIds})`;
-      if (Number(invalid[0]?.c || 0) !== permissionIds.length)
-        throw new Error("يوجد صلاحية غير معروفة");
+      const invalid = await sql`select count(*)::int as c from permissions where id = any(${permissionIds})`;
+      if (Number(invalid[0]?.c || 0) !== permissionIds.length) throw new Error("يوجد صلاحية غير معروفة");
     }
     await sql.transaction(async (tx) => {
       await tx`delete from role_permissions where role_id=${roleId}`;
-      if (permissionIds.length)
-        await tx`insert into role_permissions(role_id,permission_id) select ${roleId},p.id from permissions p where p.id=any(${permissionIds}) on conflict do nothing`;
+      if (permissionIds.length) await tx`insert into role_permissions(role_id,permission_id) select ${roleId},p.id from permissions p where p.id=any(${permissionIds}) on conflict do nothing`;
     });
     return { roleId, permissionIds };
   });
+
+/**
+ * يمنح الحساب الحالي دور المدير + كل الصلاحيات.
+ * يُستخدم مرة واحدة لتثبيت حساب المالك كمدير عندما لا يظهر الموظفون أو تُرفض الصلاحيات.
+ * لا يسجّل خروج أي جلسة ولا يغيّر كلمات المرور.
+ */
+export const ensureMyAccountIsAdmin = createServerFn({ method: "POST" }).handler(async () => {
+  const { requireUserId } = await import("../lib/auth/verify.server");
+  const userId = await requireUserId();
+  const sql = await getSql();
+
+  await sql`
+    insert into roles (id, name, description)
+    values ('admin', 'مدير النظام', 'صلاحيات كاملة')
+    on conflict (id) do nothing
+  `;
+
+  // امنح دور admin كل الصلاحيات الموجودة في الكتالوج
+  await sql`
+    insert into role_permissions (role_id, permission_id)
+    select 'admin', p.id from permissions p
+    on conflict do nothing
+  `;
+
+  // عيّن دور المدير للحساب الحالي (بدون حذف أدواره الأخرى إن وُجدت)
+  await sql`
+    insert into user_roles (user_id, role_id)
+    values (${userId}, 'admin')
+    on conflict do nothing
+  `;
+
+  // إن لم يكن مرتبطًا بموظف، أنشئ ملف موظف بسيطًا حتى يظهر في القائمة
+  const linked = await sql`
+    select employee_id from employee_users where user_id = ${userId} limit 1
+  `;
+  if (!linked.length) {
+    const userRow = await sql`select name, email from "user" where id = ${userId} limit 1`;
+    const name = String(userRow[0]?.name || "مدير النظام").trim() || "مدير النظام";
+    const email = String(userRow[0]?.email || "");
+    const phoneFromEmail = email.startsWith("phone-")
+      ? email.replace(/^phone-/, "").replace(/@accounts\.hashem\.local$/, "")
+      : "";
+    const phone = phoneFromEmail || `admin-${userId.slice(0, 8)}`;
+    const employeeId = crypto.randomUUID();
+    await sql`
+      insert into employees (id, organization_id, name, phone, job_title, department, is_active)
+      values (${employeeId}, 'default_org', ${name}, ${phone}, 'مدير النظام', null, true)
+      on conflict do nothing
+    `;
+    await sql`
+      insert into employee_users (employee_id, user_id, is_active)
+      values (${employeeId}, ${userId}, true)
+      on conflict (employee_id) do update set user_id = excluded.user_id, is_active = true, updated_at = now()
+    `;
+  } else {
+    // تأكد أن الربط فعّال
+    await sql`
+      update employee_users set is_active = true, updated_at = now()
+      where user_id = ${userId}
+    `;
+    await sql`
+      update employees e
+      set is_active = true, archived_at = null, updated_at = now()
+      from employee_users eu
+      where eu.employee_id = e.id and eu.user_id = ${userId}
+    `;
+  }
+
+  const perms = await sql`
+    select count(*)::int as c
+    from user_roles ur
+    join role_permissions rp on rp.role_id = ur.role_id
+    where ur.user_id = ${userId}
+  `;
+
+  return {
+    userId,
+    role: "admin",
+    permissionCount: Number(perms[0]?.c || 0),
+    status: "ok",
+  };
+});

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ShieldCheck, Users, KeyRound, ArrowRight, Plus } from "lucide-react";
 import {
@@ -10,7 +10,6 @@ import {
   setEmployeeRole,
   setRolePermissions,
 } from "../server/employees";
-import { useCurrentUserState } from "../lib/auth/use-current-user";
 
 export const Route = createFileRoute("/settings/access-control")({
   component: AccessControlSettingsPage,
@@ -34,25 +33,12 @@ const PERMISSION_GROUPS: { title: string; description: string; ids: string[] }[]
   {
     title: "المبيعات والفواتير",
     description: "إنشاء، تعديل، اعتماد، إلغاء وحذف الفواتير",
-    ids: [
-      "invoice.write",
-      "invoice.create",
-      "invoice.edit",
-      "invoice.approve",
-      "invoice.cancel",
-      "invoice.delete",
-    ],
+    ids: ["invoice.write", "invoice.create", "invoice.edit", "invoice.approve", "invoice.cancel", "invoice.delete"],
   },
   {
     title: "المخزن والمخزون",
     description: "المنتجات والمخازن والصرف والتسوية",
-    ids: [
-      "product.write",
-      "warehouse.write",
-      "category.write",
-      "inventory.issue",
-      "inventory.adjust",
-    ],
+    ids: ["product.write", "warehouse.write", "category.write", "inventory.issue", "inventory.adjust"],
   },
   {
     title: "العملاء والموردون",
@@ -92,9 +78,6 @@ function normalizeRoles(value: unknown): string[] {
 }
 
 export default function AccessControlSettingsPage() {
-  const { user, isPending: isSessionPending } = useCurrentUserState();
-  const userId = user?.id;
-  const loadedUserIdRef = useRef<string | null>(null);
   const [tab, setTab] = useState<"employees" | "roles">("employees");
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -157,10 +140,8 @@ export default function AccessControlSettingsPage() {
   }
 
   useEffect(() => {
-    if (isSessionPending || !userId || loadedUserIdRef.current === userId) return;
-    loadedUserIdRef.current = userId;
     void load();
-  }, [isSessionPending, userId]);
+  }, []);
 
   useEffect(() => {
     if (tab === "roles" && selectedRole) void loadRoleData(selectedRole);
@@ -174,10 +155,7 @@ export default function AccessControlSettingsPage() {
     () => employees.find((e) => e.id === selectedEmployee),
     [employees, selectedEmployee],
   );
-  const selectedRoleRow = useMemo(
-    () => roles.find((r) => r.id === selectedRole),
-    [roles, selectedRole],
-  );
+  const selectedRoleRow = useMemo(() => roles.find((r) => r.id === selectedRole), [roles, selectedRole]);
 
   const permissionById = useMemo(() => {
     const map = new Map<string, Permission>();
@@ -230,12 +208,8 @@ export default function AccessControlSettingsPage() {
     setError("");
     setMessage("");
     try {
-      await setRolePermissions({
-        data: { roleId: selectedRole, permissionIds: selectedPermissions },
-      });
-      setMessage(
-        "تم حفظ صلاحيات الدور. الموظفون بهذا الدور يحصلون على الشاشات والإجراءات المحددة.",
-      );
+      await setRolePermissions({ data: { roleId: selectedRole, permissionIds: selectedPermissions } });
+      setMessage("تم حفظ صلاحيات الدور. الموظفون بهذا الدور يحصلون على الشاشات والإجراءات المحددة.");
       await loadRoleData(selectedRole);
       await load(selectedRole);
     } catch (e) {
@@ -291,8 +265,7 @@ export default function AccessControlSettingsPage() {
           </div>
           <h1 className="page-title mt-2">إدارة الوصول</h1>
           <p className="page-subtitle">
-            كل الموظفين من قاعدة البيانات، تعيين الأدوار، وتحديد الشاشات والإجراءات المسموحة لكل
-            دور.
+            كل الموظفين من قاعدة البيانات، تعيين الأدوار، وتحديد الشاشات والإجراءات المسموحة لكل دور.
           </p>
         </div>
         <Link to="/employees" className="btn-ghost">
@@ -343,11 +316,7 @@ export default function AccessControlSettingsPage() {
               <div className="flex items-center justify-between border-b border-line bg-canvas/50 px-4 py-3">
                 <span className="font-black">الموظفون</span>
                 <label className="flex items-center gap-2 text-xs text-muted">
-                  <input
-                    type="checkbox"
-                    checked={showArchived}
-                    onChange={(e) => setShowArchived(e.target.checked)}
-                  />
+                  <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
                   إظهار المؤرشفين
                 </label>
               </div>
@@ -397,8 +366,7 @@ export default function AccessControlSettingsPage() {
                 <div>
                   <h2 className="font-black">تعيين الدور للموظف</h2>
                   <p className="text-xs text-muted">
-                    الدور يحدد الشاشات والإجراءات. عدّل صلاحيات الدور من تبويب «الأدوار وصلاحيات
-                    الشاشات».
+                    الدور يحدد الشاشات والإجراءات. عدّل صلاحيات الدور من تبويب «الأدوار وصلاحيات الشاشات».
                   </p>
                 </div>
               </div>
@@ -449,9 +417,7 @@ export default function AccessControlSettingsPage() {
           <div className="grid gap-6 p-6 lg:grid-cols-[.8fr_1.2fr]">
             <div className="space-y-4">
               <div className="overflow-hidden rounded-2xl border border-line">
-                <div className="border-b border-line bg-canvas/50 px-4 py-3 font-black">
-                  الأدوار
-                </div>
+                <div className="border-b border-line bg-canvas/50 px-4 py-3 font-black">الأدوار</div>
                 <div className="divide-y divide-line">
                   {roles.map((r) => (
                     <button
@@ -462,9 +428,7 @@ export default function AccessControlSettingsPage() {
                     >
                       <div className="font-bold">{r.name}</div>
                       <div className="mt-1 text-xs text-muted">{r.description || "بدون وصف"}</div>
-                      <div className="mt-2 text-[11px] text-brand">
-                        {r.permission_count ?? 0} صلاحية
-                      </div>
+                      <div className="mt-2 text-[11px] text-brand">{r.permission_count ?? 0} صلاحية</div>
                     </button>
                   ))}
                 </div>
@@ -493,12 +457,7 @@ export default function AccessControlSettingsPage() {
                     value={newRoleDescription}
                     onChange={(e) => setNewRoleDescription(e.target.value)}
                   />
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => void createCustomRole()}
-                    className="btn-secondary w-full"
-                  >
+                  <button type="button" disabled={saving} onClick={() => void createCustomRole()} className="btn-secondary w-full">
                     إنشاء الدور
                   </button>
                 </div>
@@ -507,9 +466,7 @@ export default function AccessControlSettingsPage() {
 
             <div className="rounded-2xl border border-line bg-canvas/40 p-5">
               <div>
-                <h2 className="font-black">
-                  صلاحيات {selectedRoleRow?.name || "الدور"} — الشاشات والإجراءات
-                </h2>
+                <h2 className="font-black">صلاحيات {selectedRoleRow?.name || "الدور"} — الشاشات والإجراءات</h2>
                 <p className="text-xs text-muted">
                   فعّل ما يحتاجه الدور فقط. الحفظ يطبّق فورًا على كل موظف بهذا الدور عبر الخادم.
                 </p>
@@ -524,10 +481,7 @@ export default function AccessControlSettingsPage() {
                       const allOn = ids.every((id) => selectedPermissions.includes(id));
                       const someOn = ids.some((id) => selectedPermissions.includes(id));
                       return (
-                        <div
-                          key={group.title}
-                          className="rounded-2xl border border-line bg-white p-4"
-                        >
+                        <div key={group.title} className="rounded-2xl border border-line bg-white p-4">
                           <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                             <div>
                               <div className="font-black">{group.title}</div>

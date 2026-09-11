@@ -41,7 +41,8 @@ export async function drainOutbox(
   apply: ApplyFn,
   opts?: { maxAttempts?: number; finalize?: FinalizeFn; preflight?: ConflictPreflightFn },
 ): Promise<OutboxItem[]> {
-  const maxAttempts = opts?.maxAttempts ?? 8;
+  const { OUTBOX_MAX_ATTEMPTS } = await import("../domain/outbox.ts");
+  const maxAttempts = opts?.maxAttempts ?? OUTBOX_MAX_ATTEMPTS;
   const preflight: ConflictPreflightFn = opts?.preflight ?? defaultPreflight;
   const finalize: FinalizeFn = opts?.finalize ?? defaultFinalize;
 
