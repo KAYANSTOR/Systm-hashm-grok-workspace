@@ -18,7 +18,7 @@ import {
   Wallet,
   X,
   Wifi,
-  WifiOff
+  WifiOff,
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -49,25 +49,28 @@ const QUICK = [
   { to: "/expenses", label: "مصروف جديد", icon: CreditCard, tone: "bg-bad-soft text-bad" },
 ] as const;
 
-
 function useOnlineStatus() {
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true,
+  );
 
   useEffect(() => {
     function handleOnline() {
       setIsOnline(true);
-      toast.info("تمت استعادة الاتصال، جارٍ ترحيل العمليات المحفوظة إلى السحابة…", { duration: 5000 });
+      toast.info("تمت استعادة الاتصال، جارٍ ترحيل العمليات المحفوظة إلى السحابة…", {
+        duration: 5000,
+      });
     }
     function handleOffline() {
       setIsOnline(false);
     }
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
   }, []);
 
@@ -88,7 +91,6 @@ function PageSkeleton() {
   );
 }
 
-
 export function AppShell({ children }: { children: ReactNode }) {
   const isOnline = useOnlineStatus();
   const router = useRouter();
@@ -99,13 +101,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const connectionState = useStore((s) => s.connectionState);
   const pendingSyncCount = useStore((s) => s.pendingSyncCount);
   const lastSyncMessage = useStore((s) => s.lastSyncMessage);
-  const syncLegacyDb = useStore((s) => s.syncLegacyDb);
+  const drainPendingOutbox = useStore((s) => s.drainPendingOutbox);
 
   useEffect(() => {
     const logo = organizationLogo || "/icons/icon-192.png";
-    document.querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="apple-touch-icon"]').forEach((link) => {
-      link.href = logo;
-    });
+    document
+      .querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="apple-touch-icon"]')
+      .forEach((link) => {
+        link.href = logo;
+      });
   }, [organizationLogo]);
 
   const [fabOpen, setFabOpen] = useState(false);
@@ -113,9 +117,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const [isHydrated, setIsHydrated] = useState(false);
 
-  const preload = useCallback((to: string) => {
-    void router.preloadRoute({ to } as never);
-  }, [router]);
+  const preload = useCallback(
+    (to: string) => {
+      void router.preloadRoute({ to } as never);
+    },
+    [router],
+  );
 
   useEffect(() => {
     setIsHydrated(true);
@@ -127,10 +134,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
-    const retrySync = () => { void syncLegacyDb().catch(() => undefined); };
+    // عند عودة الإنترنت: رحّل طابور العمليات فقط — لا تعيد رفع لقطة كاملة (كانت تسبب تكرار القيود).
+    const retrySync = () => {
+      void drainPendingOutbox().catch(() => undefined);
+    };
     window.addEventListener("online", retrySync);
     return () => window.removeEventListener("online", retrySync);
-  }, [syncLegacyDb]);
+  }, [drainPendingOutbox]);
 
   useEffect(() => {
     if (lastSyncMessage === "تم ترحيل البيانات إلى السحابة بنجاح") {
@@ -159,7 +169,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex min-h-dvh w-full">
         <aside className="no-print sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-l border-line bg-paper p-4 lg:flex">
           <div className="mb-6 flex items-center gap-3 px-2">
-            <img src={organizationLogo || "/icons/icon-192.png"} alt="شعار معمل هاشم" className="size-11 rounded-2xl object-contain shadow-sm" />
+            <img
+              src={organizationLogo || "/icons/icon-192.png"}
+              alt="شعار معمل هاشم"
+              className="size-11 rounded-2xl object-contain shadow-sm"
+            />
             <div>
               <p className="text-sm font-black leading-tight text-brand">معمل هاشم</p>
               <p className="text-[11px] font-medium text-muted">إدارة المعمل</p>
@@ -269,35 +283,50 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </p>
                 <p className="text-[11px] text-muted">صنعاء</p>
               </div>
-              
+
               <div className="flex items-center">
                 {isOnline ? (
-                  <div className="flex items-center gap-1.5 rounded-full bg-good/10 px-2 py-1 text-[10px] font-bold text-good" title="متصل بالإنترنت">
+                  <div
+                    className="flex items-center gap-1.5 rounded-full bg-good/10 px-2 py-1 text-[10px] font-bold text-good"
+                    title="متصل بالإنترنت"
+                  >
                     <Wifi className="size-3" />
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5 rounded-full bg-bad/10 px-2 py-1 text-[10px] font-bold text-bad" title="وضع عدم الاتصال">
+                  <div
+                    className="flex items-center gap-1.5 rounded-full bg-bad/10 px-2 py-1 text-[10px] font-bold text-bad"
+                    title="وضع عدم الاتصال"
+                  >
                     <WifiOff className="size-3" />
                     <span className="hidden sm:inline">غير متصل</span>
                   </div>
                 )}
               </div>
 
-              <img src={organizationLogo || "/icons/icon-192.png"} alt="شعار معمل هاشم" className="size-10 rounded-2xl object-contain shadow-sm" />
+              <img
+                src={organizationLogo || "/icons/icon-192.png"}
+                alt="شعار معمل هاشم"
+                className="size-10 rounded-2xl object-contain shadow-sm"
+              />
             </div>
           </header>
 
           <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-32 pt-2 lg:px-8 lg:pb-10 relative overflow-x-hidden">
             {connectionState !== "online" || pendingSyncCount > 0 ? (
-              <div className={`mb-3 flex items-center justify-between gap-3 rounded-2xl px-4 py-2.5 text-xs font-bold ${connectionState === "offline" ? "bg-bad/10 text-bad" : "bg-warn/10 text-warn"}`} role="status">
-                <span>{connectionState === "offline" ? "غير متصل — البيانات تُحفظ على الجهاز" : "جارٍ مزامنة البيانات مع السحابة…"}</span>
+              <div
+                className={`mb-3 flex items-center justify-between gap-3 rounded-2xl px-4 py-2.5 text-xs font-bold ${connectionState === "offline" ? "bg-bad/10 text-bad" : "bg-warn/10 text-warn"}`}
+                role="status"
+              >
+                <span>
+                  {connectionState === "offline"
+                    ? "غير متصل — البيانات تُحفظ على الجهاز"
+                    : "جارٍ مزامنة البيانات مع السحابة…"}
+                </span>
                 {pendingSyncCount > 0 ? <span>{pendingSyncCount} عملية معلقة</span> : null}
               </div>
             ) : null}
             <div key={pathname} className="w-full">
-              <Suspense fallback={<PageSkeleton />}>
-                {children}
-              </Suspense>
+              <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
             </div>
           </main>
         </div>
@@ -360,15 +389,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           {MOBILE_NAV.map((item, i) => {
             const Icon = item.icon;
             const active = pathname === item.to;
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  preload="intent"
-                  onPointerEnter={() => preload(item.to)}
-                  onTouchStart={() => preload(item.to)}
-                  className={cn(
-                    "flex flex-1 flex-col items-center gap-1 pt-1 text-[11px] font-bold",
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                preload="intent"
+                onPointerEnter={() => preload(item.to)}
+                onTouchStart={() => preload(item.to)}
+                className={cn(
+                  "flex flex-1 flex-col items-center gap-1 pt-1 text-[11px] font-bold",
                   i === 1 && "ml-8",
                   i === 2 && "mr-8",
                   active ? "text-brand" : "text-muted",
