@@ -25,6 +25,13 @@ async function requireAdmin(
   if (!rows.length) throw new Error("لا يمكن تنفيذ هذه العملية إلا لمدير النظام");
 }
 
+async function revokeUserSessions(
+  sql: Awaited<ReturnType<typeof getSql>>,
+  userId: string,
+): Promise<void> {
+  await sql`delete from "session" where "userId" = ${userId}`;
+}
+
 function normalizeRoles(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(String).filter(Boolean);
   if (typeof value === "string") {
@@ -225,7 +232,10 @@ export const setEmployeeAccountStatus = createServerFn({ method: "POST" })
     if (!rows.length) throw new Error("لا يوجد حساب دخول مرتبط بالموظف");
     if (String(rows[0].user_id) === actorId) throw new Error("لا يمكنك إيقاف حسابك بنفسك");
     if (rows[0].target_is_admin) await requireAdmin(sql, actorId);
-    await sql`update employee_users set is_active=${Boolean(data.isActive)}, updated_at=now() where employee_id=${employeeId}`;
+    await sql.transaction(async (tx) => {
+      await tx`update employee_users set is_active=${Boolean(data.isActive)}, updated_at=now() where employee_id=${employeeId}`;
+      if (!Boolean(data.isActive)) await revokeUserSessions(tx, String(rows[0].user_id));
+    });
     return { employeeId, isActive: Boolean(data.isActive) };
   });
 
@@ -306,6 +316,7 @@ async function provisionCredentialAccount(
       `;
       await tx`delete from user_roles where user_id = ${existingId}`;
       await tx`insert into user_roles (user_id, role_id) values (${existingId}, ${opts.roleId}) on conflict do nothing`;
+      await revokeUserSessions(tx, existingId);
     });
     return { userId: existingId, email };
   }
@@ -388,10 +399,16 @@ export const resetEmployeePassword = createServerFn({ method: "POST" })
     `;
     if (!rows.length) throw new Error("لا يوجد حساب دخول فعال لهذا الموظف");
     const passwordHash = await hashPassword(password);
-    await sql`
-      update "account" set "password"=${passwordHash}, "updatedAt"=now()
-      where "userId"=${String(rows[0].user_id)} and "providerId"='credential'
-    `;
+    const updated = await sql.transaction(async (tx) => {
+      const result = await tx`
+        update "account" set "password"=${passwordHash}, "updatedAt"=now()
+        where "userId"=${String(rows[0].user_id)} and "providerId"='credential'
+        returning "userId"
+      `;
+      if (result.length) await revokeUserSessions(tx, String(rows[0].user_id));
+      return result;
+    });
+    if (!updated.length) throw new Error("حساب الدخول غير موجود أو لا يستخدم كلمة مرور");
     return { employeeId };
   });
 
