@@ -7,6 +7,7 @@ export type IdentityResolution =
       phone: string;
       userId: string;
       userEmail: string;
+      /** Primary key of the Better Auth `account` row. */
       accountId: string;
       employeeId: string;
       organizationId: string;
@@ -96,7 +97,10 @@ export async function resolveCanonicalAuthIdentity(
     phone,
     userId: user.id,
     userEmail: user.email,
-    accountId: account.accountId,
+    // Better Auth updates credential rows by the DB primary key (`account.id`).
+    // `accountId` is the provider-specific external identifier and must not be
+    // used as the `account.id` lookup key during password recovery.
+    accountId: account.id,
     employeeId: employee.employeeId,
     organizationId: employee.organizationId,
   };
