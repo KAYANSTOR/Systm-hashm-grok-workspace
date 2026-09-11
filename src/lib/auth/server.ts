@@ -157,10 +157,11 @@ export const auth = betterAuth({
       requireLocalEmailVerified: false,
     },
   },
-  // Sessions are remembered for a long device lifetime; updateAge refreshes activity.
-  // A normal user leaves the session by explicitly signing out.
+  // Keep the device remembered for one year. Browsers reject cookies whose
+  // Max-Age exceeds 400 days, even though the database session can live longer.
+  // updateAge refreshes activity while the user remains signed in.
   session: {
-    expiresIn: 60 * 60 * 24 * 3650,
+    expiresIn: 60 * 60 * 24 * 365,
     updateAge: 60 * 60 * 24,
     cookieCache: { enabled: true, maxAge: 300 },
   },
