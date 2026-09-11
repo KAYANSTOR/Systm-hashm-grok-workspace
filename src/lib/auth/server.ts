@@ -8,13 +8,18 @@ import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { getCookie } from "@tanstack/react-start/server";
 import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
-import { ensureDbReady, getPglite } from "../db";
+import { ensureDbReady, getPglite, getSql } from "../db";
 import { emailAndPasswordEnabled } from "./email-password";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { APP_PROVIDERS } from "./providers";
 import { pgliteDialect } from "./pglite-dialect";
-import { APP_ISSUER_DEFAULT, PREVIEW_ALLOWED_HOSTS, PREVIEW_CLIENT_ID, PREVIEW_CLIENT_SECRET } from "./preview";
-import { phoneAccountEmailCandidates } from "./phone";
+import {
+  APP_ISSUER_DEFAULT,
+  PREVIEW_ALLOWED_HOSTS,
+  PREVIEW_CLIENT_ID,
+  PREVIEW_CLIENT_SECRET,
+} from "./preview";
+import { resolveCanonicalAuthIdentity } from "./identity.server";
 import { createAuthMiddleware } from "@better-auth/core/api";
 
 void ensureDbReady();
@@ -58,16 +63,45 @@ const databaseUrl = env("DATABASE_URL");
 function normalizeSupabaseUrl(value: string | undefined): string | undefined {
   if (!value?.includes(".pooler.supabase.com")) return value;
   const separator = value.includes("?") ? "&" : "?";
-  return value.replace(/([?&])sslmode=[^&]*/i, "$1sslmode=no-verify") + (value.includes("sslmode=") ? "" : `${separator}sslmode=no-verify`);
+  return (
+    value.replace(/([?&])sslmode=[^&]*/i, "$1sslmode=no-verify") +
+    (value.includes("sslmode=") ? "" : `${separator}sslmode=no-verify`)
+  );
 }
 const issuerBase = appIssuer.replace(/\/+$/, "");
 const appAuthorizationUrl = `${issuerBase}/api/auth/oauth2/authorize`;
 const appTokenUrl = `${issuerBase}/api/auth/oauth2/token`;
 const appUserInfoUrl = `${issuerBase}/api/auth/oauth2/userinfo`;
 const isSupabasePooler = databaseUrl?.includes(".pooler.supabase.com") ?? false;
+const hasCloudSql = Boolean(
+  env("SQL_HOST") && env("SQL_USER") && env("SQL_PASSWORD") && env("SQL_DB_NAME"),
+);
+const productionRuntime =
+  process.env.VERCEL_ENV === "production" ||
+  process.env.APP_RUNTIME === "production" ||
+  process.env.NODE_ENV === "production";
+if (productionRuntime && !databaseUrl && !hasCloudSql && !explicitPgliteFallback()) {
+  throw new Error(
+    "Production Better Auth requires DATABASE_URL or the configured SQL_* cloud database variables; refusing PGLite fallback.",
+  );
+}
 const database = databaseUrl
-  ? new Pool({ connectionString: normalizeSupabaseUrl(databaseUrl), ...(isSupabasePooler ? { ssl: { rejectUnauthorized: false } } : {}) })
-  : { dialect: pgliteDialect(() => getPglite()), type: "postgres" as const };
+  ? new Pool({
+      connectionString: normalizeSupabaseUrl(databaseUrl),
+      ...(isSupabasePooler ? { ssl: { rejectUnauthorized: false } } : {}),
+    })
+  : hasCloudSql
+    ? new Pool({
+        host: env("SQL_HOST"),
+        user: env("SQL_USER"),
+        password: env("SQL_PASSWORD"),
+        database: env("SQL_DB_NAME"),
+      })
+    : { dialect: pgliteDialect(() => getPglite()), type: "postgres" as const };
+
+function explicitPgliteFallback(): boolean {
+  return process.env.ALLOW_PGLITE_FALLBACK === "true";
+}
 export const SESSION_TOKEN_COOKIE = "__Host-app-auth.session_token";
 const appOAuthPlugin = authConfigured
   ? genericOAuth({
@@ -94,15 +128,9 @@ const phoneIdentityPlugin = {
           const email = typeof body.email === "string" ? body.email : "";
           if (!email.startsWith("phone-") || !email.endsWith("@accounts.hashem.local")) return;
           const phone = email.slice("phone-".length, -"@accounts.hashem.local".length);
-          for (const candidate of phoneAccountEmailCandidates(phone)) {
-            const user = await ctx.context.adapter.findOne<{ email: string }>({
-              model: "user",
-              where: [{ field: "email", value: candidate }],
-            });
-            if (user?.email) {
-              body.email = user.email;
-              return;
-            }
+          const identity = await resolveCanonicalAuthIdentity(await getSql(), phone);
+          if (identity.status === "resolved") {
+            body.email = identity.userEmail;
           }
         }),
       },
@@ -141,7 +169,13 @@ export const auth = betterAuth({
       dont_remember: { name: "__Host-app-auth.dont_remember" },
     },
   },
-  plugins: [gateIdentitySessions(), phoneIdentityPlugin, ...(appOAuthPlugin ? [appOAuthPlugin] : []), bearer(), tanstackStartCookies()],
+  plugins: [
+    gateIdentitySessions(),
+    phoneIdentityPlugin,
+    ...(appOAuthPlugin ? [appOAuthPlugin] : []),
+    bearer(),
+    tanstackStartCookies(),
+  ],
 });
 
 export function readSessionToken(): string | null {

@@ -3,15 +3,30 @@ import { pendingMigrations } from "../../scripts/migration-plan.mjs";
 /** Which database backend is active. */
 export type DbSource = "neon" | "pglite";
 
-const rawDatabaseUrl =
-  typeof process !== "undefined" ? process.env.DATABASE_URL : undefined;
-const databaseUrl =
-  rawDatabaseUrl && rawDatabaseUrl.trim() ? rawDatabaseUrl : undefined;
+const rawDatabaseUrl = typeof process !== "undefined" ? process.env.DATABASE_URL : undefined;
+const databaseUrl = rawDatabaseUrl && rawDatabaseUrl.trim() ? rawDatabaseUrl : undefined;
 
 const hasCloudSql =
-  typeof process !== "undefined" && process.env.SQL_HOST && process.env.SQL_USER && process.env.SQL_PASSWORD && process.env.SQL_DB_NAME;
+  typeof process !== "undefined" &&
+  process.env.SQL_HOST &&
+  process.env.SQL_USER &&
+  process.env.SQL_PASSWORD &&
+  process.env.SQL_DB_NAME;
 
-export const dbSource: DbSource = (databaseUrl || hasCloudSql) ? "neon" : "pglite";
+const productionRuntime =
+  typeof process !== "undefined" &&
+  (process.env.VERCEL_ENV === "production" ||
+    process.env.APP_RUNTIME === "production" ||
+    process.env.NODE_ENV === "production");
+const explicitPgliteFallback =
+  typeof process !== "undefined" && process.env.ALLOW_PGLITE_FALLBACK === "true";
+if (productionRuntime && !databaseUrl && !hasCloudSql && !explicitPgliteFallback) {
+  throw new Error(
+    "Production requires DATABASE_URL or the configured SQL_* cloud database variables; refusing PGLite fallback.",
+  );
+}
+
+export const dbSource: DbSource = databaseUrl || hasCloudSql ? "neon" : "pglite";
 
 /**
  * Minimal shared SQL surface, satisfied by both Neon and PGLite. Both the
@@ -22,14 +37,8 @@ export const dbSource: DbSource = (databaseUrl || hasCloudSql) ? "neon" : "pglit
  *   const rows2 = await sql.query("select * from todos where id = $1", [id]);
  */
 export interface Sql {
-  <T = Record<string, unknown>>(
-    strings: TemplateStringsArray,
-    ...values: unknown[]
-  ): Promise<T[]>;
-  query<T = Record<string, unknown>>(
-    text: string,
-    params?: unknown[],
-  ): Promise<T[]>;
+  <T = Record<string, unknown>>(strings: TemplateStringsArray, ...values: unknown[]): Promise<T[]>;
+  query<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;
   transaction<T>(callback: (tx: Sql) => Promise<T>): Promise<T>;
 }
 
@@ -84,8 +93,10 @@ function toSql(run: Run): Sql {
 function normalizeSupabaseUrl(value: string | undefined): string | undefined {
   if (!value?.includes(".pooler.supabase.com")) return value;
   const separator = value.includes("?") ? "&" : "?";
-  return value.replace(/([?&])sslmode=[^&]*/i, "$1sslmode=no-verify")
-    + (value.includes("sslmode=") ? "" : `${separator}sslmode=no-verify`);
+  return (
+    value.replace(/([?&])sslmode=[^&]*/i, "$1sslmode=no-verify") +
+    (value.includes("sslmode=") ? "" : `${separator}sslmode=no-verify`)
+  );
 }
 
 function createNeonSql(): Promise<Sql> {
@@ -97,16 +108,18 @@ function createNeonSql(): Promise<Sql> {
     types.setTypeParser(OID_DATE, identity);
     types.setTypeParser(OID_INTERVAL, identity);
     const isSupabasePooler = databaseUrl?.includes(".pooler.supabase.com") ?? false;
-    const poolConfig = hasCloudSql ? {
-      host: process.env.SQL_HOST,
-      user: process.env.SQL_USER,
-      password: process.env.SQL_PASSWORD,
-      database: process.env.SQL_DB_NAME,
-      max: 10,
-    } : {
-      connectionString: normalizeSupabaseUrl(databaseUrl),
-      ...(isSupabasePooler ? { ssl: { rejectUnauthorized: false } } : {}),
-    };
+    const poolConfig = hasCloudSql
+      ? {
+          host: process.env.SQL_HOST,
+          user: process.env.SQL_USER,
+          password: process.env.SQL_PASSWORD,
+          database: process.env.SQL_DB_NAME,
+          max: 10,
+        }
+      : {
+          connectionString: normalizeSupabaseUrl(databaseUrl),
+          ...(isSupabasePooler ? { ssl: { rejectUnauthorized: false } } : {}),
+        };
     const pool = new Pool(poolConfig);
     const sql = toSql(async <T>(text: string, params: unknown[]) => {
       const res = await pool.query(text, params);
@@ -115,16 +128,16 @@ function createNeonSql(): Promise<Sql> {
     sql.transaction = async <T>(cb: (tx: Sql) => Promise<T>) => {
       const client = await pool.connect();
       try {
-        await client.query('BEGIN');
+        await client.query("BEGIN");
         const txSql = toSql(async <U>(text: string, params: unknown[]) => {
           const res = await client.query(text, params);
           return res.rows as U[];
         });
         const result = await cb(txSql);
-        await client.query('COMMIT');
+        await client.query("COMMIT");
         return result;
       } catch (e) {
-        await client.query('ROLLBACK');
+        await client.query("ROLLBACK");
         throw e;
       } finally {
         client.release();
@@ -175,9 +188,7 @@ async function createPgliteSql(): Promise<Sql> {
       import: "default",
       eager: true,
     }) as Record<string, string>;
-    const doneRows = await pg.query<{ name: string }>(
-      "select name from _migrations",
-    );
+    const doneRows = await pg.query<{ name: string }>("select name from _migrations");
     const done = doneRows.rows.map((r) => r.name);
     for (const { name, path } of pendingMigrations(Object.keys(migrations), done)) {
       // Apply + record atomically (parity with scripts/migrate.mjs) so a failed
