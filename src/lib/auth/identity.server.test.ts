@@ -21,15 +21,9 @@ function fakeSql(options: {
     return [] as T[];
   }) as unknown as Sql;
   sql.query = async <T>(text: string, params: unknown[] = []) => {
-    if (text.includes('from "user"')) {
-      return (options.user ? [options.user] : []) as T[];
-    }
-    if (text.includes('from "account"')) {
-      return (options.account ? [options.account] : []) as T[];
-    }
-    if (text.includes("from employee_users")) {
-      return (options.employee ? [options.employee] : []) as T[];
-    }
+    if (text.includes('from "user"')) return (options.user ? [options.user] : []) as T[];
+    if (text.includes('from "account"')) return (options.account ? [options.account] : []) as T[];
+    if (text.includes("from employee_users")) return (options.employee ? [options.employee] : []) as T[];
     throw new Error(`unexpected query: ${text} ${JSON.stringify(params)}`);
   };
   sql.transaction = async () => {
@@ -74,8 +68,18 @@ describe("resolveCanonicalAuthIdentity", () => {
       if (result.status === "resolved") {
         assert.equal(result.phone, "773303455");
         assert.equal(result.userId, "user-1");
+        assert.equal(result.accountId, "account-1");
         assert.equal(result.organizationId, "org-warehouse-2");
       }
+    }
+  });
+
+  it("uses the Better Auth account row primary key, not the provider accountId", async () => {
+    const result = await resolveCanonicalAuthIdentity(resolvedSql(), "773303455");
+    assert.equal(result.status, "resolved");
+    if (result.status === "resolved") {
+      assert.equal(result.accountId, account.id);
+      assert.notEqual(result.accountId, account.accountId);
     }
   });
 
