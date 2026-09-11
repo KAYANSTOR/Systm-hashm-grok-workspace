@@ -33,6 +33,7 @@ type Role = { id: string; name: string; description?: string | null };
 
 export default function EmployeesPage() {
   const { user, isPending: isSessionPending } = useCurrentUserState();
+  const userId = user?.id;
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,9 +72,9 @@ export default function EmployeesPage() {
   }
 
   useEffect(() => {
-    if (isSessionPending || !user) return;
+    if (isSessionPending || !userId) return;
     void load();
-  }, [isSessionPending, user]);
+  }, [isSessionPending, userId]);
 
   const visible = useMemo(
     () => (showArchived ? employees : employees.filter((e) => e.is_active)),

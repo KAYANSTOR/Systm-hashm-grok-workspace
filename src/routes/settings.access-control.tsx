@@ -93,6 +93,7 @@ function normalizeRoles(value: unknown): string[] {
 
 export default function AccessControlSettingsPage() {
   const { user, isPending: isSessionPending } = useCurrentUserState();
+  const userId = user?.id;
   const [tab, setTab] = useState<"employees" | "roles">("employees");
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -155,9 +156,9 @@ export default function AccessControlSettingsPage() {
   }
 
   useEffect(() => {
-    if (isSessionPending || !user) return;
+    if (isSessionPending || !userId) return;
     void load();
-  }, [isSessionPending, user]);
+  }, [isSessionPending, userId]);
 
   useEffect(() => {
     if (tab === "roles" && selectedRole) void loadRoleData(selectedRole);
