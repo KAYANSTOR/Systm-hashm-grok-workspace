@@ -75,6 +75,13 @@ export default function EmployeesPage() {
     setMessage("");
     try {
       const res = await ensureMyAccountIsAdmin();
+      try {
+        const { forceAllowFetch, useStore } = await import("@/lib/store");
+        forceAllowFetch();
+        await useStore.getState().fetchFromDb();
+      } catch {
+        /* ignore */
+      }
       setMessage(
         `تم تعيين حسابك كمدير النظام (${(res as any)?.permissionCount ?? "—"} صلاحية). سيتم تحديث القائمة الآن.`,
       );

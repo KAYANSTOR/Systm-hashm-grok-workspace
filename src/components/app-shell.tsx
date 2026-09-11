@@ -23,6 +23,7 @@ import {
 import { Toaster, toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
+import { canAccessPath, filterNavByPermissions } from "@/lib/access";
 
 const NAV = [
   { to: "/", label: "الرئيسية", icon: Home },
@@ -100,6 +101,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pendingSyncCount = useStore((s) => s.pendingSyncCount);
   const lastSyncMessage = useStore((s) => s.lastSyncMessage);
   const drainPendingOutbox = useStore((s) => s.drainPendingOutbox);
+  const userPermissions = useStore((s) => s.userPermissions || []);
+
+  // القوائم تعرض فقط الشاشات المسموحة لدور الموظف
+  const navItems = useMemo(() => filterNavByPermissions(NAV, userPermissions), [userPermissions]);
+  const mobileNavItems = useMemo(() => filterNavByPermissions(MOBILE_NAV, userPermissions), [userPermissions]);
+  const quickItems = useMemo(() => filterNavByPermissions(QUICK, userPermissions), [userPermissions]);
+  const pathAllowed = useMemo(() => canAccessPath(pathname, userPermissions), [pathname, userPermissions]);
+  const canOpenSettings = useMemo(() => canAccessPath("/settings", userPermissions), [userPermissions]);
 
   useEffect(() => {
     const logo = organizationLogo || "/icons/icon-192.png";
@@ -167,7 +176,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
           <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
-            {NAV.map((item) => {
+            {navItems.map((item) => {
               const Icon = item.icon;
               const active = pathname === item.to;
               return (
@@ -191,6 +200,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
+            {!navItems.length && (
+              <p className="px-3 py-2 text-xs text-muted">لا توجد شاشات مسموحة لهذا الحساب. راجع الأدوار من حساب المدير.</p>
+            )}
           </nav>
         </aside>
 
@@ -202,9 +214,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <ArrowRight className="size-5" />
                 </Link>
               ) : null}
-              <Link to="/settings" className="btn-icon" aria-label="الإعدادات">
-                <Settings className="size-5" />
-              </Link>
+              {canOpenSettings ? (
+                <Link to="/settings" className="btn-icon" aria-label="الإعدادات">
+                  <Settings className="size-5" />
+                </Link>
+              ) : null}
               <div className="relative">
                 <button
                   type="button"
@@ -313,9 +327,22 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             ) : null}
             <div key={pathname} className="w-full">
-              <Suspense fallback={<PageSkeleton />}>
-                {children}
-              </Suspense>
+              {!pathAllowed && pathname !== "/" ? (
+                <div className="mx-auto max-w-md rounded-3xl border border-line bg-paper p-8 text-center shadow-sm">
+                  <p className="text-lg font-black text-brand-dark">لا توجد صلاحية لفتح هذه الشاشة</p>
+                  <p className="mt-2 text-sm text-muted">
+                    دورك الحالي لا يسمح بالوصول إلى هذه الصفحة. اطلب من المدير تفعيل الشاشة أو الإجراء من
+                    «الأدوار وصلاحيات الشاشات».
+                  </p>
+                  <Link to="/" className="btn-primary mt-6 inline-flex">
+                    العودة للرئيسية
+                  </Link>
+                </div>
+              ) : (
+                <Suspense fallback={<PageSkeleton />}>
+                  {children}
+                </Suspense>
+              )}
             </div>
           </main>
         </div>
@@ -343,7 +370,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             transition={{ duration: 0.2, type: "spring", bounce: 0 }}
             className="no-print fixed bottom-24 left-1/2 z-50 flex w-52 -translate-x-1/2 flex-col gap-2 lg:hidden"
           >
-            {QUICK.map((q) => {
+            {quickItems.map((q) => {
               const Icon = q.icon;
               return (
                 <Link
@@ -375,7 +402,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             {fabOpen ? <X className="size-7" /> : <ArrowUp className="size-7 stroke-[3]" />}
           </button>
-          {MOBILE_NAV.map((item, i) => {
+          {mobileNavItems.map((item, i) => {
             const Icon = item.icon;
             const active = pathname === item.to;
               return (

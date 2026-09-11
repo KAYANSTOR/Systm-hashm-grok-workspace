@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ShieldCheck, Users, KeyRound, ArrowRight, Plus } from "lucide-react";
 import {
   createRole,
+  ensureMyAccountIsAdmin,
   getEmployeeRoles,
   listEmployees,
   listPermissions,
@@ -10,6 +11,8 @@ import {
   setEmployeeRole,
   setRolePermissions,
 } from "../server/employees";
+import { forceAllowFetch, useStore } from "@/lib/store";
+import { PAGE_LABELS } from "@/lib/access";
 
 export const Route = createFileRoute("/settings/access-control")({
   component: AccessControlSettingsPage,
@@ -113,11 +116,32 @@ export default function AccessControlSettingsPage() {
       if (!selectedEmployee && nextEmployees[0]?.id) setSelectedEmployee(nextEmployees[0].id);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "تعذر تحميل إعدادات الصلاحيات";
-      if (/Unauthorized/i.test(msg)) setError("الجلسة غير صالحة. سجّل الدخول مجددًا.");
-      else if (/Forbidden|permission/i.test(msg)) setError("لا تملك صلاحية إدارة الوصول.");
-      else setError(msg);
+      if (/Unauthorized|Forbidden|permission|Account is disabled/i.test(msg)) {
+        setError(
+          "لا تملك صلاحية إدارة الأدوار. اضغط «تفعيل حسابي كمدير» مرة واحدة ثم أعد المحاولة.",
+        );
+      } else setError(msg);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function promoteMeAdmin() {
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await ensureMyAccountIsAdmin();
+      forceAllowFetch();
+      await useStore.getState().fetchFromDb();
+      setMessage(
+        `تم تعيينك كمدير (${(res as any)?.permissionCount ?? "—"} صلاحية). يمكنك الآن ضبط أدوار الموظفين والشاشات.`,
+      );
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "تعذر تعيين المدير");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -209,7 +233,16 @@ export default function AccessControlSettingsPage() {
     setMessage("");
     try {
       await setRolePermissions({ data: { roleId: selectedRole, permissionIds: selectedPermissions } });
-      setMessage("تم حفظ صلاحيات الدور. الموظفون بهذا الدور يحصلون على الشاشات والإجراءات المحددة.");
+      const unlocked = PAGE_LABELS.filter((p) =>
+        p.permissionIds.some((id) => selectedPermissions.includes(id)),
+      )
+        .map((p) => p.title)
+        .join(" · ");
+      setMessage(
+        unlocked
+          ? `تم الحفظ. الموظفون بهذا الدور يرون فقط: ${unlocked}. باقي الشاشات مخفية لهم.`
+          : "تم الحفظ. لم تُحدَّد شاشات — الموظف لن يرى قوائم العمل حتى تفعّل صلاحيات.",
+      );
       await loadRoleData(selectedRole);
       await load(selectedRole);
     } catch (e) {
@@ -280,9 +313,28 @@ export default function AccessControlSettingsPage() {
             error ? "border-bad/30 bg-bad-soft text-bad" : "border-good/30 bg-good-soft text-good"
           }`}
         >
-          {error || message}
+          <div>{error || message}</div>
+          {error && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void promoteMeAdmin()}
+              className="btn-primary mt-3"
+            >
+              تفعيل حسابي كمدير النظام
+            </button>
+          )}
         </div>
       )}
+
+      <div className="rounded-2xl border border-line bg-canvas/40 p-4 text-sm text-muted">
+        <p className="font-black text-brand-dark">كيف تحدد شاشات الموظف؟</p>
+        <ol className="mt-2 list-decimal space-y-1 pr-5">
+          <li>من تبويب «الأدوار وصلاحيات الشاشات»: اختر دورًا (مثل مشغّل) وفعّل الشاشات/الإجراءات المطلوبة فقط ثم احفظ.</li>
+          <li>من تبويب «الموظفون والأدوار»: اختر الموظف وعيّن له ذلك الدور ثم احفظ.</li>
+          <li>عند دخول الموظف لن تظهر له إلا الشاشات المرتبطة بصلاحيات دوره، وبقية القوائم تكون مخفية.</li>
+        </ol>
+      </div>
 
       <section className="card overflow-hidden">
         <div className="grid grid-cols-2 border-b border-line">
