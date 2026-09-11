@@ -1,11 +1,12 @@
 /**
  * ربط الشاشات والقوائم بصلاحيات الأدوار.
  * أي صلاحية واحدة من القائمة تكفي لفتح الشاشة.
- * الحساب بلا صلاحيات لا يرى إلا الرئيسية (بعد تحميل الصلاحيات من الخادم).
+ * الحساب بلا صلاحيات أثناء التمهيد يرى الرئيسية والإعدادات فقط؛ أما الموظف ذو الدور
+ * فلا يرى الرئيسية إلا إذا كانت لديه صلاحية إدارة النظام، ويُوجَّه لأول شاشة مسموحة.
  */
 
 export const ROUTE_ACCESS: Record<string, string[]> = {
-  "/": [], // الرئيسية متاحة للجميع المسجّلين
+  "/": [], // الرئيسية متاحة للمدير والتمهيد فقط
   "/sales": ["invoice.write", "invoice.create", "invoice.edit", "invoice.approve", "invoice.cancel", "invoice.delete"],
   "/inventory": ["product.write", "warehouse.write", "category.write", "inventory.issue", "inventory.adjust"],
   "/vouchers": ["voucher.write"],
@@ -61,6 +62,8 @@ export function canAccessPath(
     return normalized === "/" || normalized === "/settings";
   }
 
+  if (normalized === "/") return canManageAccess(userPermissions);
+
   // تطابق أطول مسار أولاً
   const keys = Object.keys(ROUTE_ACCESS).sort((a, b) => b.length - a.length);
   for (const key of keys) {
@@ -77,4 +80,8 @@ export function filterNavByPermissions<T extends { to: string }>(
   userPermissions: string[] | undefined | null,
 ): T[] {
   return items.filter((item) => canAccessPath(item.to, userPermissions));
+}
+
+export function firstAllowedPath(userPermissions: string[] | undefined | null): string | null {
+  return PAGE_LABELS.find((page) => canAccessPath(page.path, userPermissions))?.path || null;
 }

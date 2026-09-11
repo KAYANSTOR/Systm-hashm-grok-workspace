@@ -23,7 +23,7 @@ import {
 import { Toaster, toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
-import { canAccessPath, filterNavByPermissions } from "@/lib/access";
+import { canAccessPath, filterNavByPermissions, firstAllowedPath } from "@/lib/access";
 
 const NAV = [
   { to: "/", label: "الرئيسية", icon: Home },
@@ -126,6 +126,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     () => !permissionsLoaded || canAccessPath("/settings", userPermissions),
     [permissionsLoaded, userPermissions],
   );
+  const firstAllowed = useMemo(
+    () => (permissionsLoaded ? firstAllowedPath(userPermissions) : null),
+    [permissionsLoaded, userPermissions],
+  );
 
   useEffect(() => {
     const logo = organizationLogo || "/icons/icon-192.png";
@@ -138,6 +142,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [notesOpen, setNotesOpen] = useState(false);
 
   const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    if (!isHydrated || !permissionsLoaded || pathname !== "/" || canAccessPath("/", userPermissions)) return;
+    if (firstAllowed) void router.navigate({ to: firstAllowed as never });
+  }, [firstAllowed, isHydrated, permissionsLoaded, pathname, router, userPermissions]);
 
   const preload = useCallback((to: string) => {
     void router.preloadRoute({ to } as never);
@@ -344,16 +353,18 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             ) : null}
             <div key={pathname} className="w-full">
-              {!pathAllowed && pathname !== "/" ? (
+              {!pathAllowed ? (
                 <div className="mx-auto max-w-md rounded-3xl border border-line bg-paper p-8 text-center shadow-sm">
                   <p className="text-lg font-black text-brand-dark">لا توجد صلاحية لفتح هذه الشاشة</p>
                   <p className="mt-2 text-sm text-muted">
                     دورك الحالي لا يسمح بالوصول إلى هذه الصفحة. اطلب من المدير تفعيل الشاشة أو الإجراء من
                     «الأدوار وصلاحيات الشاشات».
                   </p>
-                  <Link to="/" className="btn-primary mt-6 inline-flex">
-                    العودة للرئيسية
-                  </Link>
+                  {firstAllowed ? (
+                    <Link to={firstAllowed as never} className="btn-primary mt-6 inline-flex">
+                      فتح أول شاشة مسموحة
+                    </Link>
+                  ) : null}
                 </div>
               ) : (
                 <Suspense fallback={<PageSkeleton />}>

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canAccessPath, canManageAccess, filterNavByPermissions, hasAnyPermission } from "./access.ts";
+import { canAccessPath, canManageAccess, filterNavByPermissions, firstAllowedPath, hasAnyPermission } from "./access.ts";
 
 test("access management requires an explicit management permission", () => {
   assert.equal(canManageAccess([]), false);
@@ -21,6 +21,9 @@ test("access helpers allow a page when any mapped permission is present", () => 
   assert.equal(canAccessPath("/reports", ["reports.read"]), true);
   assert.equal(canAccessPath("/inventory", ["inventory.issue"]), true);
   assert.equal(canAccessPath("/inventory", ["party.write"]), false);
+  assert.equal(canAccessPath("/", ["reports.read"]), false);
+  assert.equal(firstAllowedPath(["reports.read"]), "/cashbox");
+  assert.equal(firstAllowedPath(["inventory.issue"]), "/inventory");
 });
 
 test("longest route mapping protects nested access-control page", () => {
@@ -31,5 +34,5 @@ test("longest route mapping protects nested access-control page", () => {
 
 test("navigation filtering keeps only permitted destinations", () => {
   const items = [{ to: "/" }, { to: "/reports" }, { to: "/employees" }];
-  assert.deepEqual(filterNavByPermissions(items, ["reports.read"]), [{ to: "/" }, { to: "/reports" }]);
+  assert.deepEqual(filterNavByPermissions(items, ["reports.read"]), [{ to: "/reports" }]);
 });
