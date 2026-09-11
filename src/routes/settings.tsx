@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import {
   Building2,
   Cloud,
@@ -31,6 +31,11 @@ export const Route = createFileRoute("/settings")({ component: SettingsPage });
 const RESET_PHRASE = "حذف الكل";
 
 function SettingsPage() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  return pathname !== "/settings" ? <Outlet /> : <SettingsRootPage />;
+}
+
+function SettingsRootPage() {
   const user = useCurrentUser();
   const settings = useStore((s) => s.settings);
   const org = useStore((s) => s.organization);
