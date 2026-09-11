@@ -454,6 +454,16 @@ export const ensureMyAccountIsAdmin = createServerFn({ method: "POST" }).handler
   const userId = await requireUserId();
   const sql = await getSql();
 
+  const currentAdmin = await sql`
+    select 1 from user_roles where user_id=${userId} and role_id=${ADMIN_ROLE} limit 1
+  `;
+  const anyAdmin = await sql`
+    select 1 from user_roles where role_id=${ADMIN_ROLE} limit 1
+  `;
+  if (!currentAdmin.length && anyAdmin.length) {
+    throw new Error("تم تفعيل مدير النظام مسبقًا. لا يمكن تفعيل حساب مدير آخر من هذه الصفحة.");
+  }
+
   await sql`
     insert into roles (id, name, description)
     values ('admin', 'مدير النظام', 'صلاحيات كاملة')
@@ -467,7 +477,7 @@ export const ensureMyAccountIsAdmin = createServerFn({ method: "POST" }).handler
     on conflict do nothing
   `;
 
-  // عيّن دور المدير للحساب الحالي (بدون حذف أدواره الأخرى إن وُجدت)
+  // عيّن دور المدير للحساب الحالي مرة واحدة مع إبقاء الإعداد محفوظًا في قاعدة البيانات
   await sql`
     insert into user_roles (user_id, role_id)
     values (${userId}, 'admin')

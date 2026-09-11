@@ -33,6 +33,7 @@ function SettingsPage() {
   const user = useCurrentUser();
   const settings = useStore((s) => s.settings);
   const org = useStore((s) => s.organization);
+  const canManageRoles = useStore((s) => (s.userPermissions || []).includes("roles.manage"));
   const updateOrganization = useStore((s) => s.updateOrganization);
   const importData = useStore((s) => s.importData);
   const resetDatabase = useStore((s) => s.resetDatabase);
@@ -320,27 +321,34 @@ function SettingsPage() {
                   تسجيل الخروج
                 </button>
               </div>
-              <button
-                type="button"
-                className="btn-secondary w-full"
-                onClick={() => {
-                  void (async () => {
-                    try {
-                      const res = await ensureMyAccountIsAdmin();
-                      forceAllowFetch();
-                      await useStore.getState().fetchFromDb();
-                      toast.success(
-                        `تم تعيين حسابك كمدير النظام (${(res as any)?.permissionCount ?? "—"} صلاحية)`,
-                      );
-                    } catch (error) {
-                      toast.error(error instanceof Error ? error.message : "تعذر تعيين المدير");
-                    }
-                  })();
-                }}
-              >
-                <ShieldCheck className="size-4" />
-                تفعيل حسابي كمدير النظام
-              </button>
+              {canManageRoles ? (
+                <div className="rounded-xl border border-good/30 bg-good-soft px-3 py-2 text-center text-xs font-bold text-good">
+                  <ShieldCheck className="mx-auto mb-1 size-4" />
+                  تم تفعيل مدير النظام وحفظ الصلاحيات
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="btn-secondary w-full"
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        const res = await ensureMyAccountIsAdmin();
+                        forceAllowFetch();
+                        await useStore.getState().fetchFromDb();
+                        toast.success(
+                          `تم تفعيل حسابك كمدير النظام وحفظه (${(res as any)?.permissionCount ?? "—"} صلاحية)`,
+                        );
+                      } catch (error) {
+                        toast.error(error instanceof Error ? error.message : "تعذر تفعيل المدير");
+                      }
+                    })();
+                  }}
+                >
+                  <ShieldCheck className="size-4" />
+                  تفعيل حسابي كمدير النظام مرة واحدة
+                </button>
+              )}
               <button
                 type="button"
                 className="btn-ghost w-full text-xs"
