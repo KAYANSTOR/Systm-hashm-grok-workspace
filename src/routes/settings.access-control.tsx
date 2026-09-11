@@ -118,7 +118,7 @@ export default function AccessControlSettingsPage() {
       const msg = e instanceof Error ? e.message : "تعذر تحميل إعدادات الصلاحيات";
       if (/Unauthorized|Forbidden|permission|Account is disabled/i.test(msg)) {
         setError(
-          "لا تملك صلاحية إدارة الأدوار. اضغط «تفعيل حسابي كمدير» مرة واحدة ثم أعد المحاولة.",
+          "لا تملك صلاحية إدارة الأدوار بعد. اضغط «تفعيل حسابي كمدير النظام» مرة واحدة فقط — يُحفظ الدور والصلاحيات في قاعدة البيانات ولا تحتاج إعادة التفعيل.",
         );
       } else setError(msg);
     } finally {
@@ -135,7 +135,7 @@ export default function AccessControlSettingsPage() {
       forceAllowFetch();
       await useStore.getState().fetchFromDb();
       setMessage(
-        `تم تعيينك كمدير (${(res as any)?.permissionCount ?? "—"} صلاحية). يمكنك الآن ضبط أدوار الموظفين والشاشات.`,
+        `تم تعيينك كمدير مرة واحدة وحُفظت الصلاحيات (${(res as any)?.permissionCount ?? "—"} صلاحية). لن تحتاج إعادة التفعيل. يمكنك الآن ضبط أدوار الموظفين والشاشات وحفظها مرة واحدة.`,
       );
       await load();
     } catch (e) {

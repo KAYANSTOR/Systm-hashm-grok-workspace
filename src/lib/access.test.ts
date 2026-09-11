@@ -6,6 +6,8 @@ test("access helpers fail closed when permissions are missing", () => {
   assert.equal(hasAnyPermission([], ["reports.read"]), false);
   assert.equal(canAccessPath("/reports", []), false);
   assert.equal(canAccessPath("/", []), true);
+  assert.equal(canAccessPath("/settings", []), true);
+  assert.equal(canAccessPath("/settings/access-control", []), false);
 });
 
 test("access helpers allow a page when any mapped permission is present", () => {

@@ -47,6 +47,14 @@ export function canAccessPath(
   userPermissions: string[] | undefined | null,
 ): boolean {
   const normalized = pathname.endsWith("/") && pathname !== "/" ? pathname.slice(0, -1) : pathname;
+  const perms = userPermissions || [];
+
+  // تمهيد المالك: إن لم تُحمَّل أي صلاحيات بعد، اسمح فقط بالرئيسية والإعدادات
+  // حتى يتمكن من الضغط «تفعيل حسابي كمدير» مرة واحدة وحفظ الدور في قاعدة البيانات.
+  if (!perms.length) {
+    return normalized === "/" || normalized === "/settings";
+  }
+
   // تطابق أطول مسار أولاً
   const keys = Object.keys(ROUTE_ACCESS).sort((a, b) => b.length - a.length);
   for (const key of keys) {

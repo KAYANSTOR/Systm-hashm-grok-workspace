@@ -33,7 +33,6 @@ function SettingsPage() {
   const user = useCurrentUser();
   const settings = useStore((s) => s.settings);
   const org = useStore((s) => s.organization);
-  const canManageRoles = useStore((s) => (s.userPermissions || []).includes("roles.manage"));
   const updateOrganization = useStore((s) => s.updateOrganization);
   const importData = useStore((s) => s.importData);
   const resetDatabase = useStore((s) => s.resetDatabase);
@@ -43,12 +42,20 @@ function SettingsPage() {
   const updateWarehouse = useStore((s) => s.updateWarehouse);
   const addProductCategory = useStore((s) => s.addProductCategory);
   const updateProductCategory = useStore((s) => s.updateProductCategory);
+  const userPermissions = useStore((s) => s.userPermissions || []);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  /** مدير النظام: يملك إدارة الأدوار أو الحسابات أو الموظفين — يُحفظ مرة واحدة في قاعدة البيانات */
+  const isAlreadyAdmin =
+    userPermissions.includes("roles.manage") ||
+    userPermissions.includes("users.manage") ||
+    userPermissions.includes("employees.manage");
 
   const [orgForm, setOrgForm] = useState(org);
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [promotingAdmin, setPromotingAdmin] = useState(false);
   const [warehouseName, setWarehouseName] = useState("");
   const [warehouseLocation, setWarehouseLocation] = useState("");
   const [categoryName, setCategoryName] = useState("");
@@ -321,32 +328,39 @@ function SettingsPage() {
                   تسجيل الخروج
                 </button>
               </div>
-              {canManageRoles ? (
-                <div className="rounded-xl border border-good/30 bg-good-soft px-3 py-2 text-center text-xs font-bold text-good">
-                  <ShieldCheck className="mx-auto mb-1 size-4" />
-                  تم تفعيل مدير النظام وحفظ الصلاحيات
+              {isAlreadyAdmin ? (
+                <div className="rounded-2xl border border-good/30 bg-good-soft px-4 py-3 text-sm text-good">
+                  <p className="font-black">أنت مدير النظام بالفعل</p>
+                  <p className="mt-1 text-xs opacity-90">
+                    الصلاحيات محفوظة مرة واحدة. يمكنك فتح «الأدوار وصلاحيات الشاشات» وضبط أدوار الموظفين دون إعادة التفعيل.
+                  </p>
                 </div>
               ) : (
                 <button
                   type="button"
                   className="btn-secondary w-full"
+                  disabled={promotingAdmin}
                   onClick={() => {
                     void (async () => {
+                      setPromotingAdmin(true);
                       try {
                         const res = await ensureMyAccountIsAdmin();
+                        // حدّث صلاحيات العميل فورًا حتى يعمل كرت الأدوار والشاشات بدون إعادة تحميل
                         forceAllowFetch();
                         await useStore.getState().fetchFromDb();
                         toast.success(
-                          `تم تفعيل حسابك كمدير النظام وحفظه (${(res as any)?.permissionCount ?? "—"} صلاحية)`,
+                          `تم تعيين حسابك كمدير النظام مرة واحدة (${(res as any)?.permissionCount ?? "—"} صلاحية) وحُفظت الإعدادات.`,
                         );
                       } catch (error) {
-                        toast.error(error instanceof Error ? error.message : "تعذر تفعيل المدير");
+                        toast.error(error instanceof Error ? error.message : "تعذر تعيين المدير");
+                      } finally {
+                        setPromotingAdmin(false);
                       }
                     })();
                   }}
                 >
                   <ShieldCheck className="size-4" />
-                  تفعيل حسابي كمدير النظام مرة واحدة
+                  {promotingAdmin ? "جاري التفعيل والحفظ..." : "تفعيل حسابي كمدير النظام (مرة واحدة)"}
                 </button>
               )}
               <button
