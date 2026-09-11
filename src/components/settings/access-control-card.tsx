@@ -1,15 +1,14 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, KeyRound, UserPlus, Users } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { canManageAccess } from "@/lib/access";
 
 export function AccessControlCard() {
   const userPermissions = useStore((s) => s.userPermissions || []);
-  const canManageAccess =
-    userPermissions.includes("roles.manage") ||
-    userPermissions.includes("users.manage") ||
-    userPermissions.includes("employees.manage");
+  const permissionsLoaded = useStore((s) => s.permissionsLoaded);
+  const hasAccessManagement = canManageAccess(userPermissions);
   const canListEmployees =
-    canManageAccess ||
+    hasAccessManagement ||
     userPermissions.includes("employees.read");
 
   return (
@@ -23,15 +22,19 @@ export function AccessControlCard() {
           <p className="text-xs text-muted">إضافة الموظفين، حسابات الدخول، والأدوار والصلاحيات.</p>
         </div>
       </div>
-      {!canManageAccess && (
+      {!permissionsLoaded ? (
+        <div className="border-b border-line bg-canvas/30 px-4 py-3 text-xs text-muted sm:px-5" role="status">
+          جاري تحميل صلاحيات الأدوار والشاشات…
+        </div>
+      ) : !hasAccessManagement ? (
         <div className="border-b border-line bg-canvas/30 px-4 py-3 text-xs text-muted sm:px-5">
           لتفعيل كرت الأدوار والشاشات: من قسم «الحساب» أعلاه اضغط{" "}
           <span className="font-bold text-brand-dark">تفعيل حسابي كمدير النظام (مرة واحدة)</span>
           {" "}— يُحفظ الدور والصلاحيات في قاعدة البيانات ولن تحتاج إعادة التفعيل.
         </div>
-      )}
+      ) : null}
       <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-5">
-        {canListEmployees ? (
+        {permissionsLoaded && canListEmployees ? (
           <Link
             to="/employees"
             className="group flex items-center justify-between gap-2 rounded-2xl border border-line bg-white p-3 transition hover:-translate-y-0.5 hover:border-brand/40 hover:bg-brand-soft/40 sm:p-4"
@@ -59,7 +62,7 @@ export function AccessControlCard() {
           </div>
         )}
 
-        {canManageAccess ? (
+        {permissionsLoaded && hasAccessManagement ? (
           <Link
             to="/settings/access-control"
             className="group flex items-center justify-between gap-2 rounded-2xl border border-line bg-white p-3 transition hover:-translate-y-0.5 hover:border-brand/40 hover:bg-brand-soft/40 sm:p-4"

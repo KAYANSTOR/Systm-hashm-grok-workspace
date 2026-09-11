@@ -18,6 +18,8 @@ export const ROUTE_ACCESS: Record<string, string[]> = {
   "/settings/access-control": ["roles.manage", "users.manage", "employees.manage"],
 };
 
+export const ACCESS_MANAGEMENT_PERMISSIONS = ["roles.manage", "users.manage", "employees.manage"] as const;
+
 /** وصف عربي للشاشات في واجهة الصلاحيات */
 export const PAGE_LABELS: { path: string; title: string; permissionIds: string[] }[] = [
   { path: "/sales", title: "المبيعات والفواتير", permissionIds: ROUTE_ACCESS["/sales"] },
@@ -40,6 +42,10 @@ export function hasAnyPermission(
   const perms = userPermissions || [];
   if (!perms.length) return false;
   return required.some((p) => perms.includes(p));
+}
+
+export function canManageAccess(userPermissions: string[] | undefined | null): boolean {
+  return hasAnyPermission(userPermissions, [...ACCESS_MANAGEMENT_PERMISSIONS]);
 }
 
 export function canAccessPath(

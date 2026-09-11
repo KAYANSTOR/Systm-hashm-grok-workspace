@@ -24,6 +24,7 @@ import { signOut } from "@/lib/auth/client";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { AccessControlCard } from "@/components/settings/access-control-card";
 import { ensureMyAccountIsAdmin } from "@/server/employees";
+import { canManageAccess } from "@/lib/access";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
@@ -46,10 +47,7 @@ function SettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   /** مدير النظام: يملك إدارة الأدوار أو الحسابات أو الموظفين — يُحفظ مرة واحدة في قاعدة البيانات */
-  const isAlreadyAdmin =
-    userPermissions.includes("roles.manage") ||
-    userPermissions.includes("users.manage") ||
-    userPermissions.includes("employees.manage");
+  const isAlreadyAdmin = canManageAccess(userPermissions);
 
   const [orgForm, setOrgForm] = useState(org);
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);

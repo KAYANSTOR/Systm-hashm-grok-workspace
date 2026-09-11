@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canAccessPath, filterNavByPermissions, hasAnyPermission } from "./access.ts";
+import { canAccessPath, canManageAccess, filterNavByPermissions, hasAnyPermission } from "./access.ts";
+
+test("access management requires an explicit management permission", () => {
+  assert.equal(canManageAccess([]), false);
+  assert.equal(canManageAccess(["employees.read"]), false);
+  assert.equal(canManageAccess(["roles.manage"]), true);
+  assert.equal(canManageAccess(["users.manage"]), true);
+});
 
 test("access helpers fail closed when permissions are missing", () => {
   assert.equal(hasAnyPermission([], ["reports.read"]), false);
