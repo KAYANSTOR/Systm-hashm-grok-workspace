@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Pencil, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import {
@@ -34,6 +34,7 @@ type Role = { id: string; name: string; description?: string | null };
 export default function EmployeesPage() {
   const { user, isPending: isSessionPending } = useCurrentUserState();
   const userId = user?.id;
+  const loadedUserIdRef = useRef<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,7 +73,8 @@ export default function EmployeesPage() {
   }
 
   useEffect(() => {
-    if (isSessionPending || !userId) return;
+    if (isSessionPending || !userId || loadedUserIdRef.current === userId) return;
+    loadedUserIdRef.current = userId;
     void load();
   }, [isSessionPending, userId]);
 

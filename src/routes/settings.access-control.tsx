@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ShieldCheck, Users, KeyRound, ArrowRight, Plus } from "lucide-react";
 import {
@@ -94,6 +94,7 @@ function normalizeRoles(value: unknown): string[] {
 export default function AccessControlSettingsPage() {
   const { user, isPending: isSessionPending } = useCurrentUserState();
   const userId = user?.id;
+  const loadedUserIdRef = useRef<string | null>(null);
   const [tab, setTab] = useState<"employees" | "roles">("employees");
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -156,7 +157,8 @@ export default function AccessControlSettingsPage() {
   }
 
   useEffect(() => {
-    if (isSessionPending || !userId) return;
+    if (isSessionPending || !userId || loadedUserIdRef.current === userId) return;
+    loadedUserIdRef.current = userId;
     void load();
   }, [isSessionPending, userId]);
 
