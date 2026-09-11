@@ -102,13 +102,30 @@ export function AppShell({ children }: { children: ReactNode }) {
   const lastSyncMessage = useStore((s) => s.lastSyncMessage);
   const drainPendingOutbox = useStore((s) => s.drainPendingOutbox);
   const userPermissions = useStore((s) => s.userPermissions || []);
+  const permissionsLoaded = useStore((s) => s.permissionsLoaded);
 
-  // القوائم تعرض فقط الشاشات المسموحة لدور الموظف
-  const navItems = useMemo(() => filterNavByPermissions(NAV, userPermissions), [userPermissions]);
-  const mobileNavItems = useMemo(() => filterNavByPermissions(MOBILE_NAV, userPermissions), [userPermissions]);
-  const quickItems = useMemo(() => filterNavByPermissions(QUICK, userPermissions), [userPermissions]);
-  const pathAllowed = useMemo(() => canAccessPath(pathname, userPermissions), [pathname, userPermissions]);
-  const canOpenSettings = useMemo(() => canAccessPath("/settings", userPermissions), [userPermissions]);
+  // لا نحجب المسار أو البطاقة قبل وصول الصلاحيات من الخادم؛ الحماية الفعلية تبقى على الخادم.
+  // بعد اكتمال الجلب تُصفّى القوائم ويُمنع الوصول المباشر للمسارات غير المسموحة.
+  const navItems = useMemo(
+    () => (permissionsLoaded ? filterNavByPermissions(NAV, userPermissions) : NAV),
+    [permissionsLoaded, userPermissions],
+  );
+  const mobileNavItems = useMemo(
+    () => (permissionsLoaded ? filterNavByPermissions(MOBILE_NAV, userPermissions) : MOBILE_NAV),
+    [permissionsLoaded, userPermissions],
+  );
+  const quickItems = useMemo(
+    () => (permissionsLoaded ? filterNavByPermissions(QUICK, userPermissions) : QUICK),
+    [permissionsLoaded, userPermissions],
+  );
+  const pathAllowed = useMemo(
+    () => !permissionsLoaded || canAccessPath(pathname, userPermissions),
+    [pathname, permissionsLoaded, userPermissions],
+  );
+  const canOpenSettings = useMemo(
+    () => !permissionsLoaded || canAccessPath("/settings", userPermissions),
+    [permissionsLoaded, userPermissions],
+  );
 
   useEffect(() => {
     const logo = organizationLogo || "/icons/icon-192.png";

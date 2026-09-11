@@ -96,6 +96,7 @@ function applyBundle(get: any, set: any, result: any, failMsg: string) {
 
 
 type Store = AppData & {
+  permissionsLoaded: boolean;
   connectionState: "online" | "offline" | "syncing";
   pendingSyncCount: number;
   lastSyncMessage: string;
@@ -140,6 +141,7 @@ export const useStore = create<Store>()(
   persist(
     (set, get) => ({
       ...EMPTY_DATA,
+      permissionsLoaded: false,
       connectionState: typeof navigator !== "undefined" && navigator.onLine ? "online" : "offline",
       pendingSyncCount: 0,
       lastSyncMessage: "",
@@ -333,6 +335,7 @@ export const useStore = create<Store>()(
              : get().warehouses,
            defaultWarehouseId: get().defaultWarehouseId || "wh1",
           userPermissions: data.userPermissions || [],
+          permissionsLoaded: true,
           userId: data.userId,
            inventory: (data.products || []).map((p: any) => {
              const rows = (data.stock || []).filter((s: any) => s.product_id === p.id);
@@ -679,6 +682,7 @@ export const useStore = create<Store>()(
         warehouseStocks: s.warehouseStocks,
         userPermissions: s.userPermissions,
         userId: s.userId,
+        permissionsLoaded: s.permissionsLoaded,
         defaultWarehouseId: s.defaultWarehouseId,
         connectionState: s.connectionState,
         pendingSyncCount: s.pendingSyncCount,

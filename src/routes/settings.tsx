@@ -327,6 +327,8 @@ function SettingsPage() {
                   void (async () => {
                     try {
                       const res = await ensureMyAccountIsAdmin();
+                      forceAllowFetch();
+                      await useStore.getState().fetchFromDb();
                       toast.success(
                         `تم تعيين حسابك كمدير النظام (${(res as any)?.permissionCount ?? "—"} صلاحية)`,
                       );
