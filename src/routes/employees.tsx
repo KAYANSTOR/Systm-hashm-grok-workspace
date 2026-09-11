@@ -14,6 +14,7 @@ import {
   setEmployeeRole,
   updateEmployee,
 } from "../server/employees";
+import { useCurrentUserState } from "../lib/auth/use-current-user";
 
 export const Route = createFileRoute("/employees")({ component: EmployeesPage });
 
@@ -31,6 +32,7 @@ type Employee = {
 type Role = { id: string; name: string; description?: string | null };
 
 export default function EmployeesPage() {
+  const { user, isPending: isSessionPending } = useCurrentUserState();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,8 +71,9 @@ export default function EmployeesPage() {
   }
 
   useEffect(() => {
+    if (isSessionPending || !user) return;
     void load();
-  }, []);
+  }, [isSessionPending, user]);
 
   const visible = useMemo(
     () => (showArchived ? employees : employees.filter((e) => e.is_active)),

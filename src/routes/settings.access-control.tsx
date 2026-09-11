@@ -10,6 +10,7 @@ import {
   setEmployeeRole,
   setRolePermissions,
 } from "../server/employees";
+import { useCurrentUserState } from "../lib/auth/use-current-user";
 
 export const Route = createFileRoute("/settings/access-control")({
   component: AccessControlSettingsPage,
@@ -91,6 +92,7 @@ function normalizeRoles(value: unknown): string[] {
 }
 
 export default function AccessControlSettingsPage() {
+  const { user, isPending: isSessionPending } = useCurrentUserState();
   const [tab, setTab] = useState<"employees" | "roles">("employees");
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -153,8 +155,9 @@ export default function AccessControlSettingsPage() {
   }
 
   useEffect(() => {
+    if (isSessionPending || !user) return;
     void load();
-  }, []);
+  }, [isSessionPending, user]);
 
   useEffect(() => {
     if (tab === "roles" && selectedRole) void loadRoleData(selectedRole);
