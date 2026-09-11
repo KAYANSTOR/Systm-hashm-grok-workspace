@@ -265,8 +265,17 @@ export const useStore = create<Store>()(
       resetDemo: () => set({ ...EMPTY_DATA }),
       resetDatabase: async () => {
         await resetDbApi();
-        set({ ...EMPTY_DATA });
+        // امسح الإسقاط المحلي + الطابور حتى لا تُعاد مزامنة بيانات قديمة بعد التصفية
+        set({
+          ...EMPTY_DATA,
+          outbox: [],
+          pendingSyncCount: 0,
+          connectionState:
+            typeof navigator !== "undefined" && navigator.onLine ? "online" : "offline",
+          lastSyncMessage: "تم تصفير بيانات العمل على الخادم والجهاز",
+        });
         lastFetchAt = 0;
+        forceAllowFetch();
         await get().fetchFromDb();
       },
 

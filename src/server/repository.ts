@@ -481,20 +481,64 @@ export const saveOrganization = createServerFn({ method: "POST" })
                 updated_at=now()`;
   });
 
+/**
+ * تصفية بيانات العمل التشغيلية من القاعدة (Supabase).
+ * تُحذف الفواتير/الأطراف/المخزون/القيود/الطابور — مع الإبقاء على:
+ * المستخدمين، الأدوار، الصلاحيات، الموظفين، وملف المؤسسة.
+ */
 export const resetDatabase = createServerFn({ method: "POST" }).handler(async () => {
+  // This operation permanently deletes business data; never broaden it to
+  // settings.write because that would make ordinary settings administrators
+  // destructive-data administrators as well.
   await requirePermission(PERMS.DB_RESET);
   const sql = await getSql();
   await sql.transaction(async (tx) => {
+    // ترتيب يحترم المفاتيح الأجنبية الشائعة
     await tx`delete from financial_transactions`;
     await tx`delete from inventory_movements`;
+    try {
+      await tx`delete from warehouse_stock`;
+    } catch {
+      /* الجدول قد لا يوجد في بيئات قديمة */
+    }
     await tx`delete from invoice_items`;
     await tx`delete from invoices`;
     await tx`delete from vouchers`;
     await tx`delete from expenses`;
     await tx`delete from products`;
     await tx`delete from parties`;
-    // organization_profile is kept or reset? we can keep it
+    try {
+      await tx`delete from processed_operations`;
+    } catch {
+      /* optional */
+    }
+    try {
+      await tx`delete from sync_outbox`;
+    } catch {
+      /* optional */
+    }
+    try {
+      await tx`delete from sync_conflicts`;
+    } catch {
+      /* optional */
+    }
+    try {
+      await tx`delete from audit_events`;
+    } catch {
+      /* optional */
+    }
+    // أعد إنشاء طرف PLACEHOLDER للتوريد المخزني إن لزم
+    try {
+      await tx`
+        insert into parties (id, type, name, phone, address, created_at)
+        values ('PENDING_RECEIPT', 'supplier', 'مورد توريد مخزني - بانتظار تحديد المورد', '-', '-', now())
+        on conflict (id) do nothing
+      `;
+    } catch {
+      /* ignore */
+    }
   });
+  return { status: "ok", cleared: true };
 });
 
 // ─── Outbox / Idempotent operation application ───────────────────────────────
