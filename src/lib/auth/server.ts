@@ -128,9 +128,16 @@ const phoneIdentityPlugin = {
           const email = typeof body.email === "string" ? body.email : "";
           if (!email.startsWith("phone-") || !email.endsWith("@accounts.hashem.local")) return;
           const phone = email.slice("phone-".length, -"@accounts.hashem.local".length);
-          const identity = await resolveCanonicalAuthIdentity(await getSql(), phone);
-          if (identity.status === "resolved") {
-            body.email = identity.userEmail;
+          try {
+            const identity = await resolveCanonicalAuthIdentity(await getSql(), phone);
+            if (identity.status === "resolved") {
+              body.email = identity.userEmail;
+            }
+          } catch (error) {
+            // Better Auth remains the credential authority. A transient schema
+            // or database-read failure must not turn a canonical login into a
+            // 500; Better Auth will still validate the submitted credentials.
+            console.error("[auth] canonical identity lookup failed before sign-in", error);
           }
         }),
       },
