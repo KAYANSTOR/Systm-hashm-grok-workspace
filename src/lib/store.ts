@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { applyExpense, applyInvoice, applyVoucher } from "./accounting";
 import { toast } from "sonner";
 import { approveInvoiceOp, issueMaterialOp } from "../domain/operations.ts";
 import { ERROR_MESSAGES_AR } from "../domain/result.ts";
@@ -267,6 +266,27 @@ export const useStore = create<Store>()(
            return;
         }
 
+        // أرقام وطرق دفع المستندات — تُستخدم لتوحيد صف القيد المعروض في الواجهة.
+        const methodByDoc = new Map<string, string>();
+        const numberByDoc = new Map<string, string>();
+        for (const doc of [
+          ...(data.invoices || []),
+          ...(data.vouchers || []),
+          ...(data.expenses || []),
+        ] as any[]) {
+          if (doc.paymentMethod || doc.payment_method) {
+            methodByDoc.set(doc.id, String(doc.paymentMethod || doc.payment_method));
+          }
+          const number = doc.invoiceNumber || doc.invoice_number || doc.voucherNumber || doc.voucher_number;
+          if (number) numberByDoc.set(doc.id, String(number));
+        }
+        const documentTypeOf = (referenceType: string) =>
+          referenceType === 'invoice' || referenceType === 'invoice_payment'
+            ? 'invoice'
+            : referenceType === 'voucher'
+              ? 'voucher'
+              : 'expense';
+
         const groupedTx: Record<string, any> = {};
         for (const t of (data.transactions || [])) {
           const docId = t.reference_id;
@@ -275,9 +295,10 @@ export const useStore = create<Store>()(
               id: t.id.split('_')[0],
               date: t.created_at,
               documentId: docId,
-              documentNumber: docId,
-              documentType: t.reference_type === 'invoice' ? 'invoice' : t.reference_type === 'voucher' ? 'voucher' : 'expense',
+              documentNumber: numberByDoc.get(docId) || docId,
+              documentType: documentTypeOf(t.reference_type),
               partyId: t.party_id,
+              paymentMethod: methodByDoc.get(docId) || 'cash',
               debit: 0,
               credit: 0,
               cashIn: 0,
@@ -292,6 +313,15 @@ export const useStore = create<Store>()(
           } else {
             g.debit += Number(t.debit) || 0;
             g.credit += Number(t.credit) || 0;
+          }
+          // القيد الأصلي للمستند (`_party`) هو المرجع للبيان والنوع والرقم،
+          // ولا نترك صفوف السداد (`_pay`/`_settle`) تُلغيها حسب ترتيب الجلب.
+          const isDocumentRow = String(t.id || '').endsWith('_party');
+          if (isDocumentRow) {
+            g.documentType = documentTypeOf(t.reference_type);
+            g.documentNumber = numberByDoc.get(docId) || g.documentNumber;
+            g.partyId = t.party_id || g.partyId;
+            if (t.description) g.description = t.description;
           }
         }
         const transactions = Object.values(groupedTx) as any[];

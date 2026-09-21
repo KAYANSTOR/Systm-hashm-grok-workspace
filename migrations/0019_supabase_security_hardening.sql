@@ -34,21 +34,48 @@ alter table public.sync_conflicts enable row level security;
 alter table public.employees enable row level security;
 alter table public.employee_users enable row level security;
 
-revoke all on table public.user, public._migrations, public.session, public.account,
-  public.verification, public.roles, public.role_permissions, public.permissions,
-  public.warehouses, public.warehouse_stock, public.inventory_movements,
-  public.accounts, public.financial_transactions, public.product_categories,
-  public.audit_events, public.user_roles, public.invoice_items, public.audit_logs,
-  public.organization_profile, public.sync_outbox, public.processed_operations,
-  public.invoices, public.parties, public.products, public.vouchers, public.expenses,
-  public.sync_conflicts, public.employees, public.employee_users
-from anon, authenticated;
+-- سحب الصلاحيات من أدوار Supabase (anon/authenticated).
+-- ملاحظة تدقيق (21 سبتمبر 2026): كان هذا الأمر يوقف سلسلة الهجرات كاملة على أي
+-- قاعدة لا تحتوي هذين الدورين (خادم Postgres عادي أو قاعدة المعاينة PGlite):
+-- `role "anon" does not exist` — فتظل هجرات 0020 وما بعدها غير مُطبَّقة هناك.
+-- لذلك صار السحب محصورًا بوجود الدورين فعلًا، ونتيجته على Supabase كما هي.
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon')
+     and exists (select 1 from pg_roles where rolname = 'authenticated') then
+    execute $sql$
+      revoke all on table public.user, public._migrations, public.session, public.account,
+        public.verification, public.roles, public.role_permissions, public.permissions,
+        public.warehouses, public.warehouse_stock, public.inventory_movements,
+        public.accounts, public.financial_transactions, public.product_categories,
+        public.audit_events, public.user_roles, public.invoice_items, public.audit_logs,
+        public.organization_profile, public.sync_outbox, public.processed_operations,
+        public.invoices, public.parties, public.products, public.vouchers, public.expenses,
+        public.sync_conflicts, public.employees, public.employee_users
+      from anon, authenticated
+    $sql$;
+  end if;
+end $$;
 
-alter function public.assign_default_operator_role()
-  set search_path = public, pg_catalog;
-alter function public.prevent_audit_event_mutation()
-  set search_path = public, pg_catalog;
-alter function public.bump_sync_version()
-  set search_path = public, pg_catalog;
-alter function public.touch_sync_version()
-  set search_path = public, pg_catalog;
+-- تثبيت search_path للدوال الأمنية — مع تجاهل الدوال غير الموجودة.
+-- ملاحظة تدقيق (21 سبتمبر 2026): `bump_sync_version()` غير مُنشأة في أي هجرة
+-- من الهجرات الحالية (يُرجّح أنها كانت في الهجرة المفقودة `0009`)، وكانت هذه
+-- الأوامر الأربعة توقف السلسلة عند `function public.bump_sync_version() does not
+-- exist` على أي قاعدة جديدة — أي تعذّر بناء قاعدة بيانات من الصفر (خطة الرجوع
+-- والاستعادة). صارت الآن آمنة: تُطبَّق على الدوال الموجودة فعلًا فقط.
+do $$
+declare
+  fn text;
+begin
+  foreach fn in array array[
+    'public.assign_default_operator_role()',
+    'public.prevent_audit_event_mutation()',
+    'public.bump_sync_version()',
+    'public.touch_sync_version()'
+  ]
+  loop
+    if to_regprocedure(fn) is not null then
+      execute format('alter function %s set search_path = public, pg_catalog', fn);
+    end if;
+  end loop;
+end $$;

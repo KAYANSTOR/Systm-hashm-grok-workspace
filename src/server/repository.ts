@@ -3,6 +3,7 @@ import { getSql } from "../lib/db";
 import { AppData, Invoice, Voucher, Expense } from "../lib/types";
 import { DEFAULT_WAREHOUSE_ID } from "../domain/inventory.ts";
 import { requirePermission, listUserPermissions, PERMS } from "./permissions.ts";
+import { invoiceLedgerRows } from "../domain/invoice-ledger-rows.ts";
 import { requireUserId } from "../lib/auth/verify.server";
 
 function resolveWarehouseId(explicit?: string | null): string {
@@ -140,18 +141,12 @@ export const syncLegacyData = createServerFn({ method: "POST" })
                        on conflict (id) do update set quantity=EXCLUDED.quantity, warehouse_id=EXCLUDED.warehouse_id, movement_type=EXCLUDED.movement_type`;
             }
           }
-          const partyDebit = inv.type === 'sale' ? inv.total : 0;
-          const partyCredit = inv.type === 'purchase' ? inv.total : 0;
-          // ON CONFLICT إلزامي — بدونها إعادة المزامنة كانت تضاعف ذمم العميل
-          await tx`insert into financial_transactions (id, account_id, party_id, amount, debit, credit, reference_type, reference_id, description, created_at)
-                   values (${inv.id + '_party'}, ${inv.type === 'sale' ? 'accounts_receivable' : 'accounts_payable'}, ${inv.partyId}, ${partyDebit - partyCredit}, ${partyDebit}, ${partyCredit}, 'invoice', ${inv.id}, ${inv.type === 'sale' ? 'فاتورة مبيعات' : 'فاتورة مشتريات'}, ${inv.createdAt})
-                   on conflict (id) do update set amount=EXCLUDED.amount, debit=EXCLUDED.debit, credit=EXCLUDED.credit, party_id=EXCLUDED.party_id, description=EXCLUDED.description`;
-          if (inv.paidAmount > 0) {
-            const payDebit = inv.type === 'sale' ? inv.paidAmount : 0;
-            const payCredit = inv.type === 'purchase' ? inv.paidAmount : 0;
+          // ON CONFLICT إلزامي — بدونها إعادة المزامنة كانت تضاعف ذمم العميل.
+          // نفس دالة saveInvoice: قيود الذمة + الصندوق + تسوية المدفوع.
+          for (const row of invoiceLedgerRows(inv as Invoice)) {
             await tx`insert into financial_transactions (id, account_id, party_id, amount, debit, credit, reference_type, reference_id, description, created_at)
-                     values (${inv.id + '_pay'}, 'cash', ${inv.partyId}, ${payDebit - payCredit}, ${payDebit}, ${payCredit}, 'invoice_payment', ${inv.id}, 'سداد فاتورة', ${inv.createdAt})
-                     on conflict (id) do update set amount=EXCLUDED.amount, debit=EXCLUDED.debit, credit=EXCLUDED.credit, party_id=EXCLUDED.party_id`;
+                     values (${row.id}, ${row.accountId}, ${row.partyId}, ${row.amount}, ${row.debit}, ${row.credit}, ${row.referenceType}, ${row.referenceId}, ${row.description}, ${row.createdAt})
+                     on conflict (id) do update set amount=EXCLUDED.amount, debit=EXCLUDED.debit, credit=EXCLUDED.credit, party_id=EXCLUDED.party_id, description=EXCLUDED.description`;
           }
         }
       }
@@ -160,7 +155,7 @@ export const syncLegacyData = createServerFn({ method: "POST" })
       // وإلا تتكرر القيود عند كل مزامنة يدوية قديمة.
       for (const t of transactions) {
         const tid = String(t.id || "");
-        if (tid.endsWith("_party") || tid.endsWith("_pay") || tid.endsWith("_mov")) continue;
+        if (tid.endsWith("_party") || tid.endsWith("_pay") || tid.endsWith("_settle") || tid.endsWith("_mov")) continue;
         if (t.documentType === "invoice" || t.documentType === "invoice_payment") continue;
         await tx`insert into financial_transactions (id, account_id, party_id, amount, debit, credit, reference_type, reference_id, description, created_at)
                  values (${t.id}, ${t.cashIn > 0 || t.cashOut > 0 ? 'cash' : (t.partyType === 'customer' ? 'accounts_receivable' : 'accounts_payable')}, ${t.partyId || null}, ${t.debit - t.credit}, ${t.debit}, ${t.credit}, ${t.documentType}, ${t.documentId}, ${t.description}, ${t.date})
@@ -311,19 +306,12 @@ export const saveInvoice = createServerFn({ method: "POST" })
             }
          }
 
-         const partyDebit = inv.type === "sale" ? inv.total : 0;
-         const partyCredit = inv.type === "purchase" ? inv.total : 0;
-
-         await tx`insert into financial_transactions (id, account_id, party_id, amount, debit, credit, reference_type, reference_id, description, created_at)
-                  values (${inv.id + '_party'}, ${inv.type === 'sale' ? 'accounts_receivable' : 'accounts_payable'}, ${inv.partyId}, ${partyDebit - partyCredit}, ${partyDebit}, ${partyCredit}, 'invoice', ${inv.id}, ${inv.type === 'sale' ? 'فاتورة مبيعات' : 'فاتورة مشتريات'}, ${inv.createdAt})
-                  on conflict (id) do update set amount=EXCLUDED.amount, debit=EXCLUDED.debit, credit=EXCLUDED.credit, party_id=EXCLUDED.party_id`;
-
-         if (inv.paidAmount > 0) {
-            const payDebit = inv.type === "sale" ? inv.paidAmount : 0;
-            const payCredit = inv.type === "purchase" ? inv.paidAmount : 0;
+         // قيود الذمة والصندوق من مصدر حقيقة واحد (`invoiceLedgerRows`) —
+         // تشمل قيد تسوية المدفوع الذي كان ناقصًا فيُبقي رصيد الطرف = المتبقي.
+         for (const row of invoiceLedgerRows(inv as Invoice)) {
             await tx`insert into financial_transactions (id, account_id, party_id, amount, debit, credit, reference_type, reference_id, description, created_at)
-                     values (${inv.id + '_pay'}, 'cash', ${inv.partyId}, ${payDebit - payCredit}, ${payDebit}, ${payCredit}, 'invoice_payment', ${inv.id}, ${'سداد فاتورة'}, ${inv.createdAt})
-                     on conflict (id) do update set amount=EXCLUDED.amount, debit=EXCLUDED.debit, credit=EXCLUDED.credit`;
+                     values (${row.id}, ${row.accountId}, ${row.partyId}, ${row.amount}, ${row.debit}, ${row.credit}, ${row.referenceType}, ${row.referenceId}, ${row.description}, ${row.createdAt})
+                     on conflict (id) do update set amount=EXCLUDED.amount, debit=EXCLUDED.debit, credit=EXCLUDED.credit, party_id=EXCLUDED.party_id, description=EXCLUDED.description, reference_type=EXCLUDED.reference_type`;
          }
       }
     });
