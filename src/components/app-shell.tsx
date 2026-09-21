@@ -24,11 +24,13 @@ import { Toaster, toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import { canAccessPath, filterNavByPermissions, firstAllowedPath } from "@/lib/access";
-import { ACCESS_CONTROL } from "@/lib/features";
+import { ACCESS_CONTROL, PRODUCT_SALES } from "@/lib/features";
 
+// اسم شاشة /sales يتبع المفتاح: «المبيعات» عند إظهار فواتير البضاعة،
+// و«خدمات التطريز» عندما تكون الواجهة مخصّصة لخدمات التطريز فقط.
 const NAV = [
   { to: "/", label: "الرئيسية", icon: Home },
-  { to: "/sales", label: "المبيعات", icon: Calculator },
+  { to: "/sales", label: PRODUCT_SALES ? "المبيعات" : "خدمات التطريز", icon: Calculator },
   { to: "/inventory", label: "المخزن", icon: Boxes },
   { to: "/vouchers", label: "السندات", icon: Receipt },
   { to: "/cashbox", label: "الصندوق", icon: Wallet },
@@ -45,7 +47,12 @@ const MOBILE_NAV = [
 ] as const;
 
 const QUICK = [
-  { to: "/sales", label: "فاتورة جديدة", icon: Calculator, tone: "bg-brand-soft text-brand" },
+  {
+    to: "/sales",
+    label: PRODUCT_SALES ? "فاتورة جديدة" : "فاتورة خدمة تطريز",
+    icon: Calculator,
+    tone: "bg-brand-soft text-brand",
+  },
   { to: "/vouchers", label: "سند جديد", icon: Receipt, tone: "bg-good-soft text-good" },
   { to: "/parties", label: "إضافة جهة", icon: UserPlus, tone: "bg-accent-soft text-accent" },
   { to: "/expenses", label: "مصروف جديد", icon: CreditCard, tone: "bg-bad-soft text-bad" },

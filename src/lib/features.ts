@@ -17,11 +17,19 @@ export const FEATURES = {
   AUTH_REQUIRED: false,
   /** الموظفون والأدوار والصلاحيات. */
   ACCESS_CONTROL: false,
+  /**
+   * فواتير بيع البضاعة والمشتريات في الواجهة.
+   * `false` = الواجهة مخصّصة لـ«خدمات التطريز» فقط (الشاشة والزر الرئيسي والتصفية)،
+   * مع **بقاء كامل منطق الفواتير والقيود والمخزون كما هو** — لا حذف لأي شيء.
+   * الفواتير القديمة (بيع/شراء) تبقى ظاهرة في القائمة وقابلة للطباعة والتعديل.
+   */
+  PRODUCT_SALES: false,
 } as const;
 
 /** اختصارات مقروءة تُستورد في الواجهة والخادم. */
 export const AUTH_REQUIRED = FEATURES.AUTH_REQUIRED;
 export const ACCESS_CONTROL = FEATURES.ACCESS_CONTROL;
+export const PRODUCT_SALES = FEATURES.PRODUCT_SALES;
 
 /**
  * ملاحظة هوية: عند إيقاف المصادقة يعمل النظام بهوية الجهاز الثابتة المعتمدة في

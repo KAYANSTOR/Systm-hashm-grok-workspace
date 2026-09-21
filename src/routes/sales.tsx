@@ -26,6 +26,7 @@ import type {
   PaymentType,
 } from "@/lib/types";
 import { formatCurrency, formatDate, invoiceStatus, nextNumber, todayIso, uid } from "@/lib/utils";
+import { PRODUCT_SALES } from "@/lib/features";
 
 export const Route = createFileRoute("/sales")({ component: SalesPage });
 
@@ -243,26 +244,40 @@ function SalesPage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="page-title">المبيعات والمشتريات</h1>
-          <p className="page-subtitle">فواتير البضاعة، خدمات التطريز، والمشتريات.</p>
+          <h1 className="page-title">{PRODUCT_SALES ? "المبيعات والمشتريات" : "خدمات التطريز"}</h1>
+          <p className="page-subtitle">
+            {PRODUCT_SALES
+              ? "فواتير البضاعة، خدمات التطريز، والمشتريات."
+              : "إنشاء فاتورة خدمة تطريز ومتابعة فواتير الخدمات."}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="btn-primary" onClick={() => openModal("sale", "PRODUCT_SALE")}>
-            <Plus className="size-5" />
-            بيع بضاعة
-          </button>
+          {/* فواتير بيع/شراء البضاعة مخفية عن الواجهة (FEATURES.PRODUCT_SALES = false)
+              — المنطق كامل في الكود، والقديم يبقى في القائمة أدناه للتعديل والطباعة. */}
+          {PRODUCT_SALES ? (
+            <button type="button" className="btn-primary" onClick={() => openModal("sale", "PRODUCT_SALE")}>
+              <Plus className="size-5" />
+              بيع بضاعة
+            </button>
+          ) : null}
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 font-bold text-brand-fg"
+            className={
+              PRODUCT_SALES
+                ? "inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 font-bold text-brand-fg"
+                : "btn-primary"
+            }
             onClick={() => openModal("sale", "SERVICE")}
           >
             <Plus className="size-5" />
-            خدمة تطريز
+            {PRODUCT_SALES ? "خدمة تطريز" : "فاتورة خدمة تطريز"}
           </button>
-          <button type="button" className="btn-secondary" onClick={() => openModal("purchase")}>
-            <Plus className="size-5" />
-            مشتريات
-          </button>
+          {PRODUCT_SALES ? (
+            <button type="button" className="btn-secondary" onClick={() => openModal("purchase")}>
+              <Plus className="size-5" />
+              مشتريات
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -277,7 +292,7 @@ function SalesPage() {
           />
         </div>
         <div className="flex gap-1">
-          {(["all", "sale", "purchase"] as const).map((f) => (
+          {(["all", "sale", ...(PRODUCT_SALES ? (["purchase"] as const) : [])] as const).map((f) => (
             <button
               key={f}
               type="button"
@@ -292,7 +307,11 @@ function SalesPage() {
 
       {filtered.length === 0 ? (
         <div className="card">
-          <EmptyState icon={ShoppingBag} title="لا توجد فواتير" hint="ابدأ بفاتورة بيع بضاعة أو خدمة تطريز." />
+          <EmptyState
+            icon={ShoppingBag}
+            title="لا توجد فواتير"
+            hint={PRODUCT_SALES ? "ابدأ بفاتورة بيع بضاعة أو خدمة تطريز." : "ابدأ بفاتورة خدمة تطريز."}
+          />
         </div>
       ) : (
         <div className="space-y-2">
