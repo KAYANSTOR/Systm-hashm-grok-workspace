@@ -4,12 +4,21 @@ import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { Modal } from "@/components/modal";
+import { AppSelect } from "@/components/ui/AppSelect";
+import { amountInArabicWords } from "@/lib/numbers-ar";
 import VoucherPrintTemplate from "@/components/print/VoucherPrintTemplate";
 import DocumentActionsSheet from "@/components/DocumentActionsSheet";
 import { methodLabel, voucherTypeLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { PartyKind, PaymentMethod, Voucher, VoucherType } from "@/lib/types";
-import { formatCurrency, formatDate, nextNumber, todayIso } from "@/lib/utils";
+import {
+  amountInputError,
+  formatCurrency,
+  formatDate,
+  nextNumber,
+  parseAmountStrict,
+  todayIso,
+} from "@/lib/utils";
 
 export const Route = createFileRoute("/vouchers")({ component: VouchersPage });
 
@@ -68,18 +77,34 @@ function VouchersPage() {
   };
 
   const save = () => {
-    const n = parseFloat(amount) || 0;
-    if (n <= 0) return toast.error("أدخل مبلغاً صحيحاً");
-    if (partyType !== "other" && !partyId) return toast.error("اختر الطرف");
+    // إدخال صارم: "12س" أو "1.2.5" كان يُقبل سابقًا كرقم صامتًا فيُحفظ مبلغ غير المقصود.
+    const parsed = parseAmountStrict(amount);
+    if (!parsed.ok) return toast.error(amountInputError(parsed.reason, "المبلغ"));
+    if (parsed.value <= 0) return toast.error("المبلغ يجب أن يكون أكبر من صفر");
+    if (partyType !== "other" && !partyId) {
+      return toast.error(partyType === "customer" ? "اختر العميل" : "اختر المورد");
+    }
+    const partyName =
+      partyType === "customer"
+        ? customers.find((c) => c.id === partyId)?.name
+        : partyType === "supplier"
+          ? suppliers.find((s) => s.id === partyId)?.name
+          : undefined;
+    // بيان تلقائي واضح بدل سند بلا بيان (يظهر في السند المطبوع ودفتر القيود).
+    const finalDescription =
+      description.trim() ||
+      (type === "receipt"
+        ? `قبض من ${partyName || "جهة أخرى"}`
+        : `صرف إلى ${partyName || "جهة أخرى"}`);
     const id = addVoucher({
       voucherNumber,
       type,
       partyType,
       partyId: partyId || undefined,
-      amount: n,
+      amount: parsed.value,
       date,
       paymentMethod,
-      description,
+      description: finalDescription,
     });
     toast.success("تم حفظ السند");
     setActionsId(id);
@@ -87,6 +112,28 @@ function VouchersPage() {
   };
 
   const parties = partyType === "customer" ? customers : partyType === "supplier" ? suppliers : [];
+
+  /** رصيد الطرف المختار حاليًا وبعد أثر السند مباشرة. */
+  const selectedPartyBalance = (() => {
+    if (!partyId) return null;
+    if (partyType === "customer") return customers.find((c) => c.id === partyId)?.balance ?? null;
+    if (partyType === "supplier") return suppliers.find((s) => s.id === partyId)?.balance ?? null;
+    return null;
+  })();
+  const parsedAmount = parseAmountStrict(amount);
+  const voucherAmount = parsedAmount.ok ? parsedAmount.value : 0;
+  const balanceAfter = (() => {
+    if (selectedPartyBalance === null) return null;
+    // رصيد العميل: موجب = عليه. رصيد المورد: موجب = له علينا (اتفاقية العرض).
+    if (partyType === "customer") {
+      return type === "receipt"
+        ? selectedPartyBalance - voucherAmount
+        : selectedPartyBalance + voucherAmount;
+    }
+    return type === "payment"
+      ? selectedPartyBalance - voucherAmount
+      : selectedPartyBalance + voucherAmount;
+  })();
   const printing = vouchers.find((v) => v.id === printId);
 
   return (
@@ -212,21 +259,42 @@ function VouchersPage() {
             </select>
           </label>
           {partyType !== "other" ? (
-            <label>
-              <span className="label">الطرف</span>
-              <select className="input-field" value={partyId} onChange={(e) => setPartyId(e.target.value)}>
-                <option value="">اختر…</option>
-                {parties.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div>
+              <AppSelect
+                label="الطرف"
+                value={partyId}
+                onChange={setPartyId}
+                searchable
+                placeholder="ابحث بالاسم أو الرقم…"
+                options={parties.map((p) => ({
+                  value: p.id,
+                  label: p.name,
+                  description: `الرصيد: ${formatCurrency(Number(p.balance) || 0)}${p.phone ? ` · ${p.phone}` : ""}`,
+                }))}
+              />
+              {selectedPartyBalance !== null ? (
+                <p className="mt-1.5 text-xs text-muted">
+                  الرصيد الحالي: <span className="font-bold text-ink">{formatCurrency(selectedPartyBalance)}</span>
+                  {balanceAfter !== null ? (
+                    <>
+                      {" → "}بعد هذا السند:{" "}
+                      <span className={`font-bold ${balanceAfter < 0 ? "text-good" : "text-brand"}`}>
+                        {formatCurrency(balanceAfter)}
+                      </span>
+                    </>
+                  ) : null}
+                </p>
+              ) : null}
+            </div>
           ) : null}
           <label>
             <span className="label">المبلغ</span>
             <input className="input-field" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            {voucherAmount > 0 ? (
+              <span className="mt-1.5 block text-xs text-muted">
+                {amountInArabicWords(voucherAmount)}
+              </span>
+            ) : null}
           </label>
           <label>
             <span className="label">التاريخ</span>

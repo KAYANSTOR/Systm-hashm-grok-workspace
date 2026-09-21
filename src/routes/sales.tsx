@@ -25,7 +25,16 @@ import type {
   PaymentMethod,
   PaymentType,
 } from "@/lib/types";
-import { formatCurrency, formatDate, invoiceStatus, nextNumber, todayIso, uid } from "@/lib/utils";
+import {
+  amountInputError,
+  formatCurrency,
+  formatDate,
+  invoiceStatus,
+  nextNumber,
+  parseAmountStrict,
+  todayIso,
+  uid,
+} from "@/lib/utils";
 import { PRODUCT_SALES } from "@/lib/features";
 
 export const Route = createFileRoute("/sales")({ component: SalesPage });
@@ -133,10 +142,18 @@ function SalesPage() {
   };
 
   const addLine = () => {
-    const quantity = parseFloat(qty) || 1;
-    const unitPrice = parseFloat(price) || 0;
+    // إدخال صارم: "3س" أو "1.2.5" كان يُقرأ سابقًا كرقم صامتًا فيُحفظ بند بسعر/كمية غير المقصود.
+    const parsedQty = parseAmountStrict(qty);
+    if (!parsedQty.ok) return toast.error(amountInputError(parsedQty.reason, "الكمية"));
+    if (parsedQty.value <= 0) return toast.error("الكمية يجب أن تكون أكبر من صفر");
+    const parsedPrice = parseAmountStrict(price);
+    if (!parsedPrice.ok && price.trim() !== "") {
+      return toast.error(amountInputError(parsedPrice.reason, "سعر الوحدة"));
+    }
+    const quantity = parsedQty.value;
+    const unitPrice = parsedPrice.ok ? parsedPrice.value : 0;
     if (mode.kind === "sale" && mode.salesType === "SERVICE") {
-      if (!serviceName.trim()) return toast.error("أدخل اسم الخدمة");
+      if (!serviceName.trim()) return toast.error("أدخل البيان / اسم الخدمة");
       setItems((prev) => [
         ...prev,
         {
@@ -178,10 +195,12 @@ function SalesPage() {
   };
 
   const subTotal = items.reduce((s, i) => s + i.total, 0);
-  const disc = parseFloat(discount) || 0;
+  const parsedDiscount = parseAmountStrict(discount);
+  const disc = parsedDiscount.ok ? parsedDiscount.value : 0;
   const total = Math.max(0, subTotal - disc);
+  const parsedPaid = parseAmountStrict(paidAmount);
   const paid =
-    paymentType === "cash" ? total : paymentType === "deferred" ? 0 : parseFloat(paidAmount) || 0;
+    paymentType === "cash" ? total : paymentType === "deferred" ? 0 : parsedPaid.ok ? parsedPaid.value : 0;
   const remaining = total - paid;
   const status = invoiceStatus(total, paid);
   const previousBalance = parties.find((party) => party.id === partyId)?.balance || 0;
@@ -194,7 +213,11 @@ function SalesPage() {
     if (isPendingReceipt && !resolvedPartyId && supplierName.trim()) {
       resolvedPartyId = addSupplier({ name: supplierName.trim(), phone: "", company: supplierName.trim(), balance: 0 });
     }
-    if (!resolvedPartyId) return toast.error("اختر المورد أو أدخل اسم المورد");
+    if (!resolvedPartyId) {
+      return toast.error(
+        mode.kind === "sale" ? "اختر العميل قبل الحفظ" : "اختر المورد أو أدخل اسم المورد",
+      );
+    }
     const payload = {
       invoiceNumber,
       type: mode.kind,
@@ -450,17 +473,29 @@ function SalesPage() {
             <span className="label">الرقم</span>
             <input className="input-field" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
           </label>
-          <label>
-            <span className="label">المطلوب من الأخ</span>
-            <select className="input-field" value={partyId} onChange={(e) => setPartyId(e.target.value)}>
-              <option value="">اختر…</option>
-              {parties.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div>
+            <AppSelect
+              label={mode.kind === "sale" ? "العميل" : "المورد"}
+              value={partyId}
+              onChange={setPartyId}
+              searchable
+              placeholder="ابحث بالاسم أو الرقم…"
+              options={parties.map((p) => ({
+                value: p.id,
+                label: p.name,
+                description: `الرصيد الحالي: ${formatCurrency(Number(p.balance) || 0)}${p.phone ? ` · ${p.phone}` : ""}`,
+              }))}
+            />
+            {partyId ? (
+              <p className="mt-1.5 text-xs text-muted">
+                الرصيد الحالي: <span className="font-bold text-ink">{formatCurrency(previousBalance)}</span>
+                {" → "}بعد هذه الفاتورة:{" "}
+                <span className={`font-bold ${grandTotal > 0 ? "text-bad" : "text-good"}`}>
+                  {formatCurrency(grandTotal)}
+                </span>
+              </p>
+            ) : null}
+          </div>
           {pendingReceiptReview ? (
             <label>
               <span className="label">اسم المورد الجديد</span>
@@ -488,7 +523,16 @@ function SalesPage() {
           <p className="mt-3 rounded-xl bg-brand-soft px-3 py-2 text-sm font-bold text-brand">تم تحميل الأصناف التي أرسلها مستلم المخزن. راجع القائمة وعدّل الكمية أو سعر الشراء قبل الاعتماد.</p>
         ) : null}
 
-        <div className="mt-4 rounded-2xl border border-line bg-canvas/50 p-3">
+        <div
+          className="mt-4 rounded-2xl border border-line bg-canvas/50 p-3"
+          onKeyDown={(e) => {
+            // إدخال سريع: Enter في أي حقل بند يضيف البند دون نزول لزر الإضافة.
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addLine();
+            }
+          }}
+        >
           {mode.kind === "sale" && mode.salesType === "SERVICE" ? (
             <div className="grid gap-2 sm:grid-cols-4">
               <input className="input-field sm:col-span-2" placeholder="البيان / اسم الخدمة" value={serviceName} onChange={(e) => setServiceName(e.target.value)} />
@@ -607,7 +651,7 @@ function SalesPage() {
             <span className="tabular-nums">{formatCurrency(previousBalance)}</span>
           </div>
           <div className="mt-1 flex justify-between font-black text-accent">
-            <span>الاجمالي الكلي</span>
+            <span>الرصيد بعد الفاتورة</span>
             <span className="tabular-nums">{formatCurrency(grandTotal)}</span>
           </div>
         </div>
