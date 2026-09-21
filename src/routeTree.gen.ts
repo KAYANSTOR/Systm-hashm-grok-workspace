@@ -20,6 +20,7 @@ import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as SalesRouteImport } from './routes/sales'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as VouchersRouteImport } from './routes/vouchers'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiRecoveryRouteImport } from './routes/api/recovery'
 import { Route as SettingsAccessControlRouteImport } from './routes/settings.access-control'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -79,6 +80,11 @@ const VouchersRoute = VouchersRouteImport.update({
   path: '/vouchers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRecoveryRoute = ApiRecoveryRouteImport.update({
   id: '/api/recovery',
   path: '/api/recovery',
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/sales': typeof SalesRoute
   '/settings': typeof SettingsRouteWithChildren
   '/vouchers': typeof VouchersRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/recovery': typeof ApiRecoveryRoute
   '/settings/access-control': typeof SettingsAccessControlRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/sales': typeof SalesRoute
   '/settings': typeof SettingsRouteWithChildren
   '/vouchers': typeof VouchersRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/recovery': typeof ApiRecoveryRoute
   '/settings/access-control': typeof SettingsAccessControlRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/sales': typeof SalesRoute
   '/settings': typeof SettingsRouteWithChildren
   '/vouchers': typeof VouchersRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/recovery': typeof ApiRecoveryRoute
   '/settings/access-control': typeof SettingsAccessControlRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
     | '/sales'
     | '/settings'
     | '/vouchers'
+    | '/api/health'
     | '/api/recovery'
     | '/settings/access-control'
     | '/api/auth/$'
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
     | '/sales'
     | '/settings'
     | '/vouchers'
+    | '/api/health'
     | '/api/recovery'
     | '/settings/access-control'
     | '/api/auth/$'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/sales'
     | '/settings'
     | '/vouchers'
+    | '/api/health'
     | '/api/recovery'
     | '/settings/access-control'
     | '/api/auth/$'
@@ -207,6 +219,7 @@ export interface RootRouteChildren {
   SalesRoute: typeof SalesRoute
   SettingsRoute: typeof SettingsRouteWithChildren
   VouchersRoute: typeof VouchersRoute
+  ApiHealthRoute: typeof ApiHealthRoute
   ApiRecoveryRoute: typeof ApiRecoveryRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
@@ -290,6 +303,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VouchersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/recovery': {
       id: '/api/recovery'
       path: '/api/recovery'
@@ -338,6 +358,7 @@ const rootRouteChildren: RootRouteChildren = {
   SalesRoute: SalesRoute,
   SettingsRoute: SettingsRouteWithChildren,
   VouchersRoute: VouchersRoute,
+  ApiHealthRoute: ApiHealthRoute,
   ApiRecoveryRoute: ApiRecoveryRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }

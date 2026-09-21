@@ -20,11 +20,19 @@ const productionRuntime =
     process.env.NODE_ENV === "production");
 const explicitPgliteFallback =
   typeof process !== "undefined" && process.env.ALLOW_PGLITE_FALLBACK === "true";
-if (productionRuntime && !databaseUrl && !hasCloudSql && !explicitPgliteFallback) {
-  throw new Error(
-    "Production requires DATABASE_URL or the configured SQL_* cloud database variables; refusing PGLite fallback.",
+/**
+ * رسالة الإعداد الناقص — تُرمى **كسولًا** عند أول استعلام فعلي (getSql)،
+ * لا عند تحميل الوحدة. رميها هنا كانت تقتل تحميل الوحدة في كل طلب SSR
+ * على Vercel عندما لا تكون `DATABASE_URL` مضبوطة: كل الصفحات 500 بدون
+ * أي واجهة. مع التأجيل: الواجهة تُحمَّل، والاتصالات التي تحتاج قاعدة
+ * البيانات تفشل برسالة واضحة يمكن للمالك قراءتها ومعالجتها.
+ */
+export function missingDatabaseConfigError(): Error {
+  return new Error(
+    "الإنتاج يتطلب DATABASE_URL (أو متغيرات SQL_* للقاعدة السحابية) — لم تُضبط على هذه البيئة. أضفها من إعدادات المشروع (Settings → Environment) ثم أعد النشر.",
   );
 }
+const productionMissingDb = productionRuntime && !databaseUrl && !hasCloudSql && !explicitPgliteFallback;
 
 export const dbSource: DbSource = databaseUrl || hasCloudSql ? "neon" : "pglite";
 
@@ -230,6 +238,8 @@ async function createSql(): Promise<Sql> {
         "or a server route loader, never from client code.",
     );
   }
+  // خطأ الإعداد الناقص يظهر الآن عند أول استعلام حقيقي، لا عند استيراد الوحدة.
+  if (productionMissingDb) throw missingDatabaseConfigError();
   return dbSource === "neon" ? createNeonSql() : createPgliteSql();
 }
 
@@ -246,6 +256,17 @@ export function getSql(): Promise<Sql> {
     throw err;
   });
   return sqlPromise;
+}
+
+/**
+ * حالة القاعدة لهذه البيئة — للتشخيص ومسار الصحة بدون إسقاط الواجهة.
+ * `"missing-config"` يعني أن الإنتاج يعمل بلا قاعدة بيانات مضبوطة:
+ * الواجهة تُحمَّل لكن كل عمليات البيانات تفشل برسالة واضحة.
+ */
+export type DbStatus = "neon" | "pglite" | "missing-config";
+export function dbStatus(): DbStatus {
+  if (productionMissingDb) return "missing-config";
+  return dbSource;
 }
 
 /**
@@ -274,6 +295,7 @@ export async function getPglite(): Promise<import("@electric-sql/pglite").PGlite
  * module kick it off immediately (see bottom of file).
  */
 export function ensureDbReady(): Promise<void> {
+  if (productionMissingDb) return Promise.resolve(); // لن يُرمى الخطأ إلا من getSql عند الاستعلام
   if (dbSource !== "pglite") return Promise.resolve();
   return getSql().then(() => undefined);
 }
