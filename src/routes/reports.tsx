@@ -7,11 +7,21 @@ import { AppSelect } from "@/components/ui/AppSelect";
 import { EmptyState } from "@/components/empty-state";
 import { Modal } from "@/components/modal";
 import { cashBalance } from "@/lib/accounting";
+import {
+  AGING_BUCKETS,
+  cashFlow,
+  estimatedProfit,
+  productMovement,
+  receivableAging,
+} from "@/domain/reporting";
+import type { InventoryItem, Invoice, Transaction } from "@/lib/types";
 import { useStore } from "@/lib/store";
+import { methodLabel } from "@/lib/labels";
+import type { PaymentMethod } from "@/lib/types";
 import { daysAgoIso, formatCurrency, formatDate, formatMoney, todayIso } from "@/lib/utils";
 
 export const Route = createFileRoute("/reports")({ component: ReportsPage });
-type ReportTab = "overview" | "sales" | "cash" | "stock" | "party" | "activity";
+type ReportTab = "overview" | "sales" | "cash" | "stock" | "party" | "activity" | "analytics";
 type AnyRow = Record<string, any>;
 
 const rows = <T,>(value: unknown): T[] => (Array.isArray(value) ? value : []);
@@ -116,6 +126,24 @@ function ReportsPage() {
   }, [inventory, warehouseStocks, warehouseId, q]);
   const stockValue = useMemo(() => stockRows.reduce((sum, i) => sum + num(i.quantity) * num(i.costPrice), 0), [stockRows]);
 
+  // ─── تحليلات الفترة (محرّك تقارير نقي مُختبَر: src/domain/reporting.ts) ───
+  const aging = useMemo(
+    () => receivableAging(invoices as unknown as Invoice[], to),
+    [invoices, to],
+  );
+  const movement = useMemo(
+    () => productMovement(invoices as unknown as Invoice[], { from, to }).slice(0, 12),
+    [invoices, from, to],
+  );
+  const profit = useMemo(
+    () => estimatedProfit(invoices as unknown as Invoice[], inventory as unknown as InventoryItem[], { from, to }),
+    [invoices, inventory, from, to],
+  );
+  const flow = useMemo(
+    () => cashFlow(transactions as unknown as Transaction[], { from, to }),
+    [transactions, from, to],
+  );
+
   const chart = useMemo(() => {
     if (!validRange) return [];
     const start = new Date(`${from}T00:00:00`);
@@ -148,7 +176,8 @@ function ReportsPage() {
   ];
   const tabs: { id: ReportTab; label: string }[] = [
     { id: "overview", label: "ملخص" }, { id: "sales", label: "المبيعات" }, { id: "cash", label: "الصندوق" },
-    { id: "stock", label: "المخزون" }, { id: "party", label: "كشف حساب" }, { id: "activity", label: "العمليات" },
+    { id: "stock", label: "المخزون" }, { id: "party", label: "كشف حساب" },
+    { id: "analytics", label: "تحليلات" }, { id: "activity", label: "العمليات" },
   ];
   const detail = detailId ? auditLog.find((a) => a.auditId === detailId) : null;
   const loading = connectionState === "syncing" && !invoices.length && !customers.length && !inventory.length;
@@ -190,6 +219,100 @@ function ReportsPage() {
       {tab === "stock" && validRange && <div className="space-y-3"><div className="relative"><Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" /><input className="input-field pr-10" placeholder="بحث صنف…" value={q} onChange={(e) => setQ(e.target.value)} /></div><div className="card overflow-hidden"><ul className="divide-y divide-line">{stockRows.length ? stockRows.map((i) => <li key={i.id} className="flex items-center justify-between px-4 py-3"><div><p className="font-black">{i.name}</p><p className="text-xs text-muted">{i.category}</p></div><div className="text-left"><p className="font-black tabular-nums">{i.quantity}</p><span className={`text-xs font-bold ${i.status === "نفد" ? "text-bad" : i.status === "منخفض" ? "text-warn" : "text-good"}`}>{i.status}</span></div></li>) : <li><EmptyState icon={Search} title="لا توجد أصناف مطابقة" /></li>}</ul></div></div>}
 
       {tab === "party" && validRange && <div className="space-y-3">{partyId === "all" ? <div className="card p-6"><EmptyState icon={FileText} title="اختر عميلاً أو مورداً لعرض كشف الحساب" /></div> : <><div className="card p-4"><p className="text-sm text-muted">الرصيد المتحرك من القيود الخاصة بالطرف</p><p className="mt-1 text-2xl font-black tabular-nums">{formatCurrency(partyBalance)}</p></div><div className="card overflow-hidden"><div className="grid grid-cols-5 gap-1 border-b border-line bg-canvas px-3 py-2 text-[11px] font-bold text-muted"><span>التاريخ</span><span className="col-span-2">البيان</span><span>مدين</span><span>دائن</span></div>{partyRunning.length ? partyRunning.map((t) => <div key={t.id} className="grid grid-cols-5 gap-1 border-b border-line px-3 py-2 text-xs"><span className="text-muted">{formatDate(t.date)}</span><span className="col-span-2 font-bold">{t.description}</span><span>{t.debit ? formatCurrency(t.debit) : "—"}</span><span>{t.credit ? formatCurrency(t.credit) : "—"}</span></div>) : <p className="p-4 text-sm text-muted">لا حركات على هذا الحساب</p>}</div></>}</div>}
+
+      {tab === "analytics" && validRange && <div className="space-y-4">
+        <section className="card p-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-black">أعمار الديون (المتبقي على العملاء)</h2>
+            <p className="text-sm text-muted">حتى تاريخ {formatDate(to)} · الإجمالي <span className="font-black text-ink">{formatCurrency(aging.total)}</span></p>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {AGING_BUCKETS.map((bucket) => (
+              <div key={bucket.key} className="rounded-2xl border border-line p-3">
+                <p className="text-xs font-bold text-muted">{bucket.label}</p>
+                <p className={`mt-1 text-lg font-black tabular-nums ${bucket.key === "d90" && aging.buckets[bucket.key] > 0 ? "text-bad" : ""}`}>
+                  {formatCurrency(aging.buckets[bucket.key])}
+                </p>
+              </div>
+            ))}
+          </div>
+          {aging.byParty.length === 0 ? (
+            <p className="mt-3 text-sm text-muted">لا توجد ديون مفتوحة — كل فواتير العملاء مسددة.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-line rounded-2xl border border-line">
+              {aging.byParty.slice(0, 8).map((row) => (
+                <li key={row.partyId} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <p className="truncate font-bold">{customers.find((c) => String(c.id) === row.partyId)?.name || row.partyId}</p>
+                    <p className="text-xs text-muted">أقدم دين: {row.oldestDays} يوم</p>
+                  </div>
+                  <p className="font-black tabular-nums">{formatCurrency(row.total)}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="card p-4">
+          <h2 className="font-black">أرباح الفترة (تقديرية)</h2>
+          <p className="text-xs text-muted">التكلفة من سعر تكلفة بطاقة الصنف — ليست تكلفة لحظية من دفتر مخزون.</p>
+          <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
+            <Kpi title="إيراد خدمات التطريز" value={formatCurrency(profit.serviceRevenue)} />
+            <Kpi title="إيراد بيع بضاعة" value={formatCurrency(profit.productRevenue)} />
+            <Kpi title="تكلفة تقديرية" value={formatCurrency(profit.estimatedCost)} />
+            <Kpi title="ربح تقديري" value={formatCurrency(profit.grossProfit)} />
+            <Kpi title="هامش الربح" value={`${profit.marginPercent.toFixed(1)}%`} />
+          </div>
+        </section>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <section className="card overflow-hidden">
+            <div className="border-b border-line px-4 py-3">
+              <h2 className="font-black">الأصناف الأكثر حركة</h2>
+              <p className="text-xs text-muted">من بنود الفواتير المعتمدة في الفترة (وارد = توريد، صادر = بيع أو صرف).</p>
+            </div>
+            {movement.length === 0 ? (
+              <EmptyState icon={FileText} title="لا حركة أصناف في الفترة" />
+            ) : (
+              <ul className="divide-y divide-line">
+                {movement.map((row) => (
+                  <li key={row.productId} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                    <p className="min-w-0 truncate font-bold">{row.name}</p>
+                    <p className="shrink-0 text-xs tabular-nums text-muted">
+                      وارد <span className="font-black text-good">{row.inQty}</span> · صادر{" "}
+                      <span className="font-black text-bad">{row.outQty}</span> · الصافي{" "}
+                      <span className="font-black text-ink">{row.netQty}</span>
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="card overflow-hidden">
+            <div className="border-b border-line px-4 py-3">
+              <h2 className="font-black">حركة الصندوق في الفترة</h2>
+              <p className="text-xs text-muted">داخل {formatCurrency(flow.in)} · خارج {formatCurrency(flow.out)} · الصافي {formatCurrency(flow.net)}</p>
+            </div>
+            {flow.byMethod.length === 0 ? (
+              <EmptyState icon={FileText} title="لا حركة صندوق في الفترة" />
+            ) : (
+              <ul className="divide-y divide-line">
+                {flow.byMethod.map((row) => (
+                  <li key={row.method} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                    <p className="font-bold">{methodLabel[row.method as PaymentMethod] || row.method}</p>
+                    <p className="text-xs tabular-nums">
+                      <span className="font-black text-good">+{formatCurrency(row.in)}</span>
+                      {" · "}
+                      <span className="font-black text-bad">-{formatCurrency(row.out)}</span>
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      </div>}
 
       {tab === "activity" && validRange && <div className="card overflow-hidden"><div className="border-b border-line px-4 py-3 text-sm font-bold text-muted">سجل العمليات · {Math.min(auditLog.length, 100)}</div>{auditLog.length ? <ul className="divide-y divide-line">{auditLog.slice(0, 100).map((a) => <li key={a.auditId}><button type="button" className="flex w-full items-start justify-between gap-3 px-4 py-3 text-right hover:bg-canvas" onClick={() => setDetailId(a.auditId)}><div><p className="font-black">{a.summary || `${a.action} · ${a.entityType}`}</p><p className="text-xs text-muted">{formatDate(day(a.createdAt))} · {a.entityId}</p></div><span className={`rounded-lg px-2 py-0.5 text-[10px] font-bold ${a.status === "success" ? "bg-good-soft text-good" : "bg-warn-soft text-warn"}`}>{a.status === "success" ? "نجحت" : a.status || "—"}</span></button></li>)}</ul> : <EmptyState icon={FileText} title="لا سجلات بعد" />}</div>}
 

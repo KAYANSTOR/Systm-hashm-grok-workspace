@@ -110,9 +110,8 @@ export function numberToArabicWords(value: number): string {
     const word = scaleWord(group, scale);
     if (group === 1 || group === 2) {
       parts.push(word);
-    } else if (group >= 3 && group <= 10) {
-      parts.push(`${word} ${below1000(group)}`);
     } else {
+      // العربية تقدّم العدد على المعدود: «ثلاثة آلاف» لا «آلاف ثلاثة».
       parts.push(`${below1000(group)} ${word}`);
     }
   }
@@ -120,14 +119,21 @@ export function numberToArabicWords(value: number): string {
   return parts.join(" و");
 }
 
-/** مبلغ مكتوب بالكلمات مع العملة وذيل «فقط لا غير». */
-export function amountInArabicWords(value: number, currency = "ريال يمني"): string {
+/**
+ * المبلغ كتابةً بلا ذيل «فقط لا غير» ولا كلمة العملة الزائدة.
+ * يُستخدم حين يكون الذيل مطبوعًا أصلًا في السطر (قالب السند يطبعه) فلا يتكرر
+ * النص في المستند المطبوع.
+ */
+export function amountWords(value: number, currency = "ريال يمني"): string {
   const n = Number(value) || 0;
   const whole = Math.floor(Math.abs(n));
   const fraction = Math.round((Math.abs(n) - whole) * 100);
   const base = `${numberToArabicWords(whole)} ${currency}`;
-  if (fraction > 0) {
-    return `${base} و${numberToArabicWords(fraction)} فلس فقط لا غير`;
-  }
-  return `${base} فقط لا غير`;
+  return fraction > 0 ? `${base} و${numberToArabicWords(fraction)} فلس` : base;
+}
+
+/** مبلغ مكتوب بالكلمات مع العملة وذيل «فقط لا غير» — للنص المستقل الكامل. */
+export function amountInArabicWords(value: number, currency = "ريال يمني"): string {
+  const words = amountWords(value, currency);
+  return `${words} فقط لا غير`;
 }

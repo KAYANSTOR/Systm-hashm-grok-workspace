@@ -167,6 +167,10 @@
 .invoice-total-line.is-grand { background: #27a6ad; font-size: 3.7mm; }
 .invoice-total-line.is-grand strong { font-size: 4.2mm; }
 .invoice-total-line.is-due { color: var(--receipt-teal-dark); }
+/* المبلغ كتابةً — سطر مستقل أسفل مجاميع الفاتورة، بحجم قراءة مريح عند التحصيل */
+.invoice-amount-words { padding: 2.7mm 4mm; background: #f4fbfb; border-top: .35mm dotted #555; }
+.invoice-amount-words .invoice-section-label { display: block; font-size: 3mm; font-weight: 800; color: var(--receipt-teal-dark); }
+.invoice-amount-words p { margin: .8mm 0 0; font-size: 3.3mm; font-weight: 800; line-height: 1.5; }
 .invoice-footer { display: flex; justify-content: space-between; gap: 5mm; margin: auto 6mm 0; padding: 5mm 2mm 4mm; font-size: 3.2mm; font-weight: 800; }
 .invoice-footer-status { font-weight: 900; }
 

@@ -3,6 +3,7 @@ import { CheckCircle, Download, Printer, Share2, X } from "lucide-react";
 import type { Invoice } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { useStore } from "@/lib/store";
+import { amountInArabicWords } from "@/lib/numbers-ar";
 import "./InvoicePrint.css";
 
 interface InvoicePrintTemplateProps {
@@ -251,8 +252,15 @@ export default function InvoicePrintTemplate({ invoice, partyName, onClose }: In
               </div>
               <div className="invoice-totals">
                 <div className="invoice-total-line is-grand"><span>إجمالي الفاتورة</span><strong>{formatCurrency(displayTotal)}</strong></div>
+                <div className="invoice-total-line"><span>المدفوع</span><strong>{formatCurrency(displayPaid)}</strong></div>
+                <div className="invoice-total-line"><span>المتبقي</span><strong>{formatCurrency(displayRemaining)}</strong></div>
                 <div className="invoice-total-line"><span>الرصيد السابق</span><strong>{formatCurrency(previousBalance)}</strong></div>
-                <div className="invoice-total-line"><span>الإجمالي الكلي</span><strong>{formatCurrency(grandTotal)}</strong></div>
+                <div className="invoice-total-line"><span>الرصيد بعد الفاتورة</span><strong>{formatCurrency(grandTotal)}</strong></div>
+                {/* المبلغ كتابةً — صفحة مطبوعة بلا تفقيط تُرفض في كثير من المكاتب */}
+                <div className="invoice-amount-words">
+                  <span className="invoice-section-label">المبلغ كتابةً</span>
+                  <p>{amountInArabicWords(displayTotal)}</p>
+                </div>
               </div>
             </section>
 
