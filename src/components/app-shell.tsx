@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useMemo, type ReactNode } from "react";
+import { Suspense, useMemo, type ReactNode } from "react";
 import { useState, useEffect } from "react";
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "motion/react";
@@ -161,10 +161,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (firstAllowed) void router.navigate({ to: firstAllowed as never });
   }, [firstAllowed, isHydrated, permissionsEnforced, pathname, router, userPermissions]);
 
-  const preload = useCallback((to: string) => {
-    void router.preloadRoute({ to } as never);
-  }, [router]);
-
   useEffect(() => {
     setIsHydrated(true);
   }, []);
@@ -223,8 +219,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                   key={item.to}
                   to={item.to}
                   preload="intent"
-                  onPointerEnter={() => preload(item.to)}
-                  onTouchStart={() => preload(item.to)}
                   className={cn(
                     "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold transition",
                     "touch-manipulation",
@@ -451,8 +445,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                   key={item.to}
                   to={item.to}
                   preload="intent"
-                  onPointerEnter={() => preload(item.to)}
-                  onTouchStart={() => preload(item.to)}
                   className={cn(
                     "flex flex-1 flex-col items-center gap-1 pt-1 text-[11px] font-bold",
                   i === 1 && "ml-8",

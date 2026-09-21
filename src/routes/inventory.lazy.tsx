@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createLazyFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, Pencil, Plus, Scissors, Search, Trash2, ArrowDownRight, ArrowUpRight, Printer } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -11,7 +11,7 @@ import type { InventoryCategory, InventoryItem, InventoryUnit } from "@/lib/type
 import { formatCurrency, nextNumber, todayIso } from "@/lib/utils";
 import { ADVANCED_INVENTORY } from "@/lib/features";
 
-export const Route = createFileRoute("/inventory")({ component: InventoryPage });
+export const Route = createLazyFileRoute("/inventory")({ component: InventoryPage });
 
 const emptyForm = {
   code: "",

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createLazyFileRoute } from "@tanstack/react-router";
 import { FileText, Pencil, Phone, Plus, Search, Trash2, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -11,7 +11,7 @@ import { useStore } from "@/lib/store";
 import type { Customer, CustomerType, Supplier } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
-export const Route = createFileRoute("/parties")({ component: PartiesPage });
+export const Route = createLazyFileRoute("/parties")({ component: PartiesPage });
 
 function PartiesPage() {
   const customers = useStore((s) => s.customers);

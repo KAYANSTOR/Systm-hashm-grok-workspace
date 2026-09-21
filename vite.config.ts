@@ -259,13 +259,7 @@ export default defineConfig(({ command, isPreview }) => ({
     }),
 
     tailwindcss(),
-    tanstackStart({
-      router: {
-        // Load the full internal dashboard bundle on the first visit so every
-        // screen remains available immediately during an offline session.
-        autoCodeSplitting: false,
-      },
-    }),
+    tanstackStart(),
     ...(command === "build" || isPreview
       ? [
           nitro({

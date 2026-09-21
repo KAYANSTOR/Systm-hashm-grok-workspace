@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createLazyFileRoute } from "@tanstack/react-router";
 import { ArrowDownRight, ArrowUpRight, Search, Wallet, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -10,7 +10,7 @@ import { useStore } from "@/lib/store";
 import type { PaymentMethod } from "@/lib/types";
 import { formatCurrency, formatDate, nextNumber, todayIso } from "@/lib/utils";
 
-export const Route = createFileRoute("/cashbox")({ component: CashBoxPage });
+export const Route = createLazyFileRoute("/cashbox")({ component: CashBoxPage });
 
 function CashBoxPage() {
   const transactions = useStore((s) => s.transactions);

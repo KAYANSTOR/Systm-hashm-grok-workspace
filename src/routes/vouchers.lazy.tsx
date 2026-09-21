@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createLazyFileRoute } from "@tanstack/react-router";
 import { ArrowDownRight, ArrowUpRight, Plus, Printer, Receipt, Search, Trash2 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -20,7 +20,7 @@ import {
   todayIso,
 } from "@/lib/utils";
 
-export const Route = createFileRoute("/vouchers")({ component: VouchersPage });
+export const Route = createLazyFileRoute("/vouchers")({ component: VouchersPage });
 
 function VouchersPage() {
   const vouchers = useStore((s) => s.vouchers);

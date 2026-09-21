@@ -8,78 +8,81 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
+import { createFileRoute } from '@tanstack/react-router'
+
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as CashboxRouteImport } from './routes/cashbox'
 import { Route as EmployeesRouteImport } from './routes/employees'
-import { Route as ExpensesRouteImport } from './routes/expenses'
-import { Route as InventoryRouteImport } from './routes/inventory'
-import { Route as PartiesRouteImport } from './routes/parties'
 import { Route as RecoveryRouteImport } from './routes/recovery'
-import { Route as ReportsRouteImport } from './routes/reports'
-import { Route as SalesRouteImport } from './routes/sales'
 import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as VouchersRouteImport } from './routes/vouchers'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiRecoveryRouteImport } from './routes/api/recovery'
 import { Route as SettingsAccessControlRouteImport } from './routes/settings.access-control'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
-const IndexRoute = IndexRouteImport.update({
+const IndexLazyRouteImport = createFileRoute('/')()
+const CashboxLazyRouteImport = createFileRoute('/cashbox')()
+const ExpensesLazyRouteImport = createFileRoute('/expenses')()
+const InventoryLazyRouteImport = createFileRoute('/inventory')()
+const PartiesLazyRouteImport = createFileRoute('/parties')()
+const ReportsLazyRouteImport = createFileRoute('/reports')()
+const SalesLazyRouteImport = createFileRoute('/sales')()
+const VouchersLazyRouteImport = createFileRoute('/vouchers')()
+
+const IndexLazyRoute = IndexLazyRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
-} as any)
-const CashboxRoute = CashboxRouteImport.update({
+} as any).lazy(() => import('./routes/index.lazy').then((d) => d.Route))
+const CashboxLazyRoute = CashboxLazyRouteImport.update({
   id: '/cashbox',
   path: '/cashbox',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/cashbox.lazy').then((d) => d.Route))
 const EmployeesRoute = EmployeesRouteImport.update({
   id: '/employees',
   path: '/employees',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ExpensesRoute = ExpensesRouteImport.update({
+const ExpensesLazyRoute = ExpensesLazyRouteImport.update({
   id: '/expenses',
   path: '/expenses',
   getParentRoute: () => rootRouteImport,
-} as any)
-const InventoryRoute = InventoryRouteImport.update({
+} as any).lazy(() => import('./routes/expenses.lazy').then((d) => d.Route))
+const InventoryLazyRoute = InventoryLazyRouteImport.update({
   id: '/inventory',
   path: '/inventory',
   getParentRoute: () => rootRouteImport,
-} as any)
-const PartiesRoute = PartiesRouteImport.update({
+} as any).lazy(() => import('./routes/inventory.lazy').then((d) => d.Route))
+const PartiesLazyRoute = PartiesLazyRouteImport.update({
   id: '/parties',
   path: '/parties',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/parties.lazy').then((d) => d.Route))
 const RecoveryRoute = RecoveryRouteImport.update({
   id: '/recovery',
   path: '/recovery',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReportsRoute = ReportsRouteImport.update({
+const ReportsLazyRoute = ReportsLazyRouteImport.update({
   id: '/reports',
   path: '/reports',
   getParentRoute: () => rootRouteImport,
-} as any)
-const SalesRoute = SalesRouteImport.update({
+} as any).lazy(() => import('./routes/reports.lazy').then((d) => d.Route))
+const SalesLazyRoute = SalesLazyRouteImport.update({
   id: '/sales',
   path: '/sales',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/sales.lazy').then((d) => d.Route))
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
-const VouchersRoute = VouchersRouteImport.update({
+const VouchersLazyRoute = VouchersLazyRouteImport.update({
   id: '/vouchers',
   path: '/vouchers',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/vouchers.lazy').then((d) => d.Route))
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
@@ -102,34 +105,34 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/cashbox': typeof CashboxRoute
+  '/': typeof IndexLazyRoute
   '/employees': typeof EmployeesRoute
-  '/expenses': typeof ExpensesRoute
-  '/inventory': typeof InventoryRoute
-  '/parties': typeof PartiesRoute
   '/recovery': typeof RecoveryRoute
-  '/reports': typeof ReportsRoute
-  '/sales': typeof SalesRoute
   '/settings': typeof SettingsRouteWithChildren
-  '/vouchers': typeof VouchersRoute
+  '/cashbox': typeof CashboxLazyRoute
+  '/expenses': typeof ExpensesLazyRoute
+  '/inventory': typeof InventoryLazyRoute
+  '/parties': typeof PartiesLazyRoute
+  '/reports': typeof ReportsLazyRoute
+  '/sales': typeof SalesLazyRoute
+  '/vouchers': typeof VouchersLazyRoute
   '/api/health': typeof ApiHealthRoute
   '/api/recovery': typeof ApiRecoveryRoute
   '/settings/access-control': typeof SettingsAccessControlRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/cashbox': typeof CashboxRoute
+  '/': typeof IndexLazyRoute
   '/employees': typeof EmployeesRoute
-  '/expenses': typeof ExpensesRoute
-  '/inventory': typeof InventoryRoute
-  '/parties': typeof PartiesRoute
   '/recovery': typeof RecoveryRoute
-  '/reports': typeof ReportsRoute
-  '/sales': typeof SalesRoute
   '/settings': typeof SettingsRouteWithChildren
-  '/vouchers': typeof VouchersRoute
+  '/cashbox': typeof CashboxLazyRoute
+  '/expenses': typeof ExpensesLazyRoute
+  '/inventory': typeof InventoryLazyRoute
+  '/parties': typeof PartiesLazyRoute
+  '/reports': typeof ReportsLazyRoute
+  '/sales': typeof SalesLazyRoute
+  '/vouchers': typeof VouchersLazyRoute
   '/api/health': typeof ApiHealthRoute
   '/api/recovery': typeof ApiRecoveryRoute
   '/settings/access-control': typeof SettingsAccessControlRoute
@@ -137,17 +140,17 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/cashbox': typeof CashboxRoute
+  '/': typeof IndexLazyRoute
   '/employees': typeof EmployeesRoute
-  '/expenses': typeof ExpensesRoute
-  '/inventory': typeof InventoryRoute
-  '/parties': typeof PartiesRoute
   '/recovery': typeof RecoveryRoute
-  '/reports': typeof ReportsRoute
-  '/sales': typeof SalesRoute
   '/settings': typeof SettingsRouteWithChildren
-  '/vouchers': typeof VouchersRoute
+  '/cashbox': typeof CashboxLazyRoute
+  '/expenses': typeof ExpensesLazyRoute
+  '/inventory': typeof InventoryLazyRoute
+  '/parties': typeof PartiesLazyRoute
+  '/reports': typeof ReportsLazyRoute
+  '/sales': typeof SalesLazyRoute
+  '/vouchers': typeof VouchersLazyRoute
   '/api/health': typeof ApiHealthRoute
   '/api/recovery': typeof ApiRecoveryRoute
   '/settings/access-control': typeof SettingsAccessControlRoute
@@ -157,15 +160,15 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/cashbox'
     | '/employees'
+    | '/recovery'
+    | '/settings'
+    | '/cashbox'
     | '/expenses'
     | '/inventory'
     | '/parties'
-    | '/recovery'
     | '/reports'
     | '/sales'
-    | '/settings'
     | '/vouchers'
     | '/api/health'
     | '/api/recovery'
@@ -174,15 +177,15 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/cashbox'
     | '/employees'
+    | '/recovery'
+    | '/settings'
+    | '/cashbox'
     | '/expenses'
     | '/inventory'
     | '/parties'
-    | '/recovery'
     | '/reports'
     | '/sales'
-    | '/settings'
     | '/vouchers'
     | '/api/health'
     | '/api/recovery'
@@ -191,15 +194,15 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/cashbox'
     | '/employees'
+    | '/recovery'
+    | '/settings'
+    | '/cashbox'
     | '/expenses'
     | '/inventory'
     | '/parties'
-    | '/recovery'
     | '/reports'
     | '/sales'
-    | '/settings'
     | '/vouchers'
     | '/api/health'
     | '/api/recovery'
@@ -208,17 +211,17 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  CashboxRoute: typeof CashboxRoute
+  IndexLazyRoute: typeof IndexLazyRoute
   EmployeesRoute: typeof EmployeesRoute
-  ExpensesRoute: typeof ExpensesRoute
-  InventoryRoute: typeof InventoryRoute
-  PartiesRoute: typeof PartiesRoute
   RecoveryRoute: typeof RecoveryRoute
-  ReportsRoute: typeof ReportsRoute
-  SalesRoute: typeof SalesRoute
   SettingsRoute: typeof SettingsRouteWithChildren
-  VouchersRoute: typeof VouchersRoute
+  CashboxLazyRoute: typeof CashboxLazyRoute
+  ExpensesLazyRoute: typeof ExpensesLazyRoute
+  InventoryLazyRoute: typeof InventoryLazyRoute
+  PartiesLazyRoute: typeof PartiesLazyRoute
+  ReportsLazyRoute: typeof ReportsLazyRoute
+  SalesLazyRoute: typeof SalesLazyRoute
+  VouchersLazyRoute: typeof VouchersLazyRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiRecoveryRoute: typeof ApiRecoveryRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -230,14 +233,14 @@ declare module '@tanstack/react-router' {
       id: '/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof IndexLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cashbox': {
       id: '/cashbox'
       path: '/cashbox'
       fullPath: '/cashbox'
-      preLoaderRoute: typeof CashboxRouteImport
+      preLoaderRoute: typeof CashboxLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/employees': {
@@ -251,21 +254,21 @@ declare module '@tanstack/react-router' {
       id: '/expenses'
       path: '/expenses'
       fullPath: '/expenses'
-      preLoaderRoute: typeof ExpensesRouteImport
+      preLoaderRoute: typeof ExpensesLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inventory': {
       id: '/inventory'
       path: '/inventory'
       fullPath: '/inventory'
-      preLoaderRoute: typeof InventoryRouteImport
+      preLoaderRoute: typeof InventoryLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/parties': {
       id: '/parties'
       path: '/parties'
       fullPath: '/parties'
-      preLoaderRoute: typeof PartiesRouteImport
+      preLoaderRoute: typeof PartiesLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/recovery': {
@@ -279,14 +282,14 @@ declare module '@tanstack/react-router' {
       id: '/reports'
       path: '/reports'
       fullPath: '/reports'
-      preLoaderRoute: typeof ReportsRouteImport
+      preLoaderRoute: typeof ReportsLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sales': {
       id: '/sales'
       path: '/sales'
       fullPath: '/sales'
-      preLoaderRoute: typeof SalesRouteImport
+      preLoaderRoute: typeof SalesLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -300,7 +303,7 @@ declare module '@tanstack/react-router' {
       id: '/vouchers'
       path: '/vouchers'
       fullPath: '/vouchers'
-      preLoaderRoute: typeof VouchersRouteImport
+      preLoaderRoute: typeof VouchersLazyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/health': {
@@ -347,17 +350,17 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  CashboxRoute: CashboxRoute,
+  IndexLazyRoute: IndexLazyRoute,
   EmployeesRoute: EmployeesRoute,
-  ExpensesRoute: ExpensesRoute,
-  InventoryRoute: InventoryRoute,
-  PartiesRoute: PartiesRoute,
   RecoveryRoute: RecoveryRoute,
-  ReportsRoute: ReportsRoute,
-  SalesRoute: SalesRoute,
   SettingsRoute: SettingsRouteWithChildren,
-  VouchersRoute: VouchersRoute,
+  CashboxLazyRoute: CashboxLazyRoute,
+  ExpensesLazyRoute: ExpensesLazyRoute,
+  InventoryLazyRoute: InventoryLazyRoute,
+  PartiesLazyRoute: PartiesLazyRoute,
+  ReportsLazyRoute: ReportsLazyRoute,
+  SalesLazyRoute: SalesLazyRoute,
+  VouchersLazyRoute: VouchersLazyRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiRecoveryRoute: ApiRecoveryRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

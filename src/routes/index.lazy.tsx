@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createLazyFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -19,7 +19,7 @@ import { cashBalance } from "@/lib/accounting";
 import { useStore } from "@/lib/store";
 import { formatCurrency, formatDate, formatLongDate, formatMoney } from "@/lib/utils";
 
-export const Route = createFileRoute("/")({ component: Dashboard });
+export const Route = createLazyFileRoute("/")({ component: Dashboard });
 
 function Dashboard() {
   const customers = useStore((s) => s.customers);

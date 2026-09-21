@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createLazyFileRoute } from "@tanstack/react-router";
 import { FileText, Printer, RefreshCw, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -20,7 +20,7 @@ import { methodLabel } from "@/lib/labels";
 import type { PaymentMethod } from "@/lib/types";
 import { daysAgoIso, formatCurrency, formatDate, formatMoney, todayIso } from "@/lib/utils";
 
-export const Route = createFileRoute("/reports")({ component: ReportsPage });
+export const Route = createLazyFileRoute("/reports")({ component: ReportsPage });
 type ReportTab = "overview" | "sales" | "cash" | "stock" | "party" | "activity" | "analytics";
 type AnyRow = Record<string, any>;
 

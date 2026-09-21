@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createLazyFileRoute } from "@tanstack/react-router";
 import {
   AlertTriangle, CheckCircle2,
   Pencil,
@@ -37,7 +37,7 @@ import {
 } from "@/lib/utils";
 import { PRODUCT_SALES } from "@/lib/features";
 
-export const Route = createFileRoute("/sales")({ component: SalesPage });
+export const Route = createLazyFileRoute("/sales")({ component: SalesPage });
 
 type Mode = { kind: InvoiceKind; salesType: InvoiceSalesType };
 
