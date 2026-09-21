@@ -53,8 +53,12 @@ export function invoiceLedgerRows(invoice: Invoice): LedgerRow[] {
   const documentDebit = isSale ? total : 0;
   const documentCredit = isSale ? 0 : total;
 
-  const rows: LedgerRow[] = [
-    {
+  const rows: LedgerRow[] = [];
+
+  // مستند بلا قيمة مالية (توريد أو صرف مخزني بلا أسعار) لا يُنشئ قيودًا فارغة:
+  // أثره في المخزون فقط، وصفوف بقيمة صفر تُشوّش دفتر القيود والتقارير.
+  if (documentDebit !== 0 || documentCredit !== 0) {
+    rows.push({
       id: `${invoice.id}_party`,
       accountId: partyAccount,
       partyId: invoice.partyId,
@@ -65,8 +69,8 @@ export function invoiceLedgerRows(invoice: Invoice): LedgerRow[] {
       referenceId: invoice.id,
       description,
       createdAt,
-    },
-  ];
+    });
+  }
 
   if (paid > 0) {
     rows.push({

@@ -9,6 +9,7 @@ import { AppSelect } from "@/components/ui/AppSelect";
 import { useStore } from "@/lib/store";
 import type { InventoryCategory, InventoryItem, InventoryUnit } from "@/lib/types";
 import { formatCurrency, nextNumber, todayIso } from "@/lib/utils";
+import { ADVANCED_INVENTORY } from "@/lib/features";
 
 export const Route = createFileRoute("/inventory")({ component: InventoryPage });
 
@@ -48,6 +49,13 @@ function InventoryPage() {
   const [issueOpen, setIssueOpen] = useState(false);
   const [issueItems, setIssueItems] = useState<Array<{ id: string; inventoryItemId: string; quantity: string }>>([]);
   const [receiptItems, setReceiptItems] = useState<Array<{ id: string; inventoryItemId: string; name: string; quantity: string }>>([]);
+
+  // ملخص سريع: كم صنفًا، إجمالي الكميات، وكم صنفًا وصل للحد الأدنى.
+  const summary = useMemo(() => {
+    const totalUnits = inventory.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+    const lowCount = inventory.filter((item) => item.quantity <= (item.minQuantity || 0)).length;
+    return { items: inventory.length, totalUnits, lowCount };
+  }, [inventory]);
 
   const categoryNames: Record<string, string> = { ...categoryLabel };
   for (const category of productCategories) {
@@ -165,15 +173,48 @@ function InventoryPage() {
   };
 
 
+  /**
+   * إدخال بضاعة: في الوضع المبسّط يُضاف المخزون **فورًا** (بلا انتظار مطابقة)،
+   * وفي الوضع المتقدم يبقى السلوك القديم (أمر توريد للمطابقة).
+   * الصنف المكتوب بالاسم ولم يكن في المخزن يُنشأ أولًا حتى تُسجَّل الكمية على
+   * مادة حقيقية — وإلا فُقدت الكمية لأن حركة المخزون تحتاج معرّف مادة.
+   */
   const saveReceipt = () => {
     const validItems = receiptItems.filter((i) => i.inventoryItemId || i.name.trim());
-    if (validItems.length === 0) return toast.error("أضف مادة واحدة على الأقل");
-    if (validItems.some((i) => !parseFloat(i.quantity))) return toast.error("تأكد من إدخال كميات صحيحة");
+    if (validItems.length === 0) return toast.error("أضف صنفاً واحداً على الأقل");
+    if (validItems.some((i) => !(parseFloat(i.quantity) > 0))) return toast.error("تأكد من إدخال كميات صحيحة");
 
     const invoiceNumber = nextNumber(
       invoices.filter((i) => i.type === "purchase").map((i) => i.invoiceNumber),
       "PUR"
     );
+
+    const lines = validItems.map((i) => {
+      const existing = i.inventoryItemId ? inventory.find((inv) => inv.id === i.inventoryItemId) : undefined;
+      let productId = existing?.id;
+      const typedName = i.name.trim();
+      if (!productId && typedName) {
+        productId = addInventoryItem({
+          code: `MAT-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
+          name: typedName,
+          category: "fabric" as InventoryCategory,
+          unit: "piece" as InventoryUnit,
+          quantity: 0,
+          costPrice: 0,
+          sellingPrice: 0,
+          minQuantity: 0,
+          color: "",
+        });
+      }
+      return {
+        id: Math.random().toString(36).slice(2),
+        inventoryItemId: productId || undefined,
+        name: existing?.name || typedName || "مادة",
+        quantity: parseFloat(i.quantity) || 1,
+        unitPrice: 0,
+        total: 0,
+      };
+    });
 
     addInvoice({
       invoiceNumber,
@@ -181,24 +222,22 @@ function InventoryPage() {
       type: "purchase",
       partyId: "PENDING_RECEIPT",
       date: todayIso(),
-      items: validItems.map((i) => ({
-        id: Math.random().toString(36).slice(2),
-        inventoryItemId: i.inventoryItemId || undefined,
-        name: i.inventoryItemId ? (inventory.find((inv) => inv.id === i.inventoryItemId)?.name || i.name) : i.name,
-        quantity: parseFloat(i.quantity) || 1,
-        unitPrice: 0,
-        total: 0,
-      })),
+      items: lines,
       subTotal: 0,
       discount: 0,
       total: 0,
       paidAmount: 0,
       remainingAmount: 0,
       status: "unpaid",
-      isApproved: false,
+      // في الوضع المبسّط: إدخال فعلي ومباشر — لا خطوة مطابقة.
+      isApproved: ADVANCED_INVENTORY ? false : true,
       paymentType: "deferred",
     });
-    toast.success("تم إرسال أمر التوريد للمدير للمطابقة");
+    toast.success(
+      ADVANCED_INVENTORY
+        ? "تم إرسال أمر التوريد للمدير للمطابقة"
+        : "تم إدخال البضاعة وتحديث الكميات المتبقية",
+    );
     setReceiptOpen(false);
   };
 
@@ -206,25 +245,47 @@ function InventoryPage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="page-title">المخزن والأقمشة</h1>
-          <p className="page-subtitle">إدارة المواد الأولية ومستلزمات التطريز.</p>
+          <h1 className="page-title">{ADVANCED_INVENTORY ? "المخزن والأقمشة" : "المخزن"}</h1>
+          <p className="page-subtitle">
+            {ADVANCED_INVENTORY
+              ? "إدارة المواد الأولية ومستلزمات التطريز."
+              : "إدخال بضاعة، إخراج بضاعة، ومعرفة الكميات المتبقية."}
+          </p>
         </div>
-        <div className="flex gap-2">
-          <button type="button" className="btn-secondary" onClick={() => { setReceiptItems([{ id: Math.random().toString(), inventoryItemId: "", name: "", quantity: "1" }]); setReceiptOpen(true); }}>
-            <Plus className="size-5" />
-            أمر توريد مخزني
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn-primary" onClick={() => { setReceiptItems([{ id: Math.random().toString(), inventoryItemId: "", name: "", quantity: "1" }]); setReceiptOpen(true); }}>
+            <ArrowDownRight className="size-5" />
+            {ADVANCED_INVENTORY ? "أمر توريد مخزني" : "إدخال بضاعة"}
           </button>
-          
-          <button type="button" className="btn-ghost text-bad" onClick={() => {
+
+          <button type="button" className="btn-secondary text-bad" onClick={() => {
             setIssueItems([{ id: Math.random().toString(), inventoryItemId: "", quantity: "1" }]);
             setIssueOpen(true);
           }}>
-            <Plus className="size-4" /> أمر صرف
+            <ArrowUpRight className="size-5" />
+            {ADVANCED_INVENTORY ? "أمر صرف" : "إخراج بضاعة"}
           </button>
-          <button type="button" className="btn-primary" onClick={openNew}>
+          <button type="button" className="btn-ghost" onClick={openNew}>
             <Plus className="size-5" />
-            إضافة مادة
+            مادة جديدة
           </button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="card p-4">
+          <p className="text-xs font-bold text-muted">عدد الأصناف</p>
+          <p className="mt-1 text-2xl font-black tabular-nums">{summary.items}</p>
+        </div>
+        <div className="card p-4">
+          <p className="text-xs font-bold text-muted">إجمالي الكميات المتبقية</p>
+          <p className="mt-1 text-2xl font-black tabular-nums">{summary.totalUnits}</p>
+        </div>
+        <div className="card p-4">
+          <p className="text-xs font-bold text-muted">أصناف وصلت للحد الأدنى</p>
+          <p className={`mt-1 text-2xl font-black tabular-nums ${summary.lowCount ? "text-bad" : "text-good"}`}>
+            {summary.lowCount}
+          </p>
         </div>
       </div>
 
@@ -363,9 +424,15 @@ function InventoryPage() {
               ))}
             </select>
           </Field>
-          <Field label="الكمية">
-            <input className="input-field" inputMode="decimal" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
-          </Field>
+          {!editing || ADVANCED_INVENTORY ? (
+            <Field label={editing ? "الكمية" : "الكمية الافتتاحية (اختياري)"}>
+              <input className="input-field" inputMode="decimal" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+            </Field>
+          ) : (
+            <div className="rounded-2xl border border-line bg-canvas/50 px-3 py-2 text-xs text-muted">
+              الكمية المتبقية تتغير من «إدخال بضاعة» و«إخراج بضاعة» فقط — لا تُعدَّل من هنا حتى لا يختلف المخزون عن الحركات المسجّلة.
+            </div>
+          )}
           <Field label="الحد الأدنى">
             <input className="input-field" inputMode="decimal" value={form.minQuantity} onChange={(e) => setForm({ ...form, minQuantity: e.target.value })} />
           </Field>
@@ -381,9 +448,17 @@ function InventoryPage() {
         </div>
       </Modal>
 
-      <Modal open={receiptOpen} onClose={() => setReceiptOpen(false)} title="أمر توريد مخزني">
+      <Modal
+        open={receiptOpen}
+        onClose={() => setReceiptOpen(false)}
+        title={ADVANCED_INVENTORY ? "أمر توريد مخزني" : "إدخال بضاعة"}
+      >
         <div className="space-y-4">
-          <p className="text-sm text-muted">سيتم إرسال هذا الأمر للإدارة لمطابقته مع فاتورة المشتريات وإضافة الأسعار.</p>
+          <p className="text-sm text-muted">
+            {ADVANCED_INVENTORY
+              ? "سيتم إرسال هذا الأمر للإدارة لمطابقته مع فاتورة المشتريات وإضافة الأسعار."
+              : "تُضاف الكميات إلى المخزن مباشرة ويظهر المتبقي في القائمة. الاسم الجديد يُنشئ مادة جديدة تلقائيًا."}
+          </p>
           <div className="space-y-3">
             {receiptItems.map((item, index) => (
               <div key={item.id} className="flex gap-2 items-start">
@@ -447,7 +522,7 @@ function InventoryPage() {
           </button>
           <div className="flex gap-3 pt-4">
             <button type="button" className="btn-primary flex-1" onClick={saveReceipt}>
-              إرسال للمطابقة
+              {ADVANCED_INVENTORY ? "إرسال للمطابقة" : "إدخال البضاعة"}
             </button>
             <button type="button" className="btn-ghost flex-1" onClick={() => setReceiptOpen(false)}>
               إلغاء
@@ -456,9 +531,15 @@ function InventoryPage() {
         </div>
       </Modal>
 
-      <Modal open={issueOpen} onClose={() => setIssueOpen(false)} title="أمر صرف مخزني">
+      <Modal
+        open={issueOpen}
+        onClose={() => setIssueOpen(false)}
+        title={ADVANCED_INVENTORY ? "أمر صرف مخزني" : "إخراج بضاعة"}
+      >
         <div className="space-y-4">
-          <p className="text-sm text-muted">سجّل المواد المصروفة للورشة، وسيتم خصمها من رصيد المخزن.</p>
+          <p className="text-sm text-muted">
+            سجّل ما خرج من المخزن (للورشة أو لأي جهة)، ويُخصم من المتبقي فورًا. لا يمكن إخراج كمية أكبر من المتوفر.
+          </p>
           <div className="space-y-3">
             {issueItems.map((item, index) => (
               <div key={item.id} className="flex items-start gap-2">
@@ -496,7 +577,9 @@ function InventoryPage() {
             <Plus className="size-4" /> إضافة مادة أخرى
           </button>
           <div className="flex gap-3 pt-4">
-            <button type="button" className="btn-primary flex-1" onClick={saveIssue}>حفظ أمر الصرف</button>
+            <button type="button" className="btn-primary flex-1" onClick={saveIssue}>
+              {ADVANCED_INVENTORY ? "حفظ أمر الصرف" : "إخراج البضاعة"}
+            </button>
             <button type="button" className="btn-ghost flex-1" onClick={() => setIssueOpen(false)}>إلغاء</button>
           </div>
         </div>

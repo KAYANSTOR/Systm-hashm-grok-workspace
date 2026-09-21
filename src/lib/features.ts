@@ -24,12 +24,21 @@ export const FEATURES = {
    * الفواتير القديمة (بيع/شراء) تبقى ظاهرة في القائمة وقابلة للطباعة والتعديل.
    */
   PRODUCT_SALES: false,
+  /**
+   * الوضع المتقدم للمخزن.
+   * `false` = المخزن كما طلبه صاحب المعمل: **إدخال بضاعة** و**إخراج بضاعة** ومعرفة
+   * المتبقي فقط، وينفّذان أثر المخزون فورًا بلا انتظار مطابقة. ويُخفي: أمر التوريد
+   * بانتظار مطابقة المدير، وتعديل الكمية من بطاقة المادة مباشرة (الكمية تتغيّر من
+   * إدخال/إخراج فقط). المنطق الكامل باقٍ بالكود ومفعَّل بإرجاع القيمة إلى `true`.
+   */
+  ADVANCED_INVENTORY: false,
 } as const;
 
 /** اختصارات مقروءة تُستورد في الواجهة والخادم. */
 export const AUTH_REQUIRED = FEATURES.AUTH_REQUIRED;
 export const ACCESS_CONTROL = FEATURES.ACCESS_CONTROL;
 export const PRODUCT_SALES = FEATURES.PRODUCT_SALES;
+export const ADVANCED_INVENTORY = FEATURES.ADVANCED_INVENTORY;
 
 /**
  * ملاحظة هوية: عند إيقاف المصادقة يعمل النظام بهوية الجهاز الثابتة المعتمدة في
