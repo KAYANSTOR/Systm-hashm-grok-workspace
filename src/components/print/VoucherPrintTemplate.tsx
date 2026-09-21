@@ -2,6 +2,7 @@ import React from "react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Voucher } from "@/lib/types";
 import { methodLabel } from "@/lib/labels";
+import { amountInArabicWords } from "@/lib/numbers-ar";
 import { useStore } from "@/lib/store";
 import ReceiptPrint, { type ReceiptData } from "./ReceiptPrint";
 
@@ -25,6 +26,8 @@ export default function VoucherPrintTemplate({ voucher, partyName, onClose }: Vo
     date: formatDate(voucher.date),
     receivedFrom: partyName || "—",
     amount: formatCurrency(voucher.amount).replace(/\s*ر\.ي\s*$/, ""),
+    // تفقيط المبلغ كتابةً — يُطبع تحت المبلغ كما في السندات الورقية.
+    amountInWords: amountInArabicWords(voucher.amount, "ريال يمني"),
     transferNumber: voucher.paymentMethod === "cash" ? "—" : paymentMethod,
     network: paymentMethod,
     transferDate: formatDate(voucher.date),

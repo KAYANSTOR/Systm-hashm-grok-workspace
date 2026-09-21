@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { ShieldCheck, Users, KeyRound, ArrowRight, Plus } from "lucide-react";
 import {
   createRole,
@@ -13,8 +13,14 @@ import {
 } from "../server/employees";
 import { forceAllowFetch, useStore } from "@/lib/store";
 import { PAGE_LABELS } from "@/lib/access";
+import { ACCESS_CONTROL } from "@/lib/features";
 
 export const Route = createFileRoute("/settings/access-control")({
+  // شاشة الأدوار والصلاحيات موقوفة مؤقتًا (FEATURES.ACCESS_CONTROL = false):
+  // لا تُفتح حتى بالرابط المباشر، مع بقاء الصفحة كاملة لاحقًا.
+  beforeLoad: () => {
+    if (!ACCESS_CONTROL) throw redirect({ to: "/settings" });
+  },
   component: AccessControlSettingsPage,
 });
 

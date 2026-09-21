@@ -25,6 +25,7 @@ import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { AccessControlCard } from "@/components/settings/access-control-card";
 import { ensureMyAccountIsAdmin } from "@/server/employees";
 import { canManageAccess } from "@/lib/access";
+import { ACCESS_CONTROL, AUTH_REQUIRED } from "@/lib/features";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
@@ -196,7 +197,8 @@ function SettingsRootPage() {
         <p className="page-subtitle text-sm">تخصيص النظام وإدارة بيانات المعمل — متوافق مع الهاتف والكمبيوتر.</p>
       </div>
 
-      <AccessControlCard />
+      {/* الموظفون والأدوار موقوفون مؤقتًا (FEATURES.ACCESS_CONTROL = false) */}
+      {ACCESS_CONTROL ? <AccessControlCard /> : null}
 
       {/* شبكة متجاوبة: عمود واحد على الهاتف، عمودان على الشاشات الأوسع */}
       <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
@@ -310,61 +312,78 @@ function SettingsRootPage() {
               </div>
               <div className="min-w-0">
                 <h2 className="font-black text-brand-dark">الحساب</h2>
-                <p className="text-xs text-muted">الجلسة تبقى محفوظة على هذا الجهاز (حتى سنة) إلا عند تسجيل الخروج أو إيقاف الحساب</p>
+                <p className="text-xs text-muted">
+                  {AUTH_REQUIRED
+                    ? "الجلسة تبقى محفوظة على هذا الجهاز (حتى سنة) إلا عند تسجيل الخروج أو إيقاف الحساب"
+                    : "تسجيل الدخول موقوف مؤقتًا — النظام يفتح مباشرة على هذا الجهاز"}
+                </p>
               </div>
             </div>
             <div className="flex flex-col gap-3 p-4 sm:p-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="truncate font-bold">{user?.displayName || "المستخدم الحالي"}</p>
-                  <p className="text-xs text-muted">الحساب متصل بهذا الجهاز</p>
-                </div>
-                <button
-                  type="button"
-                  className="btn-ghost shrink-0 text-bad"
-                  onClick={() => {
-                    void signOut("/").catch((error) =>
-                      toast.error(error instanceof Error ? error.message : "تعذر تسجيل الخروج"),
-                    );
-                  }}
-                >
-                  تسجيل الخروج
-                </button>
-              </div>
-              {isAlreadyAdmin ? (
-                <div className="rounded-2xl border border-good/30 bg-good-soft px-4 py-3 text-sm text-good">
-                  <p className="font-black">أنت مدير النظام بالفعل</p>
-                  <p className="mt-1 text-xs opacity-90">
-                    الصلاحيات محفوظة مرة واحدة. يمكنك فتح «الأدوار وصلاحيات الشاشات» وضبط أدوار الموظفين دون إعادة التفعيل.
+              {AUTH_REQUIRED ? (
+                <>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate font-bold">{user?.displayName || "المستخدم الحالي"}</p>
+                      <p className="text-xs text-muted">الحساب متصل بهذا الجهاز</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-ghost shrink-0 text-bad"
+                      onClick={() => {
+                        void signOut("/").catch((error) =>
+                          toast.error(error instanceof Error ? error.message : "تعذر تسجيل الخروج"),
+                        );
+                      }}
+                    >
+                      تسجيل الخروج
+                    </button>
+                  </div>
+                  {isAlreadyAdmin ? (
+                    <div className="rounded-2xl border border-good/30 bg-good-soft px-4 py-3 text-sm text-good">
+                      <p className="font-black">أنت مدير النظام بالفعل</p>
+                      <p className="mt-1 text-xs opacity-90">
+                        الصلاحيات محفوظة مرة واحدة. يمكنك فتح «الأدوار وصلاحيات الشاشات» وضبط أدوار الموظفين دون إعادة التفعيل.
+                      </p>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn-secondary w-full"
+                      disabled={promotingAdmin}
+                      onClick={() => {
+                        void (async () => {
+                          setPromotingAdmin(true);
+                          try {
+                            const res = await ensureMyAccountIsAdmin();
+                            // حدّث صلاحيات العميل فورًا حتى يعمل كرت الأدوار والشاشات بدون إعادة تحميل
+                            forceAllowFetch();
+                            await useStore.getState().fetchFromDb();
+                            toast.success(
+                              `تم تعيين حسابك كمدير النظام مرة واحدة (${(res as any)?.permissionCount ?? "—"} صلاحية) وحُفظت الإعدادات.`,
+                            );
+                          } catch (error) {
+                            toast.error(error instanceof Error ? error.message : "تعذر تعيين المدير");
+                          } finally {
+                            setPromotingAdmin(false);
+                          }
+                        })();
+                      }}
+                    >
+                      <ShieldCheck className="size-4" />
+                      {promotingAdmin ? "جاري التفعيل والحفظ..." : "تفعيل حسابي كمدير النظام (مرة واحدة)"}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="rounded-2xl border border-line bg-canvas/60 px-4 py-3 text-sm">
+                  <p className="font-black text-brand-dark">لا يوجد تسجيل دخول في هذه المرحلة</p>
+                  <p className="mt-1 text-xs leading-6 text-muted">
+                    تم إيقاف الحسابات و«الموظفون والأدوار» مؤقتًا بطلب من صاحب المعمل: كل من يفتح النظام على هذا
+                    الجهاز يعمل مباشرة بكامل الشاشات، دون اسم مستخدم ولا كلمة مرور. سيُعاد تفعيلها لاحقًا كما هي،
+                    والكود محفوظ بالكامل. ⚠️ لا تشارك رابط النظام مع أي شخص غير موثوق في هذه المرحلة.
                   </p>
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  className="btn-secondary w-full"
-                  disabled={promotingAdmin}
-                  onClick={() => {
-                    void (async () => {
-                      setPromotingAdmin(true);
-                      try {
-                        const res = await ensureMyAccountIsAdmin();
-                        // حدّث صلاحيات العميل فورًا حتى يعمل كرت الأدوار والشاشات بدون إعادة تحميل
-                        forceAllowFetch();
-                        await useStore.getState().fetchFromDb();
-                        toast.success(
-                          `تم تعيين حسابك كمدير النظام مرة واحدة (${(res as any)?.permissionCount ?? "—"} صلاحية) وحُفظت الإعدادات.`,
-                        );
-                      } catch (error) {
-                        toast.error(error instanceof Error ? error.message : "تعذر تعيين المدير");
-                      } finally {
-                        setPromotingAdmin(false);
-                      }
-                    })();
-                  }}
-                >
-                  <ShieldCheck className="size-4" />
-                  {promotingAdmin ? "جاري التفعيل والحفظ..." : "تفعيل حسابي كمدير النظام (مرة واحدة)"}
-                </button>
               )}
               <button
                 type="button"

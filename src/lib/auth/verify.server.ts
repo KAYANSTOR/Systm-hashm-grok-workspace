@@ -1,4 +1,5 @@
 import { getRequest } from "@tanstack/react-start/server";
+import { AUTH_REQUIRED } from "../features";
 import { gateIdentityEnabled } from "./gate-identity.server";
 import { auth, authConfigured } from "./server";
 
@@ -82,6 +83,10 @@ export async function getSessionUser(
  * - Auth disabled + no database -> the shared dev user id.
  */
 export async function requireUserId(bearerToken?: string): Promise<string> {
+  // المصادقة موقوفة مؤقتًا (FEATURES.AUTH_REQUIRED = false): لا نطلب جلسة،
+  // ويُعامل الجهاز كهوية الجهاز الثابتة `dev-user` — نفس الهوية التي تعرضها
+  // الواجهة (`DEV_USER`) — إلى أن يُعاد تفعيل تسجيل الدخول بإرجاع المفتاح إلى true.
+  if (!AUTH_REQUIRED) return DEV_USER_ID;
   if (!authConfigured && !gateIdentityEnabled()) {
     if (databaseConfigured) {
       throw new Error(

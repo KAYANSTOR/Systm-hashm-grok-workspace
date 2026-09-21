@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { ArrowRight, Pencil, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import {
   archiveEmployee,
@@ -15,8 +15,16 @@ import {
   setEmployeeRole,
   updateEmployee,
 } from "../server/employees";
+import { ACCESS_CONTROL } from "@/lib/features";
 
-export const Route = createFileRoute("/employees")({ component: EmployeesPage });
+export const Route = createFileRoute("/employees")({
+  // شاشة الموظفين موقوفة مؤقتًا (FEATURES.ACCESS_CONTROL = false):
+  // لا تُفتح حتى بالرابط المباشر، مع بقاء الصفحة كاملة لاحقًا.
+  beforeLoad: () => {
+    if (!ACCESS_CONTROL) throw redirect({ to: "/settings" });
+  },
+  component: EmployeesPage,
+});
 
 type Employee = {
   id: string;

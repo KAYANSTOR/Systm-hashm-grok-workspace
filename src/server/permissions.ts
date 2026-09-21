@@ -4,6 +4,7 @@
  * A verified admin role is the explicit bootstrap path so the first employee can be created.
  */
 import { getSql } from "../lib/db";
+import { ACCESS_CONTROL } from "../lib/features";
 import {
   requireUserId,
   authConfigured,
@@ -120,6 +121,9 @@ export async function requirePermission(
   bearerToken?: string,
 ): Promise<string> {
   const userId = await requireUserId(bearerToken);
+  // الأدوار والصلاحيات موقوفة مؤقتًا (FEATURES.ACCESS_CONTROL = false):
+  // لا يُفرض فحص الدور على الخادم. الكود الأصلي محفوظ أدناه لإعادة تفعيله.
+  if (!ACCESS_CONTROL) return userId;
   const sql = await getSql();
   if (!(await accountEnabled(sql, userId))) throw new AccountDisabledError();
   const allowed = await userHasPermission(userId, permission);
@@ -128,6 +132,7 @@ export async function requirePermission(
 }
 
 export async function listUserPermissions(userId: string): Promise<string[]> {
+  if (!ACCESS_CONTROL) return [];
   const sql = await getSql();
   if (!(await catalogReady(sql))) return [];
   const rows = await sql`

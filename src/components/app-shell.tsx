@@ -24,6 +24,7 @@ import { Toaster, toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import { canAccessPath, filterNavByPermissions, firstAllowedPath } from "@/lib/access";
+import { ACCESS_CONTROL } from "@/lib/features";
 
 const NAV = [
   { to: "/", label: "الرئيسية", icon: Home },
@@ -106,29 +107,34 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   // لا نحجب المسار أو البطاقة قبل وصول الصلاحيات من الخادم؛ الحماية الفعلية تبقى على الخادم.
   // بعد اكتمال الجلب تُصفّى القوائم ويُمنع الوصول المباشر للمسارات غير المسموحة.
+  //
+  // الأداور والصلاحيات موقوفة مؤقتًا (FEATURES.ACCESS_CONTROL = false): تظهر كل
+  // الشاشات بلا تصفية ولا حجب، مع بقاء كامل منطق الصلاحيات في `lib/access.ts`
+  // جاهزًا لإعادة التفعيل بإرجاع المفتاح إلى true.
+  const permissionsEnforced = ACCESS_CONTROL && permissionsLoaded;
   const navItems = useMemo(
-    () => (permissionsLoaded ? filterNavByPermissions(NAV, userPermissions) : NAV),
-    [permissionsLoaded, userPermissions],
+    () => (permissionsEnforced ? filterNavByPermissions(NAV, userPermissions) : NAV),
+    [permissionsEnforced, userPermissions],
   );
   const mobileNavItems = useMemo(
-    () => (permissionsLoaded ? filterNavByPermissions(MOBILE_NAV, userPermissions) : MOBILE_NAV),
-    [permissionsLoaded, userPermissions],
+    () => (permissionsEnforced ? filterNavByPermissions(MOBILE_NAV, userPermissions) : MOBILE_NAV),
+    [permissionsEnforced, userPermissions],
   );
   const quickItems = useMemo(
-    () => (permissionsLoaded ? filterNavByPermissions(QUICK, userPermissions) : QUICK),
-    [permissionsLoaded, userPermissions],
+    () => (permissionsEnforced ? filterNavByPermissions(QUICK, userPermissions) : QUICK),
+    [permissionsEnforced, userPermissions],
   );
   const pathAllowed = useMemo(
-    () => !permissionsLoaded || canAccessPath(pathname, userPermissions),
-    [pathname, permissionsLoaded, userPermissions],
+    () => !permissionsEnforced || canAccessPath(pathname, userPermissions),
+    [pathname, permissionsEnforced, userPermissions],
   );
   const canOpenSettings = useMemo(
-    () => !permissionsLoaded || canAccessPath("/settings", userPermissions),
-    [permissionsLoaded, userPermissions],
+    () => !permissionsEnforced || canAccessPath("/settings", userPermissions),
+    [permissionsEnforced, userPermissions],
   );
   const firstAllowed = useMemo(
-    () => (permissionsLoaded ? firstAllowedPath(userPermissions) : null),
-    [permissionsLoaded, userPermissions],
+    () => (permissionsEnforced ? firstAllowedPath(userPermissions) : null),
+    [permissionsEnforced, userPermissions],
   );
 
   useEffect(() => {
@@ -144,9 +150,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    if (!isHydrated || !permissionsLoaded || pathname !== "/" || canAccessPath("/", userPermissions)) return;
+    if (!isHydrated || !permissionsEnforced || pathname !== "/" || canAccessPath("/", userPermissions)) return;
     if (firstAllowed) void router.navigate({ to: firstAllowed as never });
-  }, [firstAllowed, isHydrated, permissionsLoaded, pathname, router, userPermissions]);
+  }, [firstAllowed, isHydrated, permissionsEnforced, pathname, router, userPermissions]);
 
   const preload = useCallback((to: string) => {
     void router.preloadRoute({ to } as never);

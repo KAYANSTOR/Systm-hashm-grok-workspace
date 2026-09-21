@@ -3,6 +3,7 @@ import { createAuthClient } from "better-auth/react";
 import { runPreSignInSignOut, runSignOut } from "../../../scripts/sign-out-plan.mjs";
 import { APP_PROVIDERS } from "./providers";
 import { phoneAccountEmail } from "./phone";
+import { AUTH_REQUIRED } from "../features";
 
 /**
  * Better Auth client for this React SPA (browser-side).
@@ -20,7 +21,14 @@ export const authClient = createAuthClient({
   },
 });
 
-export const authEnabled = import.meta.env.VITE_AUTH_ENABLED !== "false";
+/**
+ * المصادقة مفعّلة فقط إذا كان مفتاح الوحدة مفعّلًا وإعداد البيئة لا يمنعها.
+ * إيقاف التسجيل مؤقتًا (FEATURES.AUTH_REQUIRED = false) يجعل الواجهة والخادم
+ * يتفقان على أن هذا الجهاز غير مسجَّل الدخول ومملوك للهوية الثابتة `dev-user`،
+ * وهو ما يمنع حالة «الخادم يعرفك والواجهة لا تعرفك».
+ */
+export const authEnabled =
+  AUTH_REQUIRED && import.meta.env.VITE_AUTH_ENABLED !== "false";
 
 export { phoneAccountEmail } from "./phone";
 

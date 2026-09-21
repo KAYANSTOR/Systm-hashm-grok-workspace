@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { AuthProvider } from "@/lib/auth/provider";
 import { SignInButtons, SignInGate } from "@/lib/auth/gates";
 import { AppShell } from "@/components/app-shell";
+import { AUTH_REQUIRED } from "@/lib/features";
 import { startCloudSync } from "@/lib/cloud-sync-bootstrap";
 import appCss from "../styles.css?url";
 
@@ -33,6 +34,15 @@ if (typeof window !== "undefined") {
 // locked-out employee can never reach the account-recovery form.
 const PUBLIC_ROUTES = ["/recovery"];
 
+/**
+ * شاشة الدخول وبوابة الجلسة موقوفتان مؤقتًا (FEATURES.AUTH_REQUIRED = false):
+ * التطبيق يفتح مباشرة على بيانات المعمل دون أي تسجيل دخول، مع الإبقاء على
+ * كامل كود المصادقة كما هو لإعادة تفعيله بإرجاع المفتاح إلى true.
+ */
+function signInGateEnabled(): boolean {
+  return AUTH_REQUIRED;
+}
+
 function RootDocument() {
   useEffect(() => {
     if ("serviceWorker" in navigator && import.meta.env.PROD) {
@@ -52,6 +62,10 @@ function RootDocument() {
         <AuthProvider>
           {isPublicRoute ? (
             <Outlet />
+          ) : !signInGateEnabled() ? (
+            <AppShell>
+              <Outlet />
+            </AppShell>
           ) : (
             <SignInGate fallback={<LoginScreen />}>
               <AppShell>

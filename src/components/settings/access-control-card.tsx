@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowLeft, KeyRound, UserPlus, Users } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { canManageAccess } from "@/lib/access";
+import { ACCESS_CONTROL } from "@/lib/features";
 
 export function AccessControlCard() {
   const userPermissions = useStore((s) => s.userPermissions || []);
@@ -10,6 +11,10 @@ export function AccessControlCard() {
   const canListEmployees =
     hasAccessManagement ||
     userPermissions.includes("employees.read");
+
+  // الموظفون والأدوار موقوفون مؤقتًا (FEATURES.ACCESS_CONTROL = false): تختفي
+  // البطاقة من الشاشة بالكامل ويبقى كامل الكود أدناه لإعادة التفعيل.
+  if (!ACCESS_CONTROL) return null;
 
   return (
     <section className="card overflow-hidden" aria-labelledby="access-control-title">
