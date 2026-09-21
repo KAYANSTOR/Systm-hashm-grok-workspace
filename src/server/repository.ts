@@ -4,11 +4,46 @@ import { AppData, Invoice, Voucher, Expense } from "../lib/types";
 import { DEFAULT_WAREHOUSE_ID } from "../domain/inventory.ts";
 import { requirePermission, listUserPermissions, PERMS } from "./permissions.ts";
 import { invoiceLedgerRows } from "../domain/invoice-ledger-rows.ts";
+import { expenseAccountId, expenseAccountName } from "../domain/expense-account.ts";
 import { requireUserId } from "../lib/auth/verify.server";
 
 function resolveWarehouseId(explicit?: string | null): string {
   const id = (explicit || "").trim();
   return id || DEFAULT_WAREHOUSE_ID;
+}
+
+/**
+ * التحقق الخادمي من رياضيات الفاتورة — لا ثقة بأرقام العميل.
+ * يُعيد رسالة خطأ عربية عند أي تضارب بين البنود والمجاميع، أو null إذا سليمة.
+ */
+function validateInvoiceMath(inv: any): string | null {
+  const items = Array.isArray(inv.items) ? inv.items : [];
+  if (inv.isApproved && items.length === 0) return "لا يمكن اعتماد فاتورة بلا بنود";
+  let subTotal = 0;
+  for (const item of items) {
+    const qty = Number(item.quantity);
+    const price = Number(item.unitPrice);
+    const lineTotal = Number(item.total);
+    if (!Number.isFinite(qty) || qty <= 0) return "كمية البند يجب أن تكون أكبر من صفر";
+    if (!Number.isFinite(price) || price < 0) return "سعر البند غير صالح";
+    if (!Number.isFinite(lineTotal) || Math.abs(lineTotal - qty * price) > 0.01) {
+      return "إجمالي البند لا يطابق الكمية × السعر";
+    }
+    subTotal += lineTotal;
+  }
+  const discount = Number(inv.discount) || 0;
+  if (!Number.isFinite(discount) || discount < 0) return "الخصم غير صالح";
+  if (discount > subTotal + 1e-9) return "الخصم أكبر من إجمالي البنود";
+  if (Math.abs(Number(inv.subTotal) - subTotal) > 0.01) return "الإجمالي الفرعي لا يطابق مجموع البنود";
+  const expectedTotal = Math.max(0, subTotal - discount);
+  if (Math.abs(Number(inv.total) - expectedTotal) > 0.01) return "إجمالي الفاتورة لا يطابق البنود ناقص الخصم";
+  const paid = Number(inv.paidAmount) || 0;
+  if (!Number.isFinite(paid) || paid < 0) return "المبلغ المدفوع غير صالح";
+  if (paid > Number(inv.total) + 1e-9) return "المدفوع أكبر من إجمالي الفاتورة";
+  if (Math.abs(Number(inv.remainingAmount) - (Number(inv.total) - paid)) > 0.01) {
+    return "المتبقي لا يطابق الإجمالي ناقص المدفوع";
+  }
+  return null;
 }
 
 // Get all data for the client cache
@@ -114,6 +149,14 @@ export const syncLegacyData = createServerFn({ method: "POST" })
                  ('cogs', 'تكلفة البضاعة المباعة', 'expense')
                on conflict (id) do nothing`;
 
+      // حساب لكل فئة مصروف (الخيار الثاني) — تشمل حسابات الفئات المعروفة والمخصصة
+      const expenseCats = [...new Set(expenses.map((e: any) => String(e?.category ?? "").trim()))] as string[];
+      for (const cat of expenseCats) {
+        await tx`insert into accounts (id, name, type)
+                 values (${expenseAccountId(cat)}, ${expenseAccountName(cat)}, 'expense')
+                 on conflict (id) do nothing`;
+      }
+
       // 5. Insert Invoices & Items
       await tx`insert into parties (id, type, name, phone, address, created_at)
                values ('PENDING_RECEIPT', 'supplier', 'مورد توريد مخزني - بانتظار تحديد المورد', '-', '-', now())
@@ -157,6 +200,9 @@ export const syncLegacyData = createServerFn({ method: "POST" })
         const tid = String(t.id || "");
         if (tid.endsWith("_party") || tid.endsWith("_pay") || tid.endsWith("_settle") || tid.endsWith("_mov")) continue;
         if (t.documentType === "invoice" || t.documentType === "invoice_payment") continue;
+        // قيود المصروفات صارت تُشتق من سجلاتها في الخطوة 7 بحساب الفئة الصحيح —
+        // إدراج الصف المجمّع القديم هنا كان يكرّر أثر الصندوق ويفقد حساب المصروف.
+        if (t.documentType === "expense") continue;
         await tx`insert into financial_transactions (id, account_id, party_id, amount, debit, credit, reference_type, reference_id, description, created_at)
                  values (${t.id}, ${t.cashIn > 0 || t.cashOut > 0 ? 'cash' : (t.partyType === 'customer' ? 'accounts_receivable' : 'accounts_payable')}, ${t.partyId || null}, ${t.debit - t.credit}, ${t.debit}, ${t.credit}, ${t.documentType}, ${t.documentId}, ${t.description}, ${t.date})
                  on conflict (id) do update set amount=EXCLUDED.amount, debit=EXCLUDED.debit, credit=EXCLUDED.credit`;
@@ -169,11 +215,18 @@ export const syncLegacyData = createServerFn({ method: "POST" })
                  on conflict (id) do update set amount=EXCLUDED.amount, date=EXCLUDED.date, payment_method=EXCLUDED.payment_method, description=EXCLUDED.description`;
       }
 
-      // 7. Insert Expenses
+      // 7. Insert Expenses — الترحيل إلى حساب الفئة (مصدر الحقيقة expenseAccountFor)
       for (const e of expenses) {
+        const expenseAccount = expenseAccountId(e.category);
         await tx`insert into expenses (id, category, amount, date, payment_method, type, description, created_at)
                  values (${e.id}, ${e.category}, ${e.amount}, ${e.date}, ${e.paymentMethod}, ${e.type}, ${e.description}, ${e.createdAt})
                  on conflict (id) do update set amount=EXCLUDED.amount, date=EXCLUDED.date, payment_method=EXCLUDED.payment_method, description=EXCLUDED.description`;
+        await tx`insert into financial_transactions (id, account_id, amount, debit, credit, reference_type, reference_id, description, created_at)
+                 values (${e.id + '_cash'}, 'cash', ${-e.amount}, 0, ${e.amount}, 'expense', ${e.id}, ${e.description}, ${e.createdAt})
+                 on conflict (id) do update set amount=EXCLUDED.amount, debit=EXCLUDED.debit, credit=EXCLUDED.credit`;
+        await tx`insert into financial_transactions (id, account_id, amount, debit, credit, reference_type, reference_id, description, created_at)
+                 values (${e.id + '_expense'}, ${expenseAccount}, ${e.amount}, ${e.amount}, 0, 'expense', ${e.id}, ${e.description}, ${e.createdAt})
+                 on conflict (id) do update set amount=EXCLUDED.amount, debit=EXCLUDED.debit, credit=EXCLUDED.credit, account_id=EXCLUDED.account_id`;
       }
     });
   });
@@ -257,6 +310,8 @@ export const saveInvoice = createServerFn({ method: "POST" })
   .validator((data: any) => data)
   .handler(async ({ data: inv }) => {
     await requirePermission(PERMS.INVOICE_WRITE);
+    const mathError = validateInvoiceMath(inv);
+    if (mathError) throw new Error(`INVALID_INVOICE_MATH: ${mathError}`);
     const sql = await getSql();
     await sql.transaction(async (tx) => {
       // Warehouse receipts are submitted before the manager knows the supplier.
@@ -317,12 +372,36 @@ export const saveInvoice = createServerFn({ method: "POST" })
     });
   });
 
+/**
+ * سجل تدقيق للحذف: المستند المحذوف كاملًا في audit_events قبل زواله —
+ * فلا يختفي أثر مالي من الدفاتر بلا ذكر. فشل التدقيق لا يفشل الحذف.
+ */
+async function recordDeleteAudit(
+  sql: Awaited<ReturnType<typeof getSql>>,
+  entityType: string,
+  entityId: string,
+  before: unknown,
+  userId?: string | null,
+) {
+  try {
+    await sql`insert into audit_events (audit_id, org_id, user_id, entity_type, entity_id, action, before_data, metadata)
+             values (${entityType + ":delete:" + entityId}, 'default_org', ${userId || null}, ${entityType}, ${entityId}, 'delete',
+                     ${JSON.stringify(before ?? null)}::jsonb, ${JSON.stringify({ deletedAt: new Date().toISOString() })}::jsonb)
+             on conflict (audit_id) do nothing`;
+  } catch {
+    /* جدول التدقيق قد لا يكون موجودًا في بيئات قديمة */
+  }
+}
+
 export const deleteInvoiceApi = createServerFn({ method: "POST" })
   .validator((data: { id: string }) => data)
   .handler(async ({ data }) => {
     await requirePermission(PERMS.INVOICE_DELETE);
     const sql = await getSql();
     await sql.transaction(async (tx) => {
+       const snapshot = await tx`select to_jsonb(i) as doc from invoices i where id=${data.id}`;
+       const itemsSnapshot = await tx`select coalesce(jsonb_agg(to_jsonb(ii)), '[]'::jsonb) as items from invoice_items ii where invoice_id=${data.id}`;
+       await recordDeleteAudit(sql, "invoice", data.id, { invoice: snapshot[0]?.doc || null, items: itemsSnapshot[0]?.items || [] });
        await tx`delete from financial_transactions where reference_id=${data.id}`;
        const oldMovements = await tx`select product_id, warehouse_id, quantity from inventory_movements where reference_id=${data.id}`;
        for (const movement of oldMovements as any[]) {
@@ -385,6 +464,8 @@ export const deleteVoucherApi = createServerFn({ method: "POST" })
     await requirePermission(PERMS.VOUCHER_WRITE);
     const sql = await getSql();
     await sql.transaction(async (tx) => {
+       const snapshot = await tx`select to_jsonb(v) as doc from vouchers v where id=${data.id}`;
+       await recordDeleteAudit(sql, "voucher", data.id, snapshot[0]?.doc || null);
        await tx`delete from financial_transactions where reference_id=${data.id}`;
        await tx`delete from vouchers where id=${data.id}`;
     });
@@ -401,12 +482,19 @@ export const saveExpense = createServerFn({ method: "POST" })
                on conflict (id) do update set category=EXCLUDED.category, amount=EXCLUDED.amount, date=EXCLUDED.date, payment_method=EXCLUDED.payment_method, type=EXCLUDED.type, description=EXCLUDED.description`;
       await tx`delete from financial_transactions where reference_id=${e.id}`;
 
+      // قرار الخيار الثاني: كل فئة مصروف لها حساب مستقل (مصروف إيجار، كهرباء…)
+      // بدل تجميعها على «مشتريات». الحساب يُنشأ تلقائيًا لأي فئة مخصصة جديدة.
+      const expenseAccount = expenseAccountId(e.category);
+      await tx`insert into accounts (id, name, type)
+               values (${expenseAccount}, ${expenseAccountName(e.category)}, 'expense')
+               on conflict (id) do nothing`;
+
       await tx`insert into financial_transactions (id, account_id, amount, debit, credit, reference_type, reference_id, description, created_at)
                values (${e.id + '_cash'}, 'cash', ${-e.amount}, 0, ${e.amount}, 'expense', ${e.id}, ${e.description}, ${e.createdAt})
                on conflict (id) do update set amount=EXCLUDED.amount, debit=EXCLUDED.debit, credit=EXCLUDED.credit`;
       await tx`insert into financial_transactions (id, account_id, amount, debit, credit, reference_type, reference_id, description, created_at)
-               values (${e.id + '_expense'}, 'purchases', ${e.amount}, ${e.amount}, 0, 'expense', ${e.id}, ${e.description}, ${e.createdAt})
-               on conflict (id) do update set amount=EXCLUDED.amount, debit=EXCLUDED.debit, credit=EXCLUDED.credit`;
+               values (${e.id + '_expense'}, ${expenseAccount}, ${e.amount}, ${e.amount}, 0, 'expense', ${e.id}, ${e.description}, ${e.createdAt})
+               on conflict (id) do update set amount=EXCLUDED.amount, debit=EXCLUDED.debit, credit=EXCLUDED.credit, account_id=EXCLUDED.account_id`;
     });
   });
 
@@ -416,6 +504,8 @@ export const deleteExpenseApi = createServerFn({ method: "POST" })
     await requirePermission(PERMS.EXPENSE_WRITE);
     const sql = await getSql();
     await sql.transaction(async (tx) => {
+       const snapshot = await tx`select to_jsonb(e) as doc from expenses e where id=${data.id}`;
+       await recordDeleteAudit(sql, "expense", data.id, snapshot[0]?.doc || null);
        await tx`delete from financial_transactions where reference_id=${data.id}`;
        await tx`delete from expenses where id=${data.id}`;
     });

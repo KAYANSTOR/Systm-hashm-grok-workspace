@@ -258,6 +258,65 @@ const countTwice = await db.query("select count(*)::int as c from financial_tran
 check("هجرة 0024: صف واحد بعد التنفيذ مرة واحدة", countOnce.rows[0].c, 1);
 check("هجرة 0024: لا تكرار بعد ثلاث مرات", countTwice.rows[0].c, 1);
 
+// 9) حسابات المصروفات حسب الفئة (الخيار الثاني): كل مصروف على حساب فئته
+await db.query(
+  `insert into expenses (id, category, amount, date, payment_method, type, description, created_at)
+   values ('exp_rent','إيجار',150,$1,'cash','work','إيجار المعمل',$1),
+          ('exp_power','كهرباء',50,$1,'cash','work','فاتورة كهرباء',$1)`,
+  [now],
+);
+function expenseAccountBooked(expenseId) {
+  return db.query("select account_id from financial_transactions where reference_id = $1 and reference_type = 'expense' and account_id <> 'cash'", [expenseId]);
+}
+// محاكاة saveExpense الجديد: قيد الصندوق + قيد مصروف على حساب الفئة
+async function bookExpense(id, category, amount) {
+  const account = `expense:${category}`;
+  await db.query("insert into accounts (id, name, type) values ($1, $2, 'expense') on conflict (id) do nothing", [account, `مصروف ${category}`]);
+  await db.query(
+    `insert into financial_transactions (id, account_id, amount, debit, credit, reference_type, reference_id, description, created_at)
+     values ($1,'cash',$2,0,$2,'expense',$3,'مصروف',$4)`,
+    [id + "_cash", amount, id, now],
+  );
+  await db.query(
+    `insert into financial_transactions (id, account_id, amount, debit, credit, reference_type, reference_id, description, created_at)
+     values ($1,$2,$3,$3,0,'expense',$4,'مصروف',$5)`,
+    [id + "_expense", account, amount, id, now],
+  );
+}
+await bookExpense("exp_new", "صيانة", 75);
+
+// قيد قديم نمطي: مصروف الإيجار كان يُرحَّل على «مشتريات» قبل الإصلاح
+await db.query(
+  `insert into financial_transactions (id, account_id, amount, debit, credit, reference_type, reference_id, description, created_at)
+   values ('exp_legacy_expense','purchases',150,150,0,'expense','exp_rent','إيجار المعمل',$1)`,
+  [now],
+);
+const legacyAccountBefore = await expenseAccountBooked("exp_rent");
+check("القيد القديم كان على «مشتريات» قبل الإصلاح", legacyAccountBefore.rows[0].account_id === "purchases" ? 1 : 0, 1);
+
+// هجرة 0025 تنشئ حسابات الفئات وترحّل القيود القديمة (تُشغَّل أيضًا ضمن الهجرات،
+// لكن هنا نضمن نتيجتها بعد إدخال البيانات القديمة)
+const migration25 = await readFile(join(migrationsDir, "0025_expense_accounts_by_category.sql"), "utf8");
+await db.exec(migration25);
+
+const powerAccount = await expenseAccountBooked("exp_power");
+check("مصروف كهرباء على حساب فئته (ليس مشتريات)", powerAccount.rows.length === 0 ? 1 : powerAccount.rows[0].account_id === "expense:كهرباء" ? 1 : 0, 1);
+const legacyAccountAfter = await expenseAccountBooked("exp_rent");
+check("هجرة 0025: القيد القديم انتقل من «مشتريات» إلى حساب الفئة", legacyAccountAfter.rows[0].account_id === "expense:إيجار" ? 1 : 0, 1);
+await db.exec(migration25);
+const legacyAfterTwice = await expenseAccountBooked("exp_rent");
+check("هجرة 0025: آمنة للتنفيذ مرتين (لا ازدواج أو رجوع)", legacyAfterTwice.rows[0].account_id === "expense:إيجار" ? 1 : 0, 1);
+const purchasesExpenseCount = await db.query(
+  "select count(*)::int as c from financial_transactions where reference_type='expense' and account_id='purchases'",
+);
+check("لا قيد مصروف متبقٍ على «مشتريات» — حصري لفواتير الشراء", purchasesExpenseCount.rows[0].c, 0);
+
+// محاكاة saveExpense الجديد على فئة مخصصة جديدة: الحساب يُنشأ تلقائيًا
+await db.query("insert into expenses (id, category, amount, date, payment_method, type, description, created_at) values ('exp_custom','دفتر قيود',30,$1,'cash','work','دفتر قيود ورقي',$1)", [now]);
+await bookExpense("exp_custom", "دفتر قيود", 30);
+const customAccount = await expenseAccountBooked("exp_custom");
+check("فئة مخصصة جديدة تأخذ حسابها تلقائيًا", customAccount.rows[0].account_id === "expense:دفتر قيود" ? 1 : 0, 1);
+
 await db.close();
 
 const failed = results.filter((r) => !r.ok);

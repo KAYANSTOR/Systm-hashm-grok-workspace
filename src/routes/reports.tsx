@@ -82,6 +82,15 @@ function ReportsPage() {
   const salesTotal = useMemo(() => sales.reduce((sum, i) => sum + num(i.total), 0), [sales]);
   const collected = useMemo(() => sales.reduce((sum, i) => sum + num(i.paidAmount), 0), [sales]);
   const expenseTotal = useMemo(() => expenses.filter((e) => inRange(e.date)).reduce((sum, e) => sum + num(e.amount), 0), [expenses, from, to]);
+  // توزيع المصروفات على الفئات (الخيار الثاني: كل فئة لها حسابها في الدفتر)
+  const expensesByCategory = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const e of expenses.filter((e) => inRange(e.date))) {
+      const cat = String(e.category || "أخرى");
+      totals.set(cat, num(totals.get(cat)) + num(e.amount));
+    }
+    return [...totals.entries()].sort((a, b) => b[1] - a[1]);
+  }, [expenses, from, to]);
   const receipts = useMemo(() => vouchers.filter((v) => v.type === "receipt" && inRange(v.date)).reduce((sum, v) => sum + num(v.amount), 0), [vouchers, from, to]);
 
   const cash = useMemo(() => {
@@ -210,6 +219,19 @@ function ReportsPage() {
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4"><Kpi title="مبيعات الفترة" value={formatCurrency(salesTotal)} /><Kpi title="المقبوض (فواتير)" value={formatCurrency(collected)} /><Kpi title="سندات قبض" value={formatCurrency(receipts)} /><Kpi title="مصروفات" value={formatCurrency(expenseTotal)} /></div>
         <div className="grid gap-3 sm:grid-cols-2"><Kpi title="رصيد الصندوق (من القيود)" value={formatCurrency(cash)} /><Kpi title={`قيمة المخزون (${warehouseId === "all" ? "كل المخازن" : "المخزن المختار"})`} value={formatCurrency(stockValue)} /></div>
         <div className="card p-4"><h2 className="mb-3 font-black">المبيعات اليومية</h2>{chart.length ? <div className="h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={chart}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" /><XAxis dataKey="date" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} width={48} /><Tooltip formatter={(v: number) => formatMoney(num(v))} /><Bar dataKey="total" fill="var(--color-brand)" radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer></div> : <EmptyState icon={FileText} title="لا توجد مبيعات في الفترة المحددة" />}</div>
+        {expensesByCategory.length > 0 && (
+          <section className="card overflow-hidden">
+            <div className="border-b border-line px-4 py-3"><h2 className="font-black">المصروفات حسب الفئة</h2><p className="text-xs text-muted">كل فئة تُرحَّل في الدفتر إلى حساب مستقل — إجمالي الفترة {formatCurrency(expenseTotal)}</p></div>
+            <ul className="divide-y divide-line">
+              {expensesByCategory.map(([category, amount]) => (
+                <li key={category} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                  <p className="font-bold">{category}</p>
+                  <p className="font-black tabular-nums">{formatCurrency(amount)}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </>}
 
       {tab === "sales" && validRange && <div className="card overflow-hidden"><div className="border-b border-line px-4 py-3 text-sm font-bold text-muted">{sales.length} فاتورة · الإجمالي {formatCurrency(salesTotal)}</div>{sales.length ? <ul className="divide-y divide-line">{sales.map((inv) => <li key={inv.id} className="flex items-center justify-between gap-3 px-4 py-3"><div><p className="font-black">{inv.invoiceNumber}</p><p className="text-xs text-muted">{formatDate(inv.date)} · {customers.find((c) => String(c.id) === String(inv.partyId))?.name || inv.partyId}</p></div><p className="font-black tabular-nums">{formatCurrency(num(inv.total))}</p></li>)}</ul> : <EmptyState icon={FileText} title="لا مبيعات في الفترة" />}</div>}

@@ -317,6 +317,8 @@
     margin: 0 !important;
     padding: 0 !important;
     background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .customer-statement {
@@ -324,6 +326,10 @@
     box-shadow: none !important;
     page-break-after: always;
   }
+
+  /* منع انقسام صف الكشف بين صفحتين مع تكرار رأس الجدول */
+  .statement-table tr, .statement-table .totals-row { break-inside: avoid; page-break-inside: avoid; }
+  .statement-table thead { display: table-header-group; }
 
   .no-print { display: none !important; }
 }
