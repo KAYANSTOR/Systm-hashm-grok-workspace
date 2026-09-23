@@ -2,10 +2,7 @@ import { createLazyFileRoute } from "@tanstack/react-router";
 import {
   ArrowDownLeft,
   ArrowUpLeft,
-  Banknote,
   CalendarDays,
-  CreditCard,
-  Landmark,
   Plus,
   Trash2,
   Wallet,
@@ -14,7 +11,6 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { Modal } from "@/components/modal";
-import { AppSelect } from "@/components/ui/AppSelect";
 import { AppDatePicker } from "@/components/ui/AppDatePicker";
 import {
   Alert,
@@ -30,21 +26,12 @@ import {
 import { cashBalance } from "@/lib/accounting";
 import { methodLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
-import type { PaymentMethod } from "@/lib/types";
 import { cn, formatMoney, nextNumber, todayIso } from "@/lib/utils";
 
 export const Route = createLazyFileRoute("/cashbox")({ component: CashBoxPage });
 
 type RangeKey = "all" | "today" | "week" | "month";
 
-const PAYMENT_METHODS: PaymentMethod[] = ["cash", "remittance", "jeeb", "e_wallet"];
-
-const METHOD_ICON: Record<PaymentMethod, typeof Banknote> = {
-  cash: Banknote,
-  remittance: Landmark,
-  jeeb: Wallet,
-  e_wallet: CreditCard,
-};
 
 const RANGES: { key: RangeKey; label: string }[] = [
   { key: "all", label: "الكل" },
@@ -83,7 +70,7 @@ function CashBoxPage() {
   const [directType, setDirectType] = useState<"receipt" | "payment">("receipt");
   const [amount, setAmount] = useState("");
   const [desc, setDesc] = useState("");
-  const [method, setMethod] = useState<PaymentMethod>("cash");
+  
 
   const applyRange = (key: RangeKey) => {
     setRange(key);
@@ -108,18 +95,6 @@ function CashBoxPage() {
   const cashOut = filtered.reduce((s, t) => s + t.cashOut, 0);
   const total = cashBalance(transactions);
 
-  const byMethod = useMemo(() => {
-    const map = new Map<PaymentMethod, { inn: number; out: number }>();
-    PAYMENT_METHODS.forEach((m) => map.set(m, { inn: 0, out: 0 }));
-    transactions.forEach((t) => {
-      if (!t.paymentMethod) return;
-      const entry = map.get(t.paymentMethod) ?? { inn: 0, out: 0 };
-      entry.inn += t.cashIn || 0;
-      entry.out += t.cashOut || 0;
-      map.set(t.paymentMethod, entry);
-    });
-    return map;
-  }, [transactions]);
 
   const saveDirect = () => {
     const n = Number.parseFloat(amount) || 0;
@@ -141,7 +116,7 @@ function CashBoxPage() {
       partyType: "other",
       amount: n,
       date: todayIso(),
-      paymentMethod: method,
+      paymentMethod: "cash",
       description: desc.trim(),
     });
     toast.success("تم تسجيل الحركة");
@@ -154,7 +129,7 @@ function CashBoxPage() {
     <div className="space-y-4">
       <PageHeader
         title="صندوق الماليات"
-        subtitle="حركات القبض والصرف والرصيد الفعلي."
+        subtitle="صندوق موحّد — كل القبض والصرف في رصيد واحد دون تقسيم نقد/حوالة/جيب."
         icon={Wallet}
         actions={
           <button type="button" className="btn-primary" onClick={() => setOpen(true)}>
@@ -171,30 +146,6 @@ function CashBoxPage() {
         <StatCard label="رصيد الصندوق" value={formatMoney(total)} icon={Wallet} tone="brand" hint="الرصيد الكلي الآن" />
       </StatGrid>
 
-      {/* ————— توزيع الطرق ————— */}
-      <SectionCard title="الرصيد حسب طريقة الدفع" icon={Landmark} tone="navy" bodyClassName="grid gap-3 sm:grid-cols-4 p-4 sm:p-5">
-        {PAYMENT_METHODS.map((m) => {
-          const entry = byMethod.get(m) ?? { inn: 0, out: 0 };
-          const balance = entry.inn - entry.out;
-          const Icon = METHOD_ICON[m];
-          return (
-            <div key={m} className="card-sunken p-3.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-muted">{methodLabel[m]}</span>
-                <Icon className="size-4 text-muted" />
-              </div>
-              <Money
-                value={formatMoney(balance)}
-                tone={balance >= 0 ? "good" : "bad"}
-                className="mt-2 block text-lg"
-              />
-              <p className="mt-1 text-[11px] font-bold text-muted">
-                قبض {formatMoney(entry.inn)} · صرف {formatMoney(entry.out)}
-              </p>
-            </div>
-          );
-        })}
-      </SectionCard>
 
       {/* ————— التصفية ————— */}
       <div className="card space-y-3 p-3 sm:p-4">
@@ -341,16 +292,6 @@ function CashBoxPage() {
               placeholder="مثال: إيجار ورشة — أكتوبر"
             />
           </label>
-
-          <div>
-            <span className="label">طريقة الدفع</span>
-            <AppSelect
-              value={method}
-              onChange={(v) => setMethod(v as PaymentMethod)}
-              options={Object.entries(methodLabel).map(([value, label]) => ({ value, label }))}
-              searchable={false}
-            />
-          </div>
 
           {directType === "payment" && Number.parseFloat(amount) > total ? (
             <Alert tone="bad" icon={ArrowUpLeft} title="المبلغ أكبر من رصيد الصندوق">
