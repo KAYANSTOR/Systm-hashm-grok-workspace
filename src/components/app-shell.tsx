@@ -228,7 +228,15 @@ export function AppShell({ children }: { children: ReactNode }) {
    * لأن كل شيء يحدث بعد `requestIdleCallback`.
    */
   useEffect(() => {
-    const targets = navItems.map((item) => item.to);
+    // سخّن كل مسارات الشريط + الموبايل + الإجراءات السريعة فور الخمول
+    // حتى يكون أول ضغطة على أي أيقونة فورية بلا انتظار chunk.
+    const targets = Array.from(
+      new Set([
+        ...navItems.map((item) => item.to),
+        ...mobileNavItems.map((item) => item.to),
+        ...quickItems.map((item) => item.to),
+      ]),
+    );
     const warm = () => {
       for (const to of targets) {
         void router.preloadRoute({ to } as never).catch(() => undefined);
@@ -238,12 +246,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
     };
     if (typeof w.requestIdleCallback === "function") {
-      const id = w.requestIdleCallback(warm, { timeout: 2500 });
+      const id = w.requestIdleCallback(warm, { timeout: 800 });
       return () => (window.cancelIdleCallback as ((handle: number) => void) | undefined)?.(id);
     }
-    const timer = window.setTimeout(warm, 900);
+    const timer = window.setTimeout(warm, 200);
     return () => window.clearTimeout(timer);
-  }, [navItems, router]);
+  }, [navItems, mobileNavItems, quickItems, router]);
 
   useEffect(() => {
     setFabOpen(false);
@@ -315,17 +323,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                         to={item.to}
                         preload="intent"
                         className={cn(
-                          "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold transition-colors duration-150",
+                          "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold transition-colors duration-100",
                           active
                             ? "bg-brand-soft text-brand-dark"
                             : "text-muted hover:bg-canvas hover:text-ink",
                         )}
                       >
                         {active ? (
-                          <motion.span
-                            layoutId="nav-rail"
+                          <span
                             className="absolute -right-3 top-1/2 h-7 w-1.5 -translate-y-1/2 rounded-full bg-brand"
-                            transition={{ type: "spring", bounce: 0, duration: 0.35 }}
+                            aria-hidden
                           />
                         ) : null}
                         <Icon className="size-5 shrink-0" strokeWidth={active ? 2.4 : 2} />
@@ -461,7 +468,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                         initial={{ opacity: 0, y: -8, scale: 0.97 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -8, scale: 0.97 }}
-                        transition={{ duration: 0.16 }}
+                        transition={{ duration: 0.1 }}
                         className="absolute left-0 top-12 z-40 w-80 origin-top-left overflow-hidden rounded-3xl border border-line/70 bg-paper shadow-pop"
                       >
                         <div className="flex items-center justify-between border-b border-line/70 bg-canvas/70 px-4 py-3">
@@ -588,7 +595,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+            transition={{ duration: 0.08 }}
             className="no-print fixed inset-0 z-40 bg-ink/25 backdrop-blur-[2px] lg:hidden"
             onClick={() => setFabOpen(false)}
           />
@@ -601,7 +608,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             initial={{ opacity: 0, y: 24, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.96 }}
-            transition={{ duration: 0.2, type: "spring", bounce: 0 }}
+            transition={{ duration: 0.12 }}
             className="no-print fixed bottom-28 left-1/2 z-50 flex w-64 -translate-x-1/2 flex-col gap-2 lg:hidden"
           >
             {quickItems.map((q) => {

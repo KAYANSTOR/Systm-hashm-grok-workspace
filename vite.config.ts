@@ -259,7 +259,10 @@ export default defineConfig(({ command, isPreview }) => ({
     }),
 
     tailwindcss(),
-    tanstackStart(),
+    tanstackStart({
+      // فصل صريح لملفات المسارات حتى لا تدخل الشاشات الثقيلة (تقارير/PDF) الحزمة الأولية
+      autoCodeSplitting: true,
+    }),
     ...(command === "build" || isPreview
       ? [
           nitro({

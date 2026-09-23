@@ -780,7 +780,12 @@ if (typeof window !== "undefined") {
     debouncedSync();
     useStore.getState().drainPendingOutbox().catch(console.error);
   });
+  // لا تعِد الجلب عند كل focus — throttle داخلي في fetchFromDb (15s) كافٍ،
+  // لكن نؤخر قليلاً حتى لا يتنافس مع تفاعل المستخدم بعد العودة للتبويب.
   window.addEventListener('focus', () => {
-    if (navigator.onLine) useStore.getState().fetchFromDb().catch(console.error);
+    if (!navigator.onLine) return;
+    window.setTimeout(() => {
+      useStore.getState().fetchFromDb().catch(console.error);
+    }, 400);
   });
 }

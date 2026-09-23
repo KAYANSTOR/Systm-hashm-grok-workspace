@@ -7,18 +7,17 @@ export function getRouter() {
     routeTree,
     defaultErrorComponent: AppErrorComponent,
     /**
-     * سرعة التنقل بين الشاشات:
-     *  - `defaultPreload: "intent"` يجلب ملف الشاشة لحظة لمس/مرور المؤشر على الرابط.
-     *  - `defaultPreloadDelay: 0` بلا تأخير (الافتراضي 50ms يترك فجوة محسوسة).
-     *  - `defaultPreloadStaleTime` يمنع إعادة الجلب المتكرر عند التنقل ذهابًا وإيابًا،
-     *    فتكون العودة إلى شاشة سبق فتحها فورية.
-     *  - مؤشرات الانتظار أقصر (`defaultPendingMs`) فلا يومض هيكل التحميل بلا داع.
+     * سرعة التنقل بين الشاشات (هدف: فوري بلا وميض هيكل تحميل):
+     *  - preload intent + delay 0: جلب ملف الشاشة لحظة اللمس/المرور.
+     *  - preloadStaleTime طويل: العودة لشاشة سابقة فورية بدون إعادة جلب.
+     *  - pendingMs/MinMs = 0: لا ننتظر ولا نفرض حد أدنى لمؤشر الانتظار؛
+     *    الشاشات المُسخَّنة تظهر فورًا بلا skeleton.
      */
     defaultPreload: "intent",
     defaultPreloadDelay: 0,
-    defaultPreloadStaleTime: 30_000,
-    defaultPendingMs: 180,
-    defaultPendingMinMs: 120,
+    defaultPreloadStaleTime: 120_000,
+    defaultPendingMs: 0,
+    defaultPendingMinMs: 0,
     scrollRestoration: true,
   });
 }
