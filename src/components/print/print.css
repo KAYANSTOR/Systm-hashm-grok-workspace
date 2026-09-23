@@ -17,13 +17,18 @@
  */
 
 :root {
+  /* هوية معامل هاشم الأحمدي — من لوحة الهوية المعتمدة */
   --print-font: "Cairo", "Noto Naskh Arabic", "Tahoma", system-ui, sans-serif;
-  --print-ink: #000000;
-  --print-line: #000000;
-  --print-teal: #0f7a76;
-  --print-teal-strong: #0b5c59;
-  --print-teal-soft: #e8f5f4;
-  --print-muted: #4b5b60;
+  --print-ink: #0d1b2a;
+  --print-line: #0d1b2a;
+  --print-navy: #0d1b2a;
+  --print-gold: #c6a15b;
+  --print-gold-dark: #9a773c;
+  --print-soft: #f6f5f2;
+  --print-teal: #0d1b2a;
+  --print-teal-strong: #0d1b2a;
+  --print-teal-soft: #f6f5f2;
+  --print-muted: #5a6570;
 }
 
 /* ════════════════════════ إطار المعاينة على الشاشة ════════════════════════ */
@@ -34,7 +39,7 @@
   z-index: 200;
   display: flex;
   flex-direction: column;
-  background: #24343a;
+  background: #1a2332;
   font-family: var(--print-font);
 }
 
@@ -46,7 +51,7 @@
   gap: 8px;
   padding: 10px 14px;
   background: #ffffff;
-  border-bottom: 1px solid #d7e2e4;
+  border-bottom: 1px solid #e5e0d5;
   box-shadow: 0 6px 20px -14px rgba(0, 0, 0, 0.6);
 }
 
@@ -60,7 +65,7 @@
   margin: 0;
   font-size: 15px;
   font-weight: 900;
-  color: #14323a;
+  color: var(--print-navy);
 }
 
 .print-toolbar__title p {
@@ -81,14 +86,14 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid #d7e2e4;
+  border: 1px solid #e5e0d5;
   border-radius: 12px;
   background: #ffffff;
   padding: 7px 12px;
   font-family: inherit;
   font-size: 12px;
   font-weight: 800;
-  color: #14323a;
+  color: var(--print-navy);
   cursor: pointer;
   transition:
     background-color 0.15s ease,
@@ -97,8 +102,8 @@
 }
 
 .print-btn:hover:not(:disabled) {
-  border-color: #0f7a7666;
-  background: #e8f5f4;
+  border-color: var(--print-gold);
+  background: #faf6ee;
 }
 
 .print-btn:active:not(:disabled) {
@@ -111,13 +116,13 @@
 }
 
 .print-btn--primary {
-  border-color: #0f7a76;
-  background: #0f7a76;
+  border-color: var(--print-navy);
+  background: var(--print-navy);
   color: #f4fffe;
 }
 
 .print-btn--primary:hover:not(:disabled) {
-  background: #0b5c59;
+  background: #152238;
 }
 
 .print-btn--danger {
@@ -134,10 +139,10 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  border: 1px solid #d7e2e4;
+  border: 1px solid #e5e0d5;
   border-radius: 12px;
   padding: 2px;
-  background: #f6f9fa;
+  background: #f6f5f2;
 }
 
 .print-zoom button {
@@ -149,13 +154,13 @@
   border: 0;
   border-radius: 9px;
   background: transparent;
-  color: #24454e;
+  color: var(--print-navy);
   font-weight: 900;
   cursor: pointer;
 }
 
 .print-zoom button:hover {
-  background: #e8f5f4;
+  background: #faf6ee;
 }
 
 .print-zoom span {
@@ -163,7 +168,7 @@
   text-align: center;
   font-size: 11px;
   font-weight: 900;
-  color: #24454e;
+  color: var(--print-navy);
   font-variant-numeric: tabular-nums;
 }
 
@@ -175,8 +180,8 @@
   justify-content: center;
   align-items: flex-start;
   background:
-    radial-gradient(900px 400px at 50% -10%, rgba(255, 255, 255, 0.08), transparent 70%),
-    #24343a;
+    radial-gradient(900px 400px at 50% -10%, rgba(198, 161, 91, 0.08), transparent 70%),
+    #1a2332;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -218,7 +223,7 @@
 .print-page--receipt {
   width: 210mm;
   height: 105mm;
-  border: 0.6mm solid var(--print-teal);
+  border: 0.6mm solid var(--print-navy);
   border-radius: 5mm;
 }
 
@@ -236,8 +241,8 @@
   align-items: center;
   gap: 4mm;
   padding: 4mm 6mm 3mm 8mm;
-  border-bottom: 0.5mm solid var(--print-teal);
-  background: linear-gradient(180deg, #f4fbfb 0%, #ffffff 100%);
+  border-bottom: 0.5mm solid var(--print-gold);
+  background: linear-gradient(180deg, #faf8f4 0%, #ffffff 100%);
 }
 
 .doc-head__copy {
@@ -251,7 +256,7 @@
   font-weight: 900;
   line-height: 1.15;
   letter-spacing: -0.06mm;
-  color: var(--print-teal-strong);
+  color: var(--print-navy);
 }
 
 .doc-head__meta {
@@ -299,7 +304,7 @@
   grid-template-columns: 1fr 1.2fr 1fr;
   align-items: stretch;
   min-height: 13mm;
-  border-bottom: 0.5mm solid var(--print-teal);
+  border-bottom: 0.5mm solid var(--print-gold);
 }
 
 .doc-band__cell {
@@ -341,10 +346,11 @@
   align-items: center;
   justify-content: center;
   gap: 0.6mm;
-  background: var(--print-teal);
+  background: var(--print-navy);
   color: #ffffff;
   text-align: center;
   clip-path: polygon(7% 0, 93% 0, 100% 50%, 93% 100%, 7% 100%, 0 50%);
+  border: 0.4mm solid var(--print-gold);
 }
 
 .doc-band__title h1 {
@@ -352,6 +358,7 @@
   font-size: 5.6mm;
   font-weight: 900;
   line-height: 1;
+  color: var(--print-gold);
 }
 
 .doc-band__title span {
@@ -360,6 +367,7 @@
   letter-spacing: 0.4mm;
   text-transform: uppercase;
   opacity: 0.9;
+  color: #ffffff;
 }
 
 /* ════════════════════════════ بطاقة الطرف ════════════════════════════ */
@@ -384,7 +392,7 @@
   flex: 1;
   min-width: 0;
   text-align: center;
-  color: var(--print-teal-strong);
+  color: var(--print-navy);
   font-size: 4.6mm;
   font-weight: 900;
   overflow-wrap: anywhere;
@@ -400,7 +408,7 @@
 
 .doc-table-wrap {
   margin: 3.4mm 6mm 0;
-  border: 0.5mm solid var(--print-teal);
+  border: 0.5mm solid var(--print-navy);
   border-radius: 3mm;
   overflow: hidden;
 }
@@ -414,9 +422,9 @@
 
 .doc-table thead th {
   padding: 2.2mm 1.4mm;
-  background: var(--print-teal);
+  background: var(--print-navy);
   color: #ffffff;
-  border-left: 0.3mm solid rgba(255, 255, 255, 0.45);
+  border-left: 0.3mm solid rgba(198, 161, 91, 0.45);
   font-size: 3.3mm;
   font-weight: 900;
   text-align: center;
@@ -443,7 +451,7 @@
 }
 
 .doc-table tbody tr:nth-child(even) td {
-  background: #f7fbfb;
+  background: #faf8f4;
 }
 
 .doc-table tbody tr.doc-table__empty td {
@@ -500,7 +508,7 @@
   margin-bottom: 1mm;
   font-size: 2.9mm;
   font-weight: 900;
-  color: var(--print-teal-strong);
+  color: var(--print-navy);
   letter-spacing: 0.1mm;
 }
 
@@ -514,7 +522,7 @@
 }
 
 .doc-totals {
-  border: 0.5mm solid var(--print-teal);
+  border: 0.5mm solid var(--print-navy);
   border-radius: 3mm;
   overflow: hidden;
 }
@@ -542,33 +550,34 @@
 }
 
 .doc-total-line--grand {
-  background: var(--print-teal);
+  background: var(--print-navy);
   color: #ffffff;
   border-top: 0;
   padding: 2.8mm 4mm;
 }
 
 .doc-total-line--grand span {
-  color: #ffffff;
+  color: var(--print-gold);
   font-size: 3.6mm;
 }
 
 .doc-total-line--grand strong {
   font-size: 4.4mm;
+  color: #ffffff;
 }
 
 .doc-total-line--accent {
-  background: var(--print-teal-soft);
+  background: #faf6ee;
 }
 
 .doc-total-line--accent strong {
-  color: var(--print-teal-strong);
+  color: var(--print-navy);
 }
 
 .doc-words {
   padding: 2.4mm 4mm;
   border-top: 0.3mm dotted #9fb3b6;
-  background: #f4fbfb;
+  background: #faf8f4;
 }
 
 .doc-words p {
@@ -623,7 +632,7 @@
 
 .doc-foot__note {
   font-weight: 900;
-  color: var(--print-teal-strong);
+  color: var(--print-navy);
 }
 
 .doc-stamp {
@@ -652,7 +661,7 @@
 }
 
 .doc-stamp--info {
-  color: var(--print-teal-strong);
+  color: var(--print-navy);
 }
 
 /* ════════════════════════════ السند (210×105) ════════════════════════════ */
@@ -670,7 +679,7 @@
   gap: 3mm;
   height: 27mm;
   padding: 2.4mm 6mm 2mm 7mm;
-  border-bottom: 0.5mm solid var(--print-teal);
+  border-bottom: 0.5mm solid var(--print-gold);
 }
 
 .vch__head-copy {
@@ -683,7 +692,7 @@
   font-size: 6.2mm;
   font-weight: 900;
   line-height: 1.15;
-  color: var(--print-teal-strong);
+  color: var(--print-navy);
 }
 
 .vch__org-meta {
@@ -721,7 +730,7 @@
   grid-template-columns: 1fr 1.1fr 1fr;
   align-items: center;
   height: 11.5mm;
-  border-bottom: 0.5mm solid var(--print-teal);
+  border-bottom: 0.5mm solid var(--print-gold);
 }
 
 .vch__band-cell {
@@ -758,12 +767,13 @@
   align-items: center;
   justify-content: center;
   height: 11.5mm;
-  background: var(--print-teal);
-  color: #ffffff;
+  background: var(--print-navy);
+  color: var(--print-gold);
   font-size: 6.4mm;
   font-weight: 900;
   letter-spacing: 0.4mm;
   clip-path: polygon(9% 0, 91% 0, 100% 50%, 91% 100%, 9% 100%, 0 50%);
+  border: 0.35mm solid var(--print-gold);
 }
 
 .vch__body {
@@ -799,7 +809,7 @@
   border-bottom: 0.5mm dotted var(--print-line);
   font-size: 3.9mm;
   font-weight: 800;
-  color: var(--print-teal-strong);
+  color: var(--print-navy);
   overflow: hidden;
 }
 
@@ -822,10 +832,10 @@
   margin-top: 0.6mm;
   padding: 0.6mm 2.4mm 1mm;
   border-radius: 1.6mm;
-  background: var(--print-teal-soft);
+  background: #faf6ee;
   font-size: 3.2mm;
   font-weight: 800;
-  color: var(--print-teal-strong);
+  color: var(--print-navy);
   line-height: 1.4;
   white-space: normal;
 }
@@ -853,7 +863,7 @@
   border-bottom: 0.5mm dotted var(--print-line);
   font-size: 3.3mm;
   font-weight: 800;
-  color: var(--print-teal-strong);
+  color: var(--print-navy);
   overflow: hidden;
   text-align: center;
 }
@@ -893,18 +903,18 @@
   top: 2mm;
   left: 4mm;
   padding: 0.6mm 2.4mm;
-  border: 0.4mm solid var(--print-teal);
+  border: 0.4mm solid var(--print-gold);
   border-radius: 6mm;
   font-size: 2.6mm;
   font-weight: 900;
-  color: var(--print-teal-strong);
+  color: var(--print-navy);
   background: #ffffff;
 }
 
 /* نسختان في ورقة A4: أصل + صورة */
 .print-page--a4 .vch {
   height: 105mm;
-  border: 0.6mm solid var(--print-teal);
+  border: 0.6mm solid var(--print-navy);
   border-radius: 5mm;
   overflow: hidden;
 }
@@ -924,227 +934,85 @@
   color: var(--print-muted);
 }
 
-/* ════════════════════════════ التقارير ════════════════════════════ */
+/* ════════════════════════════ التقارير وكشف الحساب ════════════════════════════ */
 
-.rep {
+.statement-page,
+.rep-page {
   display: flex;
   flex-direction: column;
-  min-height: 288mm;
-  padding: 0 0 4mm;
+  min-height: 297mm;
+}
+
+.statement-page__info {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2mm 4mm;
+  padding: 3mm 7mm;
+  border-bottom: 0.4mm solid #e5e0d5;
+  font-size: 3.2mm;
+}
+
+.statement-page__field span {
+  display: block;
+  font-size: 2.7mm;
+  font-weight: 700;
+  color: var(--print-muted);
+}
+
+.statement-page__field strong {
+  font-weight: 900;
+  color: var(--print-navy);
 }
 
 .rep__period {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  gap: 3mm;
-  padding: 2.4mm 6mm;
-  border-bottom: 0.3mm solid #c8d6d9;
-  background: #f4fbfb;
-  font-size: 3.4mm;
-  font-weight: 900;
-  color: var(--print-teal-strong);
+  gap: 2mm 3mm;
+  padding: 2.4mm 7mm;
+  font-size: 3.2mm;
+  font-weight: 800;
 }
 
 .rep__period em {
   font-style: normal;
+  color: var(--print-muted);
   font-weight: 700;
-  color: var(--print-muted);
 }
 
-.rep__kpis {
-  display: grid;
-  grid-template-columns: repeat(var(--rep-kpi-cols, 4), 1fr);
-  gap: 3mm;
-  padding: 4mm 6mm 0;
-}
-
-.rep__kpi {
-  padding: 2.6mm 3mm;
-  border: 0.4mm solid #c8d6d9;
-  border-radius: 2.6mm;
-  background: #fbfefe;
-}
-
-.rep__kpi-label {
-  display: block;
-  font-size: 2.8mm;
-  font-weight: 800;
-  color: var(--print-muted);
-}
-
-.rep__kpi-value {
-  display: block;
-  margin-top: 1mm;
-  font-size: 4.4mm;
-  font-weight: 900;
-  color: var(--print-teal-strong);
-  direction: ltr;
-  unicode-bidi: plaintext;
-  text-align: right;
-}
-
-.rep__kpi--good .rep__kpi-value {
-  color: #0f7a5a;
-}
-
-.rep__kpi--bad .rep__kpi-value {
-  color: #b3261e;
-}
-
-.rep__kpi--warn .rep__kpi-value {
-  color: #a16207;
-}
-
-.rep__section {
-  margin: 5mm 6mm 0;
-}
-
-.rep__section-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 3mm;
-  padding-bottom: 1.4mm;
-  border-bottom: 0.4mm solid var(--print-teal);
-}
-
-.rep__section-head h2 {
-  margin: 0;
-  font-size: 4.2mm;
-  font-weight: 900;
-  color: var(--print-teal-strong);
-}
-
-.rep__section-head p {
-  margin: 0;
-  font-size: 2.9mm;
-  font-weight: 700;
-  color: var(--print-muted);
-}
-
-.rep__section-body {
-  margin-top: 2.4mm;
-}
-
-.rep__empty {
-  padding: 4mm;
-  text-align: center;
-  font-size: 3.2mm;
-  font-weight: 800;
-  color: var(--print-muted);
-  border: 0.3mm dashed #c8d6d9;
-  border-radius: 2.6mm;
-}
-
-.rep__notes {
-  margin: 4mm 6mm 0;
-  padding: 2.6mm 3.4mm;
-  border: 0.3mm solid #c8d6d9;
-  border-radius: 2.6mm;
-  background: #fbfefe;
-}
-
-.rep__notes p {
-  margin: 1mm 0 0;
-  font-size: 2.9mm;
-  font-weight: 700;
-  color: var(--print-muted);
-  line-height: 1.6;
+.rep__period strong {
+  color: var(--print-navy);
 }
 
 .rep__signs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8mm;
-  margin: 10mm 8mm 0;
+  margin: 8mm 8mm 0;
 }
 
-.doc-table--report tbody td {
-  font-size: 3.2mm;
+.doc-table--report thead th,
+.doc-table--compact thead th {
+  font-size: 2.9mm;
+  padding: 1.6mm 1mm;
 }
 
-.doc-table--report tbody tr:nth-child(even) td {
-  background: #f7fbfb;
-}
-
+.doc-table--report tbody td,
 .doc-table--compact tbody td {
-  padding: 1.4mm 2mm;
+  font-size: 2.9mm;
+  padding: 1.4mm 1mm;
 }
 
-.doc-table tfoot td {
-  padding: 2.2mm 2mm;
-  border-top: 0.5mm solid var(--print-teal);
-  background: var(--print-teal-soft);
-  font-size: 3.4mm;
-  font-weight: 900;
-  text-align: center;
-}
-
-/* ════════════════════════════ كشف الحساب ════════════════════════════ */
-
-.statement-page {
-  padding: 0 0 4mm;
-}
-
-.statement-page__info {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3mm 6mm;
-  margin: 4mm 6mm 0;
-  padding: 3mm 3.4mm;
-  border: 0.4mm solid #c8d6d9;
-  border-radius: 3mm;
-  background: #fbfefe;
-}
-
-.statement-page__field {
-  display: flex;
-  align-items: baseline;
-  gap: 2mm;
-  font-size: 3.3mm;
-}
-
-.statement-page__field span {
-  flex: 0 0 30mm;
-  font-weight: 800;
-  color: var(--print-muted);
-}
-
-.statement-page__field strong {
-  flex: 1;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  font-weight: 900;
-}
-
-/* ════════════════════════════ قواعد الطباعة ════════════════════════════ */
-
-.app-print-root {
-  display: none;
-}
-
-@media screen {
-  .app-print-root {
-    display: none !important;
-  }
-}
+/* ════════════════════════════ عزل الطباعة ════════════════════════════ */
 
 @media print {
-  html,
-  body {
+  html.printing,
+  html.printing body {
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
   }
 
-  body {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  /* عزل الطباعة: يظهر مستند الطباعة فقط، ويختفي التطبيق كله */
   html.printing body > *:not(.app-print-root) {
     display: none !important;
   }
@@ -1152,64 +1020,43 @@
   html.printing .app-print-root {
     display: block !important;
     position: static !important;
+    inset: auto !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: transparent !important;
   }
 
-  .no-print,
-  .print-hide {
+  html.printing .print-overlay {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    background: transparent !important;
+  }
+
+  html.printing .print-toolbar,
+  html.printing .print-stage {
     display: none !important;
   }
 
-  .print-page {
+  html.printing .print-stage__inner {
+    transform: none !important;
+  }
+
+  html.printing .print-page {
     box-shadow: none !important;
-    margin: 0 auto !important;
-    border-radius: 0 !important;
+    margin: 0 !important;
+    page-break-after: always;
   }
 
-  .print-page--a4 {
-    width: 210mm !important;
-    min-height: 0 !important;
+  html.printing .print-page:last-child {
     page-break-after: auto;
-  }
-
-  .print-page--receipt {
-    width: 210mm !important;
-    height: 105mm !important;
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-
-  .print-page--a4 .vch {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-
-  /* جداول التقارير والفواتير: لا تُقسم الصفوف، ويتكرر رأس الجدول */
-  .doc-table {
-    break-inside: auto;
-  }
-
-  .doc-table thead {
-    display: table-header-group;
-  }
-
-  .doc-table tr,
-  .doc-total-line,
-  .rep__kpi,
-  .doc-signs,
-  .vch__foot {
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-
-  .doc-summary,
-  .doc-note-box,
-  .doc-totals {
-    break-inside: avoid;
-    page-break-inside: avoid;
   }
 }
 
-@media (max-width: 720px) {
+/* ════════════════════════════ شاشات صغيرة ════════════════════════════ */
+
+@media (max-width: 640px) {
   .print-toolbar {
     padding: 8px 10px;
   }
