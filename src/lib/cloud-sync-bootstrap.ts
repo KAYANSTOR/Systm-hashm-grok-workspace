@@ -3,29 +3,29 @@ import { useStore } from "./store";
 /**
  * Client-side cloud synchronization bootstrap.
  *
- * Local state is the fast offline projection. The complete snapshot is fetched
- * once on the first online entry; later visits only drain local mutations.
- * A manual sync from Settings remains the explicit way to pull remote changes.
+ * Local state is the fast offline projection. On every online entry we:
+ *  1) drain local outbox mutations to the cloud
+ *  2) pull the latest snapshot from the cloud so another device's data appears
+ *
+ * A manual sync from Settings remains available for an explicit full refresh.
  */
 let started = false;
 let timer: ReturnType<typeof setInterval> | undefined;
 let running: Promise<void> | null = null;
 
-async function syncNow() {
+async function syncNow(forcePull = false) {
   if (running) return running;
   running = (async () => {
     if (typeof navigator === "undefined" || !navigator.onLine) return;
 
     const store = useStore.getState();
-    // A persisted counter can outlive the actual local outbox. In that case
-    // fetchFromDb must not route into the legacy migration path.
     if (store.outbox.length) {
       await store.drainPendingOutbox();
     } else if (store.pendingSyncCount > 0) {
       useStore.setState({ pendingSyncCount: 0 });
     }
 
-    if (!useStore.getState().initialDataLoaded) {
+    if (forcePull || !useStore.getState().initialDataLoaded) {
       await useStore.getState().fetchFromDb();
     }
   })()
@@ -43,9 +43,9 @@ export function startCloudSync() {
   started = true;
 
   const start = () => {
-    void syncNow();
+    void syncNow(true);
     if (!timer) {
-      timer = setInterval(() => void syncNow(), 30_000);
+      timer = setInterval(() => void syncNow(false), 30_000);
     }
   };
 
@@ -55,9 +55,9 @@ export function startCloudSync() {
     start();
   }
 
-  window.addEventListener("online", () => void syncNow());
-  window.addEventListener("focus", () => void syncNow());
+  window.addEventListener("online", () => void syncNow(true));
+  window.addEventListener("focus", () => void syncNow(false));
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") void syncNow();
+    if (document.visibilityState === "visible") void syncNow(false);
   });
 }
