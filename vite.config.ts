@@ -212,10 +212,9 @@ export default defineConfig(({ command, isPreview }) => ({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
-        // TanStack Start does not emit a root index.html shell. Let the
-        // document NetworkFirst route serve the exact HTML document cached
-        // during the user's online visit instead of falling back to a
-        // non-existent index.html.
+        // TanStack Start does not emit a root index.html shell. Cache the
+        // exact document received during the first online visit so reopening
+        // the app offline is immediate instead of waiting on the network.
         navigateFallback: null,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf,eot,webmanifest}'],
         runtimeCaching: [
@@ -243,13 +242,13 @@ export default defineConfig(({ command, isPreview }) => ({
             },
           },
           {
-            // Keep the application shell and visited route documents usable
-            // when the network disappears after the first online visit.
+            // بعد أول زيارة: افتح التطبيق من الكاش فورًا حتى يعمل دون انتظار
+            // مهلة الشبكة. تحديث التصميم يتولىه Service Worker عند توفر نسخة
+            // جديدة، والمزامنة اليدوية من الإعدادات تجلب بيانات الخادم.
             urlPattern: ({ request }) => request.destination === "document",
-            handler: "NetworkFirst",
+            handler: "CacheFirst",
             options: {
-              cacheName: "app-navigation-cache",
-              networkTimeoutSeconds: 3,
+              cacheName: "app-navigation-cache-v1",
               cacheableResponse: { statuses: [0, 200] },
               expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
@@ -260,8 +259,9 @@ export default defineConfig(({ command, isPreview }) => ({
 
     tailwindcss(),
     tanstackStart({
-      // فصل صريح لملفات المسارات حتى لا تدخل الشاشات الثقيلة (تقارير/PDF) الحزمة الأولية
-      autoCodeSplitting: true,
+      // التطبيق يعمل غالبًا دون إنترنت: حمّل كود كل الشاشات مع أول دخول
+      // بدل انتظار أول نقرة لجلب chunk جديد من الشبكة.
+      autoCodeSplitting: false,
     }),
     ...(command === "build" || isPreview
       ? [

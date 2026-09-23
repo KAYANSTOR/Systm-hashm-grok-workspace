@@ -63,6 +63,20 @@ const NAV_GROUPS: ReadonlyArray<{ label: string; items: ReadonlyArray<NavItem> }
 
 const ALL_NAV = NAV_GROUPS.flatMap((g) => g.items);
 
+// لا نعتمد على preloadRoute وحده؛ بعض بيئات الإنتاج تؤجل lazy route modules
+// حتى لحظة التنقل. تحميلها صراحة عند الدخول الأول يجعل كل الشاشات جاهزة
+// للعمل دون إنترنت أو انتظار شبكة عند أول نقرة.
+const SCREEN_MODULES = [
+  () => import("../routes/index.lazy"),
+  () => import("../routes/sales.lazy"),
+  () => import("../routes/vouchers.lazy"),
+  () => import("../routes/inventory.lazy"),
+  () => import("../routes/cashbox.lazy"),
+  () => import("../routes/expenses.lazy"),
+  () => import("../routes/parties.lazy"),
+  () => import("../routes/reports.lazy"),
+] as const;
+
 const MOBILE_NAV = [
   { to: "/", label: "الرئيسية", icon: Home },
   { to: "/cashbox", label: "الصندوق", icon: Wallet },
@@ -223,13 +237,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, []);
 
   /**
-   * تسخين المسارات بعد أول رسم: نجلب ملفات الشاشات في وقت الخمول حتى يكون
-   * التنقل بينها فوريًا (بلا مؤشر تحميل). لا يتعارض مع أولوية رسم الرئيسية
-   * لأن كل شيء يحدث بعد `requestIdleCallback`.
+   * تحميل كود كل الشاشات بعد أول رسم مباشرة حتى لا تنتظر أول نقرة الشبكة.
+   * البيانات نفسها محفوظة في Zustand persist، لذلك بعد الدخول الأول تعمل
+   * الشاشات من الذاكرة/التخزين المحلي حتى عند انقطاع الإنترنت.
    */
   useEffect(() => {
-    // سخّن كل مسارات الشريط + الموبايل + الإجراءات السريعة فور الخمول
-    // حتى يكون أول ضغطة على أي أيقونة فورية بلا انتظار chunk.
+    // سخّن كل المسارات فور أول إطار بدل requestIdleCallback؛ الخمول قد يتأخر
+    // مئات الملي ثانية، وهو ما كان يجعل أول نقرة تبدو بطيئة جدًا.
     const targets = Array.from(
       new Set([
         ...navItems.map((item) => item.to),
@@ -238,18 +252,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       ]),
     );
     const warm = () => {
+      void Promise.all(SCREEN_MODULES.map((load) => load())).catch(() => undefined);
       for (const to of targets) {
         void router.preloadRoute({ to } as never).catch(() => undefined);
       }
     };
-    const w = window as Window & {
-      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
-    };
-    if (typeof w.requestIdleCallback === "function") {
-      const id = w.requestIdleCallback(warm, { timeout: 800 });
-      return () => (window.cancelIdleCallback as ((handle: number) => void) | undefined)?.(id);
-    }
-    const timer = window.setTimeout(warm, 200);
+    const timer = window.setTimeout(warm, 0);
     return () => window.clearTimeout(timer);
   }, [navItems, mobileNavItems, quickItems, router]);
 

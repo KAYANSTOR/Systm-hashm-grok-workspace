@@ -99,6 +99,7 @@ type Store = AppData & {
   connectionState: "online" | "offline" | "syncing";
   pendingSyncCount: number;
   lastSyncMessage: string;
+  initialDataLoaded: boolean;
   outbox: OutboxItem[];
   enqueueOutbox: (item: OutboxItem) => void;
   drainPendingOutbox: () => Promise<void>;
@@ -144,6 +145,7 @@ export const useStore = create<Store>()(
       connectionState: typeof navigator !== "undefined" && navigator.onLine ? "online" : "offline",
       pendingSyncCount: 0,
       lastSyncMessage: "",
+      initialDataLoaded: false,
       outbox: [],
       enqueueOutbox: (item) =>
         set((s) => ({
@@ -415,7 +417,12 @@ export const useStore = create<Store>()(
            })),
            transactions: transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         });
-        set({ connectionState: "online", pendingSyncCount: 0, lastSyncMessage: "تم تحديث البيانات من السحابة" });
+        set({
+          connectionState: "online",
+          pendingSyncCount: 0,
+          initialDataLoaded: true,
+          lastSyncMessage: "تم تحديث البيانات من السحابة",
+        });
           await get().refreshAuditFromServer();
         } finally {
           fetchInFlight = false;
@@ -716,6 +723,7 @@ export const useStore = create<Store>()(
         defaultWarehouseId: s.defaultWarehouseId,
         connectionState: s.connectionState,
         pendingSyncCount: s.pendingSyncCount,
+        initialDataLoaded: s.initialDataLoaded,
         lastSyncMessage: s.lastSyncMessage,
         outbox: s.outbox,
       }),
@@ -744,10 +752,16 @@ if (typeof window !== "undefined") {
       } catch {
         /* ignore */
       }
-      // Always refresh from the shared database after hydration. Previously
-      // this only happened when local storage was empty, so a manager with an
-      // older local cache could never see a receipt submitted by the receiver.
-      if (navigator.onLine) state.fetchFromDb().catch(console.error);
+      // اجلب البيانات عند أول تشغيل فقط. بعد ذلك تكون النسخة المحلية هي مصدر
+      // العرض السريع، ولا نعيد تحميل كل البيانات عند كل فتح أو عودة للتركيز.
+      if (!state.initialDataLoaded && navigator.onLine) {
+        state.fetchFromDb().catch(console.error);
+      } else if (!navigator.onLine) {
+        useStore.setState({
+          connectionState: "offline",
+          lastSyncMessage: "أنت غير متصل — يتم عرض آخر نسخة محفوظة على الجهاز",
+        });
+      }
   });
 
   useStore.persist.rehydrate();
@@ -780,12 +794,12 @@ if (typeof window !== "undefined") {
     debouncedSync();
     useStore.getState().drainPendingOutbox().catch(console.error);
   });
-  // لا تعِد الجلب عند كل focus — throttle داخلي في fetchFromDb (15s) كافٍ،
-  // لكن نؤخر قليلاً حتى لا يتنافس مع تفاعل المستخدم بعد العودة للتبويب.
+  // لا تعِد تحميل اللقطة الكاملة عند كل focus؛ اعرض النسخة المحلية فورًا.
+  // تُرحّل العمليات المحلية المعلقة فقط، أما جلب تغييرات الخادم فزر يدوي.
   window.addEventListener('focus', () => {
     if (!navigator.onLine) return;
-    window.setTimeout(() => {
-      useStore.getState().fetchFromDb().catch(console.error);
-    }, 400);
+    if (outboxPendingCount(useStore.getState().outbox) > 0) {
+      useStore.getState().drainPendingOutbox().catch(console.error);
+    }
   });
 }

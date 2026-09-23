@@ -3,10 +3,9 @@ import { useStore } from "./store";
 /**
  * Client-side cloud synchronization bootstrap.
  *
- * The application uses the server/Postgres dataset as the shared source of
- * truth. Local state is only the offline projection. On startup and whenever
- * connectivity/focus returns, drain local mutations first, then refresh the
- * shared snapshot so a newly opened device sees data created on other devices.
+ * Local state is the fast offline projection. The complete snapshot is fetched
+ * once on the first online entry; later visits only drain local mutations.
+ * A manual sync from Settings remains the explicit way to pull remote changes.
  */
 let started = false;
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -26,12 +25,16 @@ async function syncNow() {
       useStore.setState({ pendingSyncCount: 0 });
     }
 
-    await useStore.getState().fetchFromDb();
-  })().catch((error) => {
-    console.error("cloud-sync-bootstrap", error);
-  }).finally(() => {
-    running = null;
-  });
+    if (!useStore.getState().initialDataLoaded) {
+      await useStore.getState().fetchFromDb();
+    }
+  })()
+    .catch((error) => {
+      console.error("cloud-sync-bootstrap", error);
+    })
+    .finally(() => {
+      running = null;
+    });
   return running;
 }
 
