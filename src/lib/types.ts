@@ -200,13 +200,13 @@ export interface AppData {
 
 export const DEFAULT_ORGANIZATION: OrganizationProfile = {
   id: 'default_org',
-  name: "معامل هاشم الأحمدي للتصميم والتطريز",
+  name: "معامل هاشم الأحمدي للتصميم والتطريز الإلكتروني",
   address: "صنعاء — شارع الزبيري — مقابل وزارة الدفاع",
   phone: "770 447 441 - 730 447 441",
 };
 
 export const DEFAULT_SETTINGS: WorkshopSettings = {
-  name: "معامل هاشم الأحمدي للتصميم والتطريز",
+  name: "معامل هاشم الأحمدي للتصميم والتطريز الإلكتروني",
   location: "صنعاء — شارع الزبيري — مقابل وزارة الدفاع",
   phone1: "770 447 441",
   phone2: "730 447 441",
