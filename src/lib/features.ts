@@ -11,6 +11,8 @@
  *    لذلك هذا وضع مؤقت مقصود ومعلوم لصاحب المعمل، لا وضع إنتاج نهائي.
  *  - ACCESS_CONTROL=false → لا شاشات موظفين/أدوار، ولا تصفية للقوائم حسب
  *    الصلاحيات (كل الشاشات ظاهرة)، والخادم لا يفرض فحص الصلاحيات.
+ *  - INVENTORY_ENABLED=false → شاشة المخزن والمخازن والفئات تظهر كـ«قريبًا»
+ *    دون حذف المنطق؛ يُعاد التفعيل لاحقًا بإرجاع القيمة إلى `true`.
  */
 export const FEATURES = {
   /** تسجيل الدخول/الجلسات (Better Auth). */
@@ -32,6 +34,12 @@ export const FEATURES = {
    * إدخال/إخراج فقط). المنطق الكامل باقٍ بالكود ومفعَّل بإرجاع القيمة إلى `true`.
    */
   ADVANCED_INVENTORY: false,
+  /**
+   * تفعيل وحدة المخزن والمخازن والفئات في الواجهة.
+   * `false` = شاشة «قريبًا» عند فتح المخزن، وإخفاء إدارة المخازن/الفئات من الإعدادات.
+   * المنطق الكامل باقٍ في الكود ويُعاد تشغيله بإرجاع القيمة إلى `true`.
+   */
+  INVENTORY_ENABLED: false,
 } as const;
 
 /** اختصارات مقروءة تُستورد في الواجهة والخادم. */
@@ -39,6 +47,7 @@ export const AUTH_REQUIRED = FEATURES.AUTH_REQUIRED;
 export const ACCESS_CONTROL = FEATURES.ACCESS_CONTROL;
 export const PRODUCT_SALES = FEATURES.PRODUCT_SALES;
 export const ADVANCED_INVENTORY = FEATURES.ADVANCED_INVENTORY;
+export const INVENTORY_ENABLED = FEATURES.INVENTORY_ENABLED;
 
 /**
  * ملاحظة هوية: عند إيقاف المصادقة يعمل النظام بهوية الجهاز الثابتة المعتمدة في
