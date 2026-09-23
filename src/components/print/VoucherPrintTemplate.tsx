@@ -31,13 +31,6 @@ interface VoucherDocumentProps {
   copyLabel?: string;
 }
 
-/**
- * نموذج السند الورقي (210×105 مم) — تصميم واحد يُستخدم للمعاينة والطباعة.
- *
- * كل النصوص بخط Cairo الحقيقي المُحمَّل في الصفحة (كان القالب القديم يشير إلى ملف
- * خط غير موجود `/fonts/Cairo-*.woff2` فيسقط إلى خط احتياطي). والطباعة الآن متجهية
- * بلا تحويل إلى صورة، فالحروف تخرج حادة بمقاسها الصحيح على الورق.
- */
 function VoucherDocument({
   voucher,
   partyName,
@@ -48,8 +41,8 @@ function VoucherDocument({
   const type = voucher.type;
   const isReceipt = type === "receipt";
   const isPayment = type === "payment";
-  const partyLabel = isReceipt ? "استلمنا من الأخ /" : isPayment ? "صرفنا إلى الأخ /" : "الطرف /";
-  const purposeLabel = isReceipt ? "وذلك مقابل /" : isPayment ? "وذلك مقابل /" : "وذلك مقابل /";
+  const partyLabel = isReceipt ? "استلمنا من :" : isPayment ? "المسلم :" : "الطرف :";
+  const purposeLabel = "مقابل :";
   const companyName = organization.name || companySettings.name;
   const companyAddress = organization.address || companySettings.location;
   const companyPhones =
@@ -78,7 +71,7 @@ function VoucherDocument({
         </div>
         <div className="vch__title">{voucherTitle(type)}</div>
         <div className="vch__band-cell vch__band-cell--number">
-          <span>الرقم</span>
+          <span>رقم السند</span>
           <strong>{voucher.voucherNumber}</strong>
         </div>
       </div>
@@ -91,7 +84,7 @@ function VoucherDocument({
         </div>
 
         <div className="vch__row">
-          <span className="vch__label">مبلغ وقدره /</span>
+          <span className="vch__label">المبلغ :</span>
           <span className="vch__fill vch__amount">{numeric(voucher.amount)}</span>
           <span className="vch__label">ريال يمني</span>
           <span className="vch__label vch__currency">فقط لا غير</span>
@@ -99,32 +92,25 @@ function VoucherDocument({
         </div>
 
         <div className="vch__meta-row">
-          <span className="vch__meta-label">طريقة الدفع /</span>
+          <span className="vch__meta-label">طريقة الدفع :</span>
           <span className="vch__meta-fill vch__meta-fill--tight">
             {methodLabel[voucher.paymentMethod]}
           </span>
           <span className="vch__meta-label">بتاريخ /</span>
           <span className="vch__meta-fill">{formatDate(voucher.date)}</span>
-          <span className="vch__meta-label">م</span>
-        </div>
-
-        <div className="vch__row">
-          <span className="vch__label">{purposeLabel}</span>
-          <span className="vch__fill">{voucher.description || "—"}</span>
         </div>
 
         <div className="vch__meta-row">
-          <span className="vch__meta-label">
-            {partyBalanceAfter === null
-              ? "الباقي بعد هذا السند /"
-              : partyBalanceAfter >= 0
-                ? "الباقي على الطرف بعد هذا السند /"
-                : "الباقي له بعد هذا السند /"}
-          </span>
-          <span className="vch__meta-fill vch__meta-fill--tight">
-            {partyBalanceAfter === null ? "—" : `${numeric(Math.abs(partyBalanceAfter))} ر.ي`}
-          </span>
+          <span className="vch__meta-label">{purposeLabel}</span>
+          <span className="vch__meta-fill">{voucher.description || "—"}</span>
         </div>
+
+        {partyBalanceAfter !== null ? (
+          <div className="vch__meta-row">
+            <span className="vch__meta-label">الرصيد بعد العملية :</span>
+            <span className="vch__meta-fill">{numeric(partyBalanceAfter)}</span>
+          </div>
+        ) : null}
       </div>
 
       <footer className="vch__foot">
@@ -133,7 +119,7 @@ function VoucherDocument({
           <div className="vch__sign-line">{companySettings.name}</div>
         </div>
         <div className="vch__sign">
-          <div className="vch__sign-title">توقيع المستلم</div>
+          <div className="vch__sign-title">المستلم</div>
           <div className="vch__sign-line">{partyName || "—"}</div>
         </div>
       </footer>
@@ -141,11 +127,6 @@ function VoucherDocument({
   );
 }
 
-/**
- * يُعرض السند بنسختين بشكل افتراضي (أصل للصندوق + صورة للعميل) على ورقة A4 —
- * وهذا ما تحتاجه دفاتر السندات فعليًا. ويمكن تبديله إلى ورقة واحدة بارتفاع
- * نصف A4 لمن يطبع على ورق مقطوع مسبقًا.
- */
 export default function VoucherPrintTemplate({
   voucher,
   partyName,
@@ -155,7 +136,6 @@ export default function VoucherPrintTemplate({
   const suppliers = useStore((s) => s.suppliers);
   const [twoCopies, setTwoCopies] = useState(true);
 
-  // الرصيد بعد أثر السند مباشرة — يظهر مطبوعًا في سطر «الباقي».
   const balance = (() => {
     if (voucher.partyType === "customer") {
       const party = customers.find((item) => item.id === voucher.partyId);
