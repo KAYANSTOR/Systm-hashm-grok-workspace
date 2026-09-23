@@ -4,7 +4,7 @@ import { dbStatus } from "@/lib/db";
 /**
  * مسار صحة النشر — يفحص حيوية الخادم وحالة قاعدة البيانات دون إسقاط الطلب.
  *
- * - `"neon"` / `"pglite"`: القاعدة مهيأة والاتصال يعمل.
+ * - `"supabase"` / `"postgres"` / `"pglite"`: القاعدة مهيأة والاتصال يعمل.
  * - `"missing-config"`: التطبيق يعمل لكن `DATABASE_URL` غير مضبوطة —
  *   الواجهة تُحمَّل وكل عمليات البيانات تفشل برسالة الإعداد الواضحة.
  *   هذا يجعل سبب توقف النظام مرئيًا فورًا من المتصفح بدل 500 صامتة.
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/api/health")({
         const url = new URL(request.url);
         const status = dbStatus();
         let database: "ok" | "unreachable" | "not-configured" =
-          status === "neon" || status === "pglite" ? "ok" : "not-configured";
+          status === "supabase" || status === "postgres" || status === "pglite" ? "ok" : "not-configured";
 
         if (database === "ok" && url.searchParams.get("deep") === "1") {
           try {
