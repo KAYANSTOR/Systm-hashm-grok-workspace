@@ -15,7 +15,11 @@ import {
   productMovement,
   receivableAging,
 } from "@/domain/reporting";
-import { buildReportDocument, type ReportDocumentData, type ReportTab } from "@/domain/report-document";
+import {
+  buildReportDocument,
+  type ReportDocumentData,
+  type ReportTab,
+} from "@/domain/report-document";
 import type { InventoryItem, Invoice, Transaction } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { methodLabel } from "@/lib/labels";
@@ -70,7 +74,9 @@ function ReportsPage() {
     }
   };
 
-  useEffect(() => { void refresh(); }, [fetchFromDb]);
+  useEffect(() => {
+    void refresh();
+  }, [fetchFromDb]);
 
   const validRange = from <= to;
   const inRange = (value: unknown) => {
@@ -79,12 +85,23 @@ function ReportsPage() {
   };
 
   const sales = useMemo(
-    () => invoices.filter((i) => i.type === "sale" && i.isApproved && !i.isCancelled && inRange(i.date) && (partyId === "all" || String(i.partyId) === partyId)),
+    () =>
+      invoices.filter(
+        (i) =>
+          i.type === "sale" &&
+          i.isApproved &&
+          !i.isCancelled &&
+          inRange(i.date) &&
+          (partyId === "all" || String(i.partyId) === partyId),
+      ),
     [invoices, from, to, partyId],
   );
   const salesTotal = useMemo(() => sales.reduce((sum, i) => sum + num(i.total), 0), [sales]);
   const collected = useMemo(() => sales.reduce((sum, i) => sum + num(i.paidAmount), 0), [sales]);
-  const expenseTotal = useMemo(() => expenses.filter((e) => inRange(e.date)).reduce((sum, e) => sum + num(e.amount), 0), [expenses, from, to]);
+  const expenseTotal = useMemo(
+    () => expenses.filter((e) => inRange(e.date)).reduce((sum, e) => sum + num(e.amount), 0),
+    [expenses, from, to],
+  );
   // توزيع المصروفات على الفئات (الخيار الثاني: كل فئة لها حسابها في الدفتر)
   const expensesByCategory = useMemo(() => {
     const totals = new Map<string, number>();
@@ -94,7 +111,13 @@ function ReportsPage() {
     }
     return [...totals.entries()].sort((a, b) => b[1] - a[1]);
   }, [expenses, from, to]);
-  const receipts = useMemo(() => vouchers.filter((v) => v.type === "receipt" && inRange(v.date)).reduce((sum, v) => sum + num(v.amount), 0), [vouchers, from, to]);
+  const receipts = useMemo(
+    () =>
+      vouchers
+        .filter((v) => v.type === "receipt" && inRange(v.date))
+        .reduce((sum, v) => sum + num(v.amount), 0),
+    [vouchers, from, to],
+  );
 
   const cash = useMemo(() => {
     const normalized = transactions.map((t) => ({
@@ -113,7 +136,10 @@ function ReportsPage() {
     return transactions
       .filter((t) => String(t.partyId) === partyId)
       .slice()
-      .sort((a, b) => day(a.date).localeCompare(day(b.date)) || String(a.id).localeCompare(String(b.id)))
+      .sort(
+        (a, b) =>
+          day(a.date).localeCompare(day(b.date)) || String(a.id).localeCompare(String(b.id)),
+      )
       .map((t) => {
         const debit = num(t.debit);
         const credit = num(t.credit);
@@ -125,18 +151,45 @@ function ReportsPage() {
 
   const stockRows = useMemo<AnyRow[]>(() => {
     return inventory
-      .filter((i) => !q || String(i.name ?? "").toLowerCase().includes(q.toLowerCase()))
+      .filter(
+        (i) =>
+          !q ||
+          String(i.name ?? "")
+            .toLowerCase()
+            .includes(q.toLowerCase()),
+      )
       .map((i) => {
-        const quantity = warehouseId === "all"
-          ? num(i.quantity)
-          : warehouseStocks.filter((s) => String(s.productId) === String(i.id) && String(s.warehouseId) === warehouseId).reduce((sum, s) => sum + num(s.quantity), 0);
+        const quantity =
+          warehouseId === "all"
+            ? num(i.quantity)
+            : warehouseStocks
+                .filter(
+                  (s) =>
+                    String(s.productId) === String(i.id) && String(s.warehouseId) === warehouseId,
+                )
+                .reduce((sum, s) => sum + num(s.quantity), 0);
         const costPrice = num(i.costPrice);
         const minQuantity = num(i.minQuantity);
-        return { ...i, quantity, costPrice, status: quantity <= 0 ? "نفد" : quantity <= minQuantity ? "منخفض" : "متوفر" } as AnyRow;
+        return {
+          ...i,
+          quantity,
+          costPrice,
+          status: quantity <= 0 ? "نفد" : quantity <= minQuantity ? "منخفض" : "متوفر",
+        } as AnyRow;
       })
-      .filter((i) => warehouseId === "all" || i.quantity > 0 || warehouseStocks.some((s) => String(s.productId) === String(i.id) && String(s.warehouseId) === warehouseId));
+      .filter(
+        (i) =>
+          warehouseId === "all" ||
+          i.quantity > 0 ||
+          warehouseStocks.some(
+            (s) => String(s.productId) === String(i.id) && String(s.warehouseId) === warehouseId,
+          ),
+      );
   }, [inventory, warehouseStocks, warehouseId, q]);
-  const stockValue = useMemo(() => stockRows.reduce((sum, i) => sum + num(i.quantity) * num(i.costPrice), 0), [stockRows]);
+  const stockValue = useMemo(
+    () => stockRows.reduce((sum, i) => sum + num(i.quantity) * num(i.costPrice), 0),
+    [stockRows],
+  );
 
   // ─── تحليلات الفترة (محرّك تقارير نقي مُختبَر: src/domain/reporting.ts) ───
   const aging = useMemo(
@@ -148,7 +201,11 @@ function ReportsPage() {
     [invoices, from, to],
   );
   const profit = useMemo(
-    () => estimatedProfit(invoices as unknown as Invoice[], inventory as unknown as InventoryItem[], { from, to }),
+    () =>
+      estimatedProfit(invoices as unknown as Invoice[], inventory as unknown as InventoryItem[], {
+        from,
+        to,
+      }),
     [invoices, inventory, from, to],
   );
   const flow = useMemo(
@@ -184,18 +241,27 @@ function ReportsPage() {
   ];
   const warehouseOptions = [
     { value: "all", label: "كل المخازن" },
-    ...warehouses.filter((w) => w.isActive).map((w) => ({ value: String(w.id), label: String(w.name) })),
+    ...warehouses
+      .filter((w) => w.isActive)
+      .map((w) => ({ value: String(w.id), label: String(w.name) })),
   ];
   const tabs: { id: ReportTab; label: string }[] = [
-    { id: "overview", label: "ملخص" }, { id: "sales", label: "المبيعات" }, { id: "cash", label: "الصندوق" },
-    { id: "stock", label: "المخزون" }, { id: "party", label: "كشف حساب" },
-    { id: "analytics", label: "تحليلات" }, { id: "activity", label: "العمليات" },
+    { id: "overview", label: "ملخص" },
+    { id: "sales", label: "المبيعات" },
+    { id: "cash", label: "الصندوق" },
+    { id: "stock", label: "المخزون" },
+    { id: "party", label: "كشف حساب" },
+    { id: "analytics", label: "تحليلات" },
+    { id: "activity", label: "العمليات" },
   ];
   const detail = detailId ? auditLog.find((a) => a.auditId === detailId) : null;
-  const loading = connectionState === "syncing" && !invoices.length && !customers.length && !inventory.length;
+  const loading =
+    connectionState === "syncing" && !invoices.length && !customers.length && !inventory.length;
 
   const partyLabel = parties.find((party) => party.value === partyId)?.label;
-  const warehouseLabel = warehouseOptions.find((warehouse) => warehouse.value === warehouseId)?.label;
+  const warehouseLabel = warehouseOptions.find(
+    (warehouse) => warehouse.value === warehouseId,
+  )?.label;
 
   /**
    * يفتح معاينة طباعة بمستند مستقل بهوية المنشأة.
@@ -219,8 +285,18 @@ function ReportsPage() {
       invoices: sales.map((invoice) => ({
         number: String(invoice.invoiceNumber ?? "—"),
         date: formatDate(String(invoice.date)),
-        party: String(customers.find((c) => String(c.id) === String(invoice.partyId))?.name || invoice.partyId || "—"),
-        status: invoice.isCancelled ? "ملغاة" : invoice.paymentType === "cash" ? "نقدي" : invoice.paymentType === "deferred" ? "آجل" : "جزئي",
+        party: String(
+          customers.find((c) => String(c.id) === String(invoice.partyId))?.name ||
+            invoice.partyId ||
+            "—",
+        ),
+        status: invoice.isCancelled
+          ? "ملغاة"
+          : invoice.paymentType === "cash"
+            ? "نقدي"
+            : invoice.paymentType === "deferred"
+              ? "آجل"
+              : "جزئي",
         total: num(invoice.total),
         paid: num(invoice.paidAmount),
       })),
@@ -295,10 +371,24 @@ function ReportsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div><h1 className="page-title">التقارير</h1><p className="text-sm text-muted">من مصادر الحقيقة: القيود · الحركات · المستندات</p></div>
+        <div>
+          <h1 className="page-title">التقارير</h1>
+          <p className="text-sm text-muted">من مصادر الحقيقة: القيود · الحركات · المستندات</p>
+        </div>
         <div className="flex gap-2">
-          <button type="button" className="btn-secondary" disabled={refreshing} onClick={() => void refresh()}><RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} />تحديث</button>
-          <button type="button" className="btn-primary" disabled={!validRange} onClick={openPrint}><Printer className="size-4" />معاينة وطباعة التقرير</button>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={refreshing}
+            onClick={() => void refresh()}
+          >
+            <RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} />
+            تحديث
+          </button>
+          <button type="button" className="btn-primary" disabled={!validRange} onClick={openPrint}>
+            <Printer className="size-4" />
+            معاينة وطباعة التقرير
+          </button>
         </div>
       </div>
 
@@ -306,145 +396,428 @@ function ReportsPage() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <AppDatePicker label="من تاريخ" value={from} onChange={setFrom} />
           <AppDatePicker label="إلى تاريخ" value={to} onChange={setTo} />
-          <AppSelect label="الطرف" value={partyId} onChange={setPartyId} options={parties} searchable />
-          <AppSelect label="المخزن" value={warehouseId} onChange={setWarehouseId} options={warehouseOptions} searchable={false} />
+          <AppSelect
+            label="الطرف"
+            value={partyId}
+            onChange={setPartyId}
+            options={parties}
+            searchable
+          />
+          <AppSelect
+            label="المخزن"
+            value={warehouseId}
+            onChange={setWarehouseId}
+            options={warehouseOptions}
+            searchable={false}
+          />
         </div>
-        {!validRange && <p className="rounded-xl bg-bad/10 px-3 py-2 text-xs font-bold text-bad">تاريخ البداية يجب أن يكون قبل تاريخ النهاية.</p>}
-        {dataError && <p className="rounded-xl bg-bad/10 px-3 py-2 text-xs font-bold text-bad">تعذر تحديث البيانات: {dataError}</p>}
-        <div className="flex flex-wrap gap-2">{tabs.map((t) => <button key={t.id} type="button" disabled={!validRange} onClick={() => setTab(t.id)} className={`rounded-xl px-3 py-2 text-xs font-bold transition ${tab === t.id ? "bg-brand text-brand-fg" : "bg-canvas text-muted hover:bg-brand-soft"}`}>{t.label}</button>)}</div>
+        {!validRange && (
+          <p className="rounded-xl bg-bad/10 px-3 py-2 text-xs font-bold text-bad">
+            تاريخ البداية يجب أن يكون قبل تاريخ النهاية.
+          </p>
+        )}
+        {dataError && (
+          <p className="rounded-xl bg-bad/10 px-3 py-2 text-xs font-bold text-bad">
+            تعذر تحديث البيانات: {dataError}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              disabled={!validRange}
+              onClick={() => setTab(t.id)}
+              className={`rounded-xl px-3 py-2 text-xs font-bold transition ${tab === t.id ? "bg-brand text-brand-fg" : "bg-canvas text-muted hover:bg-brand-soft"}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {loading && <div className="card p-8 text-center text-sm font-bold text-muted" role="status">جاري تحميل بيانات التقارير…</div>}
+      {loading && (
+        <div className="card p-8 text-center text-sm font-bold text-muted" role="status">
+          جاري تحميل بيانات التقارير…
+        </div>
+      )}
 
-      {tab === "overview" && validRange && <>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4"><Kpi title="مبيعات الفترة" value={formatCurrency(salesTotal)} /><Kpi title="المقبوض (فواتير)" value={formatCurrency(collected)} /><Kpi title="سندات قبض" value={formatCurrency(receipts)} /><Kpi title="مصروفات" value={formatCurrency(expenseTotal)} /></div>
-        <div className="grid gap-3 sm:grid-cols-2"><Kpi title="رصيد الصندوق (من القيود)" value={formatCurrency(cash)} /><Kpi title={`قيمة المخزون (${warehouseId === "all" ? "كل المخازن" : "المخزن المختار"})`} value={formatCurrency(stockValue)} /></div>
-        <div className="card p-4"><h2 className="mb-3 font-black">المبيعات اليومية</h2>{chart.length ? <DailySalesChart data={chart} /> : <EmptyState icon={FileText} title="لا توجد مبيعات في الفترة المحددة" />}</div>
-        {expensesByCategory.length > 0 && (
-          <section className="card overflow-hidden">
-            <div className="border-b border-line px-4 py-3"><h2 className="font-black">المصروفات حسب الفئة</h2><p className="text-xs text-muted">كل فئة تُرحَّل في الدفتر إلى حساب مستقل — إجمالي الفترة {formatCurrency(expenseTotal)}</p></div>
-            <ul className="divide-y divide-line">
-              {expensesByCategory.map(([category, amount]) => (
-                <li key={category} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
-                  <p className="font-bold">{category}</p>
-                  <p className="font-black tabular-nums">{formatCurrency(amount)}</p>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-      </>}
-
-      {tab === "sales" && validRange && <div className="card overflow-hidden"><div className="border-b border-line px-4 py-3 text-sm font-bold text-muted">{sales.length} فاتورة · الإجمالي {formatCurrency(salesTotal)}</div>{sales.length ? <ul className="divide-y divide-line">{sales.map((inv) => <li key={inv.id} className="flex items-center justify-between gap-3 px-4 py-3"><div><p className="font-black">{inv.invoiceNumber}</p><p className="text-xs text-muted">{formatDate(inv.date)} · {customers.find((c) => String(c.id) === String(inv.partyId))?.name || inv.partyId}</p></div><p className="font-black tabular-nums">{formatCurrency(num(inv.total))}</p></li>)}</ul> : <EmptyState icon={FileText} title="لا مبيعات في الفترة" />}</div>}
-
-      {tab === "cash" && validRange && <div className="card overflow-hidden"><div className="border-b border-line px-4 py-3 text-sm font-bold">حركة الصندوق · الرصيد {formatCurrency(cash)}</div><ul className="divide-y divide-line">{transactions.filter((t) => (num(t.cashIn) || num(t.cashOut)) && inRange(t.date)).slice(0, 100).map((t) => <li key={t.id} className="flex justify-between gap-3 px-4 py-3 text-sm"><div><p className="font-bold">{t.description || "حركة صندوق"}</p><p className="text-xs text-muted">{formatDate(t.date)}</p></div><p className={`font-black tabular-nums ${num(t.cashIn) ? "text-good" : "text-bad"}`}>{num(t.cashIn) ? `+${formatCurrency(num(t.cashIn))}` : `-${formatCurrency(num(t.cashOut))}`}</p></li>)}</ul></div>}
-
-      {tab === "stock" && validRange && <div className="space-y-3"><div className="relative"><Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" /><input className="input-field pr-10" placeholder="بحث صنف…" value={q} onChange={(e) => setQ(e.target.value)} /></div><div className="card overflow-hidden"><ul className="divide-y divide-line">{stockRows.length ? stockRows.map((i) => <li key={i.id} className="flex items-center justify-between px-4 py-3"><div><p className="font-black">{i.name}</p><p className="text-xs text-muted">{i.category}</p></div><div className="text-left"><p className="font-black tabular-nums">{i.quantity}</p><span className={`text-xs font-bold ${i.status === "نفد" ? "text-bad" : i.status === "منخفض" ? "text-warn" : "text-good"}`}>{i.status}</span></div></li>) : <li><EmptyState icon={Search} title="لا توجد أصناف مطابقة" /></li>}</ul></div></div>}
-
-      {tab === "party" && validRange && <div className="space-y-3">{partyId === "all" ? <div className="card p-6"><EmptyState icon={FileText} title="اختر عميلاً أو مورداً لعرض كشف الحساب" /></div> : <><div className="card p-4"><p className="text-sm text-muted">الرصيد المتحرك من القيود الخاصة بالطرف</p><p className="mt-1 text-2xl font-black tabular-nums">{formatCurrency(partyBalance)}</p></div><div className="card overflow-hidden"><div className="grid grid-cols-5 gap-1 border-b border-line bg-canvas px-3 py-2 text-[11px] font-bold text-muted"><span>التاريخ</span><span className="col-span-2">البيان</span><span>مدين</span><span>دائن</span></div>{partyRunning.length ? partyRunning.map((t) => <div key={t.id} className="grid grid-cols-5 gap-1 border-b border-line px-3 py-2 text-xs"><span className="text-muted">{formatDate(t.date)}</span><span className="col-span-2 font-bold">{t.description}</span><span>{t.debit ? formatCurrency(t.debit) : "—"}</span><span>{t.credit ? formatCurrency(t.credit) : "—"}</span></div>) : <p className="p-4 text-sm text-muted">لا حركات على هذا الحساب</p>}</div></>}</div>}
-
-      {tab === "analytics" && validRange && <div className="space-y-4">
-        <section className="card p-4">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-black">أعمار الديون (المتبقي على العملاء)</h2>
-            <p className="text-sm text-muted">حتى تاريخ {formatDate(to)} · الإجمالي <span className="font-black text-ink">{formatCurrency(aging.total)}</span></p>
+      {tab === "overview" && validRange && (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Kpi title="مبيعات الفترة" value={formatCurrency(salesTotal)} />
+            <Kpi title="المقبوض (فواتير)" value={formatCurrency(collected)} />
+            <Kpi title="سندات قبض" value={formatCurrency(receipts)} />
+            <Kpi title="مصروفات" value={formatCurrency(expenseTotal)} />
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {AGING_BUCKETS.map((bucket) => (
-              <div key={bucket.key} className="rounded-2xl border border-line p-3">
-                <p className="text-xs font-bold text-muted">{bucket.label}</p>
-                <p className={`mt-1 text-lg font-black tabular-nums ${bucket.key === "d90" && aging.buckets[bucket.key] > 0 ? "text-bad" : ""}`}>
-                  {formatCurrency(aging.buckets[bucket.key])}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Kpi title="رصيد الصندوق (من القيود)" value={formatCurrency(cash)} />
+            <Kpi
+              title={`قيمة المخزون (${warehouseId === "all" ? "كل المخازن" : "المخزن المختار"})`}
+              value={formatCurrency(stockValue)}
+            />
+          </div>
+          <div className="card p-4">
+            <h2 className="mb-3 font-black">المبيعات اليومية</h2>
+            {chart.length ? (
+              <DailySalesChart data={chart} />
+            ) : (
+              <EmptyState icon={FileText} title="لا توجد مبيعات في الفترة المحددة" />
+            )}
+          </div>
+          {expensesByCategory.length > 0 && (
+            <section className="card overflow-hidden">
+              <div className="border-b border-line px-4 py-3">
+                <h2 className="font-black">المصروفات حسب الفئة</h2>
+                <p className="text-xs text-muted">
+                  كل فئة تُرحَّل في الدفتر إلى حساب مستقل — إجمالي الفترة{" "}
+                  {formatCurrency(expenseTotal)}
                 </p>
               </div>
-            ))}
+              <ul className="divide-y divide-line">
+                {expensesByCategory.map(([category, amount]) => (
+                  <li
+                    key={category}
+                    className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
+                  >
+                    <p className="font-bold">{category}</p>
+                    <p className="font-black tabular-nums">{formatCurrency(amount)}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </>
+      )}
+
+      {tab === "sales" && validRange && (
+        <div className="card overflow-hidden">
+          <div className="border-b border-line px-4 py-3 text-sm font-bold text-muted">
+            {sales.length} فاتورة · الإجمالي {formatCurrency(salesTotal)}
           </div>
-          {aging.byParty.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">لا توجد ديون مفتوحة — كل فواتير العملاء مسددة.</p>
-          ) : (
-            <ul className="mt-3 divide-y divide-line rounded-2xl border border-line">
-              {aging.byParty.slice(0, 8).map((row) => (
-                <li key={row.partyId} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-                  <div className="min-w-0">
-                    <p className="truncate font-bold">{customers.find((c) => String(c.id) === row.partyId)?.name || row.partyId}</p>
-                    <p className="text-xs text-muted">أقدم دين: {row.oldestDays} يوم</p>
+          {sales.length ? (
+            <ul className="divide-y divide-line">
+              {sales.map((inv) => (
+                <li key={inv.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div>
+                    <p className="font-black">{inv.invoiceNumber}</p>
+                    <p className="text-xs text-muted">
+                      {formatDate(inv.date)} ·{" "}
+                      {customers.find((c) => String(c.id) === String(inv.partyId))?.name ||
+                        inv.partyId}
+                    </p>
                   </div>
-                  <p className="font-black tabular-nums">{formatCurrency(row.total)}</p>
+                  <p className="font-black tabular-nums">{formatCurrency(num(inv.total))}</p>
                 </li>
               ))}
             </ul>
+          ) : (
+            <EmptyState icon={FileText} title="لا مبيعات في الفترة" />
           )}
-        </section>
-
-        <section className="card p-4">
-          <h2 className="font-black">أرباح الفترة (تقديرية)</h2>
-          <p className="text-xs text-muted">التكلفة من سعر تكلفة بطاقة الصنف — ليست تكلفة لحظية من دفتر مخزون.</p>
-          <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <Kpi title="إيراد خدمات التطريز" value={formatCurrency(profit.serviceRevenue)} />
-            <Kpi title="إيراد بيع بضاعة" value={formatCurrency(profit.productRevenue)} />
-            <Kpi title="تكلفة تقديرية" value={formatCurrency(profit.estimatedCost)} />
-            <Kpi title="ربح تقديري" value={formatCurrency(profit.grossProfit)} />
-            <Kpi title="هامش الربح" value={`${profit.marginPercent.toFixed(1)}%`} />
-          </div>
-        </section>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <section className="card overflow-hidden">
-            <div className="border-b border-line px-4 py-3">
-              <h2 className="font-black">الأصناف الأكثر حركة</h2>
-              <p className="text-xs text-muted">من بنود الفواتير المعتمدة في الفترة (وارد = توريد، صادر = بيع أو صرف).</p>
-            </div>
-            {movement.length === 0 ? (
-              <EmptyState icon={FileText} title="لا حركة أصناف في الفترة" />
-            ) : (
-              <ul className="divide-y divide-line">
-                {movement.map((row) => (
-                  <li key={row.productId} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
-                    <p className="min-w-0 truncate font-bold">{row.name}</p>
-                    <p className="shrink-0 text-xs tabular-nums text-muted">
-                      وارد <span className="font-black text-good">{row.inQty}</span> · صادر{" "}
-                      <span className="font-black text-bad">{row.outQty}</span> · الصافي{" "}
-                      <span className="font-black text-ink">{row.netQty}</span>
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section className="card overflow-hidden">
-            <div className="border-b border-line px-4 py-3">
-              <h2 className="font-black">حركة الصندوق في الفترة</h2>
-              <p className="text-xs text-muted">داخل {formatCurrency(flow.in)} · خارج {formatCurrency(flow.out)} · الصافي {formatCurrency(flow.net)}</p>
-            </div>
-            {flow.byMethod.length === 0 ? (
-              <EmptyState icon={FileText} title="لا حركة صندوق في الفترة" />
-            ) : (
-              <ul className="divide-y divide-line">
-                {flow.byMethod.map((row) => (
-                  <li key={row.method} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
-                    <p className="font-bold">{methodLabel[row.method as PaymentMethod] || row.method}</p>
-                    <p className="text-xs tabular-nums">
-                      <span className="font-black text-good">+{formatCurrency(row.in)}</span>
-                      {" · "}
-                      <span className="font-black text-bad">-{formatCurrency(row.out)}</span>
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
         </div>
-      </div>}
+      )}
 
-      {tab === "activity" && validRange && <div className="card overflow-hidden"><div className="border-b border-line px-4 py-3 text-sm font-bold text-muted">سجل العمليات · {Math.min(auditLog.length, 100)}</div>{auditLog.length ? <ul className="divide-y divide-line">{auditLog.slice(0, 100).map((a) => <li key={a.auditId}><button type="button" className="flex w-full items-start justify-between gap-3 px-4 py-3 text-right hover:bg-canvas" onClick={() => setDetailId(a.auditId)}><div><p className="font-black">{a.summary || `${a.action} · ${a.entityType}`}</p><p className="text-xs text-muted">{formatDate(day(a.createdAt))} · {a.entityId}</p></div><span className={`rounded-lg px-2 py-0.5 text-[10px] font-bold ${a.status === "success" ? "bg-good-soft text-good" : "bg-warn-soft text-warn"}`}>{a.status === "success" ? "نجحت" : a.status || "—"}</span></button></li>)}</ul> : <EmptyState icon={FileText} title="لا سجلات بعد" />}</div>}
+      {tab === "cash" && validRange && (
+        <div className="card overflow-hidden">
+          <div className="border-b border-line px-4 py-3 text-sm font-bold">
+            حركة الصندوق · الرصيد {formatCurrency(cash)}
+          </div>
+          <ul className="divide-y divide-line">
+            {transactions
+              .filter((t) => (num(t.cashIn) || num(t.cashOut)) && inRange(t.date))
+              .slice(0, 100)
+              .map((t) => (
+                <li key={t.id} className="flex justify-between gap-3 px-4 py-3 text-sm">
+                  <div>
+                    <p className="font-bold">{t.description || "حركة صندوق"}</p>
+                    <p className="text-xs text-muted">{formatDate(t.date)}</p>
+                  </div>
+                  <p
+                    className={`font-black tabular-nums ${num(t.cashIn) ? "text-good" : "text-bad"}`}
+                  >
+                    {num(t.cashIn)
+                      ? `+${formatCurrency(num(t.cashIn))}`
+                      : `-${formatCurrency(num(t.cashOut))}`}
+                  </p>
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
 
-      <Modal open={!!detail} onClose={() => setDetailId(null)} title="تفاصيل العملية">{detail ? <div className="space-y-3 text-sm"><Row k="العملية" v={detail.summary || detail.action} /><Row k="الكيان" v={`${detail.entityType} / ${detail.entityId}`} /><Row k="Operation ID" v={detail.operationId || "—"} /><Row k="Audit ID" v={detail.auditId} /><Row k="الجهاز" v={detail.deviceId || "—"} /><Row k="التاريخ" v={detail.createdAt} /></div> : null}</Modal>
+      {tab === "stock" && validRange && (
+        <div className="space-y-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
+            <input
+              className="input-field pr-10"
+              placeholder="بحث صنف…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+          <div className="card overflow-hidden">
+            <ul className="divide-y divide-line">
+              {stockRows.length ? (
+                stockRows.map((i) => (
+                  <li key={i.id} className="flex items-center justify-between px-4 py-3">
+                    <div>
+                      <p className="font-black">{i.name}</p>
+                      <p className="text-xs text-muted">{i.category}</p>
+                    </div>
+                    <div className="text-left">
+                      <p className="font-black tabular-nums">{i.quantity}</p>
+                      <span
+                        className={`text-xs font-bold ${i.status === "نفد" ? "text-bad" : i.status === "منخفض" ? "text-warn" : "text-good"}`}
+                      >
+                        {i.status}
+                      </span>
+                    </div>
+                  </li>
+                ))
+              ) : (
+                <li>
+                  <EmptyState icon={Search} title="لا توجد أصناف مطابقة" />
+                </li>
+              )}
+            </ul>
+          </div>
+        </div>
+      )}
 
-      {printData ? <ReportPrintTemplate data={printData} onClose={() => setPrintData(null)} /> : null}
+      {tab === "party" && validRange && (
+        <div className="space-y-3">
+          {partyId === "all" ? (
+            <div className="card p-6">
+              <EmptyState icon={FileText} title="اختر عميلاً أو مورداً لعرض كشف الحساب" />
+            </div>
+          ) : (
+            <>
+              <div className="card p-4">
+                <p className="text-sm text-muted">الرصيد المتحرك من القيود الخاصة بالطرف</p>
+                <p className="mt-1 text-2xl font-black tabular-nums">
+                  {formatCurrency(partyBalance)}
+                </p>
+              </div>
+              <div className="card overflow-hidden">
+                <div className="grid grid-cols-5 gap-1 border-b border-line bg-canvas px-3 py-2 text-[11px] font-bold text-muted">
+                  <span>التاريخ</span>
+                  <span className="col-span-2">البيان</span>
+                  <span>مدين</span>
+                  <span>دائن</span>
+                </div>
+                {partyRunning.length ? (
+                  partyRunning.map((t) => (
+                    <div
+                      key={t.id}
+                      className="grid grid-cols-5 gap-1 border-b border-line px-3 py-2 text-xs"
+                    >
+                      <span className="text-muted">{formatDate(t.date)}</span>
+                      <span className="col-span-2 font-bold">{t.description}</span>
+                      <span>{t.debit ? formatCurrency(t.debit) : "—"}</span>
+                      <span>{t.credit ? formatCurrency(t.credit) : "—"}</span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="p-4 text-sm text-muted">لا حركات على هذا الحساب</p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {tab === "analytics" && validRange && (
+        <div className="space-y-4">
+          <section className="card p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="font-black">أعمار الديون (المتبقي على العملاء)</h2>
+              <p className="text-sm text-muted">
+                حتى تاريخ {formatDate(to)} · الإجمالي{" "}
+                <span className="font-black text-ink">{formatCurrency(aging.total)}</span>
+              </p>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {AGING_BUCKETS.map((bucket) => (
+                <div key={bucket.key} className="rounded-2xl border border-line p-3">
+                  <p className="text-xs font-bold text-muted">{bucket.label}</p>
+                  <p
+                    className={`mt-1 text-lg font-black tabular-nums ${bucket.key === "d90" && aging.buckets[bucket.key] > 0 ? "text-bad" : ""}`}
+                  >
+                    {formatCurrency(aging.buckets[bucket.key])}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {aging.byParty.length === 0 ? (
+              <p className="mt-3 text-sm text-muted">
+                لا توجد ديون مفتوحة — كل فواتير العملاء مسددة.
+              </p>
+            ) : (
+              <ul className="mt-3 divide-y divide-line rounded-2xl border border-line">
+                {aging.byParty.slice(0, 8).map((row) => (
+                  <li
+                    key={row.partyId}
+                    className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-bold">
+                        {customers.find((c) => String(c.id) === row.partyId)?.name || row.partyId}
+                      </p>
+                      <p className="text-xs text-muted">أقدم دين: {row.oldestDays} يوم</p>
+                    </div>
+                    <p className="font-black tabular-nums">{formatCurrency(row.total)}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="card p-4">
+            <h2 className="font-black">أرباح الفترة (تقديرية)</h2>
+            <p className="text-xs text-muted">
+              التكلفة من سعر تكلفة بطاقة الصنف — ليست تكلفة لحظية من دفتر مخزون.
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
+              <Kpi title="إيراد خدمات التطريز" value={formatCurrency(profit.serviceRevenue)} />
+              <Kpi title="إيراد بيع بضاعة" value={formatCurrency(profit.productRevenue)} />
+              <Kpi title="تكلفة تقديرية" value={formatCurrency(profit.estimatedCost)} />
+              <Kpi title="ربح تقديري" value={formatCurrency(profit.grossProfit)} />
+              <Kpi title="هامش الربح" value={`${profit.marginPercent.toFixed(1)}%`} />
+            </div>
+          </section>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <section className="card overflow-hidden">
+              <div className="border-b border-line px-4 py-3">
+                <h2 className="font-black">الأصناف الأكثر حركة</h2>
+                <p className="text-xs text-muted">
+                  من بنود الفواتير المعتمدة في الفترة (وارد = توريد، صادر = بيع أو صرف).
+                </p>
+              </div>
+              {movement.length === 0 ? (
+                <EmptyState icon={FileText} title="لا حركة أصناف في الفترة" />
+              ) : (
+                <ul className="divide-y divide-line">
+                  {movement.map((row) => (
+                    <li
+                      key={row.productId}
+                      className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
+                    >
+                      <p className="min-w-0 truncate font-bold">{row.name}</p>
+                      <p className="shrink-0 text-xs tabular-nums text-muted">
+                        وارد <span className="font-black text-good">{row.inQty}</span> · صادر{" "}
+                        <span className="font-black text-bad">{row.outQty}</span> · الصافي{" "}
+                        <span className="font-black text-ink">{row.netQty}</span>
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="card overflow-hidden">
+              <div className="border-b border-line px-4 py-3">
+                <h2 className="font-black">حركة الصندوق في الفترة</h2>
+                <p className="text-xs text-muted">
+                  داخل {formatCurrency(flow.in)} · خارج {formatCurrency(flow.out)} · الصافي{" "}
+                  {formatCurrency(flow.net)}
+                </p>
+              </div>
+              {flow.byMethod.length === 0 ? (
+                <EmptyState icon={FileText} title="لا حركة صندوق في الفترة" />
+              ) : (
+                <ul className="divide-y divide-line">
+                  {flow.byMethod.map((row) => (
+                    <li
+                      key={row.method}
+                      className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
+                    >
+                      <p className="font-bold">
+                        {methodLabel[row.method as PaymentMethod] || row.method}
+                      </p>
+                      <p className="text-xs tabular-nums">
+                        <span className="font-black text-good">+{formatCurrency(row.in)}</span>
+                        {" · "}
+                        <span className="font-black text-bad">-{formatCurrency(row.out)}</span>
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
+        </div>
+      )}
+
+      {tab === "activity" && validRange && (
+        <div className="card overflow-hidden">
+          <div className="border-b border-line px-4 py-3 text-sm font-bold text-muted">
+            سجل العمليات · {Math.min(auditLog.length, 100)}
+          </div>
+          {auditLog.length ? (
+            <ul className="divide-y divide-line">
+              {auditLog.slice(0, 100).map((a) => (
+                <li key={a.auditId}>
+                  <button
+                    type="button"
+                    className="flex w-full items-start justify-between gap-3 px-4 py-3 text-right hover:bg-canvas"
+                    onClick={() => setDetailId(a.auditId)}
+                  >
+                    <div>
+                      <p className="font-black">{a.summary || `${a.action} · ${a.entityType}`}</p>
+                      <p className="text-xs text-muted">
+                        {formatDate(day(a.createdAt))} · {a.entityId}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-lg px-2 py-0.5 text-[10px] font-bold ${a.status === "success" ? "bg-good-soft text-good" : "bg-warn-soft text-warn"}`}
+                    >
+                      {a.status === "success" ? "نجحت" : a.status || "—"}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState icon={FileText} title="لا سجلات بعد" />
+          )}
+        </div>
+      )}
+
+      <Modal open={!!detail} onClose={() => setDetailId(null)} title="تفاصيل العملية">
+        {detail ? (
+          <div className="space-y-3 text-sm">
+            <Row k="العملية" v={detail.summary || detail.action} />
+            <Row k="الكيان" v={`${detail.entityType} / ${detail.entityId}`} />
+            <Row k="Operation ID" v={detail.operationId || "—"} />
+            <Row k="Audit ID" v={detail.auditId} />
+            <Row k="الجهاز" v={detail.deviceId || "—"} />
+            <Row k="التاريخ" v={detail.createdAt} />
+          </div>
+        ) : null}
+      </Modal>
+
+      {printData ? (
+        <ReportPrintTemplate data={printData} onClose={() => setPrintData(null)} />
+      ) : null}
     </div>
   );
 }
 
-function Kpi({ title, value }: { title: string; value: string }) { return <div className="card p-4"><p className="text-xs font-bold text-muted">{title}</p><p className="mt-2 text-xl font-black tabular-nums">{value}</p></div>; }
-function Row({ k, v }: { k: string; v: string }) { return <div className="flex justify-between gap-3 border-b border-line pb-2"><span className="text-muted">{k}</span><span className="break-all text-left font-bold text-ink">{v}</span></div>; }
+function Kpi({ title, value }: { title: string; value: string }) {
+  return (
+    <div className="card p-4">
+      <p className="text-xs font-bold text-muted">{title}</p>
+      <p className="mt-2 text-xl font-black tabular-nums">{value}</p>
+    </div>
+  );
+}
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex justify-between gap-3 border-b border-line pb-2">
+      <span className="text-muted">{k}</span>
+      <span className="break-all text-left font-bold text-ink">{v}</span>
+    </div>
+  );
+}

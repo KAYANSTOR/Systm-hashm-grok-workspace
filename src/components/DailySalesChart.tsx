@@ -33,7 +33,9 @@ export default function DailySalesChart({
       max: ceiling,
       total: sum,
       ticks: ceiling
-        ? [ceiling, ceiling * 0.75, ceiling * 0.5, ceiling * 0.25, 0].map((value) => Math.round(value))
+        ? [ceiling, ceiling * 0.75, ceiling * 0.5, ceiling * 0.25, 0].map((value) =>
+            Math.round(value),
+          )
         : [],
     };
   }, [data]);
@@ -79,21 +81,30 @@ export default function DailySalesChart({
               const ratio = max ? Math.min(1, value / max) : 0;
               const highlight = value > 0 && value >= max * 0.75;
               return (
-                <div key={`${point.date}-${index}`} className="group relative flex h-full flex-1 flex-col justify-end">
+                <div
+                  key={`${point.date}-${index}`}
+                  className="group relative flex h-full flex-1 flex-col justify-end"
+                >
                   <div
                     className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink px-2 py-1 text-[10px] font-bold text-canvas group-hover:block"
                     role="tooltip"
                   >
-                    <span className="num">{point.date}</span> · <span className="num">{formatMoney(value)}</span>
+                    <span className="num">{point.date}</span> ·{" "}
+                    <span className="num">{formatMoney(value)}</span>
                   </div>
                   {showValues && value > 0 ? (
-                    <span className="num mb-1 text-center text-[9px] font-bold text-muted">{formatMoney(value)}</span>
+                    <span className="num mb-1 text-center text-[9px] font-bold text-muted">
+                      {formatMoney(value)}
+                    </span>
                   ) : null}
                   <div
                     className={`w-full rounded-t-[6px] transition-[height,background-color] duration-300 ${
                       highlight ? "bg-brand-dark" : "bg-brand/70 group-hover:bg-brand"
                     }`}
-                    style={{ height: value > 0 ? `${Math.max(3, ratio * 100)}%` : "2px", opacity: value > 0 ? 1 : 0.35 }}
+                    style={{
+                      height: value > 0 ? `${Math.max(3, ratio * 100)}%` : "2px",
+                      opacity: value > 0 ? 1 : 0.35,
+                    }}
                     title={`${point.date}: ${formatMoney(value)}`}
                     aria-label={`${point.date}: ${formatMoney(value)}`}
                   />
