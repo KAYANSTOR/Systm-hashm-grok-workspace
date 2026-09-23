@@ -1,7 +1,17 @@
 import { useStore } from "@/lib/store";
 
-export function ReportHeader({ title, subtitle, documentNumber, date }: { title: string, subtitle?: string, documentNumber?: string, date?: string }) {
-  const org = useStore(s => s.organization);
+export function ReportHeader({
+  title,
+  subtitle,
+  documentNumber,
+  date,
+}: {
+  title: string;
+  subtitle?: string;
+  documentNumber?: string;
+  date?: string;
+}) {
+  const org = useStore((s) => s.organization);
 
   return (
     <div className="flex justify-between items-start border-b-2 border-brand pb-6 mb-6">
@@ -14,7 +24,6 @@ export function ReportHeader({ title, subtitle, documentNumber, date }: { title:
             {org.phone} {org.phone && org.email && " | "} {org.email}
           </p>
         )}
-        
       </div>
 
       <div className="flex flex-col items-center gap-4">
@@ -50,7 +59,7 @@ export function ReportHeader({ title, subtitle, documentNumber, date }: { title:
 }
 
 export function ReportFooter() {
-  const org = useStore(s => s.organization);
+  const org = useStore((s) => s.organization);
 
   return (
     <div className="mt-12 pt-6 border-t border-line text-center text-[10px] text-muted flex flex-col gap-1 print:fixed print:bottom-0 print:left-0 print:w-full print:bg-white print:pb-4">

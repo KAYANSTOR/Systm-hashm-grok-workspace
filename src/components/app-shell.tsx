@@ -1,8 +1,9 @@
-import { Suspense, useMemo, type ReactNode } from "react";
-import { useState, useEffect } from "react";
+import { Suspense, useMemo, useState, useEffect, type ReactNode } from "react";
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "motion/react";
+import type { LucideIcon } from "lucide-react";
 import {
+  AlertTriangle,
   ArrowRight,
   ArrowUp,
   Bell,
@@ -12,32 +13,55 @@ import {
   Home,
   PieChart,
   Receipt,
+  RefreshCw,
   Settings,
+  ShieldAlert,
   UserPlus,
   Users,
   Wallet,
-  X,
   Wifi,
-  WifiOff
+  WifiOff,
+  X,
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import { canAccessPath, filterNavByPermissions, firstAllowedPath } from "@/lib/access";
-import { ACCESS_CONTROL, PRODUCT_SALES } from "@/lib/features";
+import { ACCESS_CONTROL, AUTH_REQUIRED, PRODUCT_SALES } from "@/lib/features";
 
 // اسم شاشة /sales يتبع المفتاح: «المبيعات» عند إظهار فواتير البضاعة،
 // و«خدمات التطريز» عندما تكون الواجهة مخصّصة لخدمات التطريز فقط.
-const NAV = [
-  { to: "/", label: "الرئيسية", icon: Home },
-  { to: "/sales", label: PRODUCT_SALES ? "المبيعات" : "خدمات التطريز", icon: Calculator },
-  { to: "/inventory", label: "المخزن", icon: Boxes },
-  { to: "/vouchers", label: "السندات", icon: Receipt },
-  { to: "/cashbox", label: "الصندوق", icon: Wallet },
-  { to: "/expenses", label: "المصروفات", icon: CreditCard },
-  { to: "/reports", label: "التقارير", icon: PieChart },
-  { to: "/settings", label: "الإعدادات", icon: Settings },
-] as const;
+type NavItem = { to: string; label: string; icon: LucideIcon };
+
+const NAV_GROUPS: ReadonlyArray<{ label: string; items: ReadonlyArray<NavItem> }> = [
+  {
+    label: "الرئيسية",
+    items: [{ to: "/", label: "لوحة المعمل", icon: Home }],
+  },
+  {
+    label: "العمليات",
+    items: [
+      { to: "/sales", label: PRODUCT_SALES ? "المبيعات" : "خدمات التطريز", icon: Calculator },
+      { to: "/vouchers", label: "السندات", icon: Receipt },
+      { to: "/inventory", label: "المخزن", icon: Boxes },
+    ],
+  },
+  {
+    label: "المالية",
+    items: [
+      { to: "/cashbox", label: "الصندوق", icon: Wallet },
+      { to: "/expenses", label: "المصروفات", icon: CreditCard },
+      { to: "/parties", label: "العملاء والموردون", icon: Users },
+      { to: "/reports", label: "التقارير", icon: PieChart },
+    ],
+  },
+  {
+    label: "النظام",
+    items: [{ to: "/settings", label: "الإعدادات", icon: Settings }],
+  },
+];
+
+const ALL_NAV = NAV_GROUPS.flatMap((g) => g.items);
 
 const MOBILE_NAV = [
   { to: "/", label: "الرئيسية", icon: Home },
@@ -58,25 +82,41 @@ const QUICK = [
   { to: "/expenses", label: "مصروف جديد", icon: CreditCard, tone: "bg-bad-soft text-bad" },
 ] as const;
 
+const PAGE_TITLES: Record<string, string> = {
+  "/": "لوحة المعمل",
+  "/sales": PRODUCT_SALES ? "المبيعات" : "خدمات التطريز",
+  "/vouchers": "السندات",
+  "/inventory": "المخزن",
+  "/cashbox": "الصندوق",
+  "/expenses": "المصروفات",
+  "/parties": "العملاء والموردون",
+  "/reports": "التقارير",
+  "/settings": "الإعدادات",
+  "/employees": "الموظفون",
+};
 
 function useOnlineStatus() {
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator !== "undefined" ? navigator.onLine : true,
+  );
 
   useEffect(() => {
     function handleOnline() {
       setIsOnline(true);
-      toast.info("تمت استعادة الاتصال، جارٍ ترحيل العمليات المحفوظة إلى السحابة…", { duration: 5000 });
+      toast.info("تمت استعادة الاتصال، جارٍ ترحيل العمليات المحفوظة إلى السحابة…", {
+        duration: 5000,
+      });
     }
     function handleOffline() {
       setIsOnline(false);
     }
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
   }, []);
 
@@ -86,17 +126,17 @@ function useOnlineStatus() {
 function PageSkeleton() {
   return (
     <div className="space-y-5" aria-label="جاري تحميل الشاشة" role="status">
-      <div className="h-9 w-48 animate-pulse rounded-xl bg-paper/80" />
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="h-28 animate-pulse rounded-3xl bg-paper/80" />
-        <div className="h-28 animate-pulse rounded-3xl bg-paper/80" />
-        <div className="h-28 animate-pulse rounded-3xl bg-paper/80" />
+      <div className="h-12 w-64 animate-pulse rounded-2xl bg-paper/80" />
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+        <div className="h-24 animate-pulse rounded-3xl bg-paper/80" />
+        <div className="h-24 animate-pulse rounded-3xl bg-paper/80" />
+        <div className="h-24 animate-pulse rounded-3xl bg-paper/80" />
+        <div className="h-24 animate-pulse rounded-3xl bg-paper/80" />
       </div>
-      <div className="h-64 animate-pulse rounded-3xl bg-paper/80" />
+      <div className="h-72 animate-pulse rounded-3xl bg-paper/80" />
     </div>
   );
 }
-
 
 export function AppShell({ children }: { children: ReactNode }) {
   const isOnline = useOnlineStatus();
@@ -115,12 +155,22 @@ export function AppShell({ children }: { children: ReactNode }) {
   // لا نحجب المسار أو البطاقة قبل وصول الصلاحيات من الخادم؛ الحماية الفعلية تبقى على الخادم.
   // بعد اكتمال الجلب تُصفّى القوائم ويُمنع الوصول المباشر للمسارات غير المسموحة.
   //
-  // الأداور والصلاحيات موقوفة مؤقتًا (FEATURES.ACCESS_CONTROL = false): تظهر كل
+  // الأدوار والصلاحيات موقوفة مؤقتًا (FEATURES.ACCESS_CONTROL = false): تظهر كل
   // الشاشات بلا تصفية ولا حجب، مع بقاء كامل منطق الصلاحيات في `lib/access.ts`
   // جاهزًا لإعادة التفعيل بإرجاع المفتاح إلى true.
   const permissionsEnforced = ACCESS_CONTROL && permissionsLoaded;
+  const navGroups = useMemo(
+    () =>
+      NAV_GROUPS.map((group) => ({
+        ...group,
+        items: permissionsEnforced
+          ? filterNavByPermissions(group.items, userPermissions)
+          : group.items,
+      })).filter((group) => group.items.length > 0),
+    [permissionsEnforced, userPermissions],
+  );
   const navItems = useMemo(
-    () => (permissionsEnforced ? filterNavByPermissions(NAV, userPermissions) : NAV),
+    () => (permissionsEnforced ? filterNavByPermissions(ALL_NAV, userPermissions) : ALL_NAV),
     [permissionsEnforced, userPermissions],
   );
   const mobileNavItems = useMemo(
@@ -146,24 +196,54 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const logo = organizationLogo || "/icons/icon-192.png";
-    document.querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="apple-touch-icon"]').forEach((link) => {
-      link.href = logo;
-    });
+    document
+      .querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="apple-touch-icon"]')
+      .forEach((link) => {
+        link.href = logo;
+      });
   }, [organizationLogo]);
 
   const [fabOpen, setFabOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
-
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    if (!isHydrated || !permissionsEnforced || pathname !== "/" || canAccessPath("/", userPermissions)) return;
+    if (
+      !isHydrated ||
+      !permissionsEnforced ||
+      pathname !== "/" ||
+      canAccessPath("/", userPermissions)
+    )
+      return;
     if (firstAllowed) void router.navigate({ to: firstAllowed as never });
   }, [firstAllowed, isHydrated, permissionsEnforced, pathname, router, userPermissions]);
 
   useEffect(() => {
     setIsHydrated(true);
   }, []);
+
+  /**
+   * تسخين المسارات بعد أول رسم: نجلب ملفات الشاشات في وقت الخمول حتى يكون
+   * التنقل بينها فوريًا (بلا مؤشر تحميل). لا يتعارض مع أولوية رسم الرئيسية
+   * لأن كل شيء يحدث بعد `requestIdleCallback`.
+   */
+  useEffect(() => {
+    const targets = navItems.map((item) => item.to);
+    const warm = () => {
+      for (const to of targets) {
+        void router.preloadRoute({ to } as never).catch(() => undefined);
+      }
+    };
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+    };
+    if (typeof w.requestIdleCallback === "function") {
+      const id = w.requestIdleCallback(warm, { timeout: 2500 });
+      return () => (window.cancelIdleCallback as ((handle: number) => void) | undefined)?.(id);
+    }
+    const timer = window.setTimeout(warm, 900);
+    return () => window.clearTimeout(timer);
+  }, [navItems, router]);
 
   useEffect(() => {
     setFabOpen(false);
@@ -172,7 +252,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // عند عودة الإنترنت: رحّل طابور العمليات فقط — لا تعيد رفع لقطة كاملة (كانت تسبب تكرار القيود).
-    const retrySync = () => { void drainPendingOutbox().catch(() => undefined); };
+    const retrySync = () => {
+      void drainPendingOutbox().catch(() => undefined);
+    };
     window.addEventListener("online", retrySync);
     return () => window.removeEventListener("online", retrySync);
   }, [drainPendingOutbox]);
@@ -188,70 +270,167 @@ export function AppShell({ children }: { children: ReactNode }) {
     [inventory],
   );
 
-  if (!isHydrated) {
-    return (
-      <div className="min-h-dvh bg-canvas text-ink flex items-center justify-center">
-        <div className="size-10 animate-spin rounded-full border-4 border-brand border-t-transparent" />
-        <p className="mt-4 text-sm font-bold text-muted">جاري التحميل...</p>
-      </div>
-    );
-  }
+  const pageTitle = PAGE_TITLES[pathname] || "معمل هاشم";
+  const isRoot = pathname === "/";
+
+  // لا شاشة "جاري تحميل النظام" تحجب الواجهة: الصفحة الأولى التي يراها المستخدم
+  // هي الشاشة الرئيسية مباشرة (كان الحجب الكامل يظهر عند كل فتح للتطبيق).
 
   return (
     <div className="min-h-dvh bg-canvas text-ink">
       <Toaster richColors position="top-center" dir="rtl" />
 
       <div className="flex min-h-dvh w-full">
-        <aside className="no-print sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-l border-line bg-paper p-4 lg:flex">
-          <div className="mb-6 flex items-center gap-3 px-2">
-            <img src={organizationLogo || "/icons/icon-192.png"} alt="شعار معمل هاشم" className="size-11 rounded-2xl object-contain shadow-sm" />
-            <div>
-              <p className="text-sm font-black leading-tight text-brand">معمل هاشم</p>
-              <p className="text-[11px] font-medium text-muted">إدارة المعمل</p>
+        {/* ————— القائمة الجانبية ————— */}
+        <aside className="no-print sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-l border-line/70 bg-paper lg:flex">
+          <div className="flex items-center gap-3 border-b border-line/70 px-4 py-4">
+            <span className="flex size-11 items-center justify-center overflow-hidden rounded-2xl bg-brand-soft shadow-soft">
+              <img
+                src={organizationLogo || "/icons/icon-192.png"}
+                alt="شعار المعمل"
+                className="size-full object-contain"
+              />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black leading-tight text-ink">
+                {settings.name || "معمل هاشم"}
+              </p>
+              <p className="text-[11px] font-bold text-muted">نظام إدارة التطريز</p>
             </div>
           </div>
-          <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const active = pathname === item.to;
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  preload="intent"
+
+          <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-4">
+            {navGroups.map((group) => (
+              <div key={group.label}>
+                <p className="overline mb-1.5 px-3">{group.label}</p>
+                <div className="flex flex-col gap-1">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const active = pathname === item.to;
+                    const badge =
+                      item.to === "/inventory" && lowStock.length > 0 ? lowStock.length : undefined;
+                    return (
+                      <Link
+                        key={item.to}
+                        to={item.to}
+                        preload="intent"
+                        className={cn(
+                          "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold transition-colors duration-150",
+                          active
+                            ? "bg-brand-soft text-brand-dark"
+                            : "text-muted hover:bg-canvas hover:text-ink",
+                        )}
+                      >
+                        {active ? (
+                          <motion.span
+                            layoutId="nav-rail"
+                            className="absolute -right-3 top-1/2 h-7 w-1.5 -translate-y-1/2 rounded-full bg-brand"
+                            transition={{ type: "spring", bounce: 0, duration: 0.35 }}
+                          />
+                        ) : null}
+                        <Icon className="size-5 shrink-0" strokeWidth={active ? 2.4 : 2} />
+                        <span className="truncate">{item.label}</span>
+                        {badge ? (
+                          <span className="num mr-auto rounded-full bg-bad-soft px-1.5 py-0.5 text-[10px] font-black text-bad">
+                            {badge}
+                          </span>
+                        ) : null}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            {!navItems.length ? (
+              <p className="px-3 py-2 text-xs text-muted">
+                لا توجد شاشات مسموحة لهذا الحساب. راجع الأدوار من حساب المدير.
+              </p>
+            ) : null}
+          </nav>
+
+          <div className="border-t border-line/70 p-3">
+            <div className="rounded-2xl bg-canvas p-3">
+              <div className="flex items-center gap-2">
+                <span
                   className={cn(
-                    "flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold transition",
-                    "touch-manipulation",
-                    "will-change-auto",
-                    active
-                      ? "bg-brand-soft text-brand"
-                      : "text-muted hover:bg-canvas hover:text-ink",
+                    "flex size-7 items-center justify-center rounded-lg",
+                    connectionState === "offline"
+                      ? "bg-bad-soft text-bad"
+                      : "bg-good-soft text-good",
                   )}
                 >
-                  <Icon className="size-5" strokeWidth={active ? 2.4 : 2} />
-                  {item.label}
-                </Link>
-              );
-            })}
-            {!navItems.length && (
-              <p className="px-3 py-2 text-xs text-muted">لا توجد شاشات مسموحة لهذا الحساب. راجع الأدوار من حساب المدير.</p>
-            )}
-          </nav>
+                  {connectionState === "offline" ? (
+                    <WifiOff className="size-3.5" />
+                  ) : (
+                    <Wifi className="size-3.5" />
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-black text-ink">
+                    {connectionState === "offline" ? "غير متصل" : "متصل بالسحابة"}
+                  </p>
+                  <p className="truncate text-[10px] font-bold text-muted">
+                    {pendingSyncCount > 0
+                      ? `${pendingSyncCount} عملية بالمزامنة`
+                      : "كل البيانات محدّثة"}
+                  </p>
+                </div>
+                {pendingSyncCount > 0 ? (
+                  <button
+                    type="button"
+                    className="rounded-lg p-1.5 text-muted transition hover:bg-paper hover:text-brand"
+                    aria-label="إعادة المزامنة"
+                    onClick={() => {
+                      try {
+                        void useStore.getState().drainPendingOutbox();
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                  >
+                    <RefreshCw className="size-3.5" />
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="no-print sticky top-0 z-20 flex h-16 items-center justify-between gap-3 bg-canvas/90 px-4 backdrop-blur-md lg:px-6">
-            <div className="flex items-center gap-2">
-              {pathname !== "/" ? (
-                <Link to="/" className="btn-icon" aria-label="رجوع">
+          {/* ————— الترويسة ————— */}
+          <header className="no-print sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-line/60 bg-canvas/85 px-4 backdrop-blur-xl lg:px-6">
+            <div className="flex min-w-0 items-center gap-2">
+              {!isRoot ? (
+                <Link to="/" className="btn-icon" aria-label="الرئيسية">
                   <ArrowRight className="size-5" />
                 </Link>
+              ) : (
+                <span className="flex size-10 items-center justify-center rounded-2xl bg-brand-soft text-brand lg:hidden">
+                  <img
+                    src={organizationLogo || "/icons/icon-192.png"}
+                    alt=""
+                    className="size-7 object-contain"
+                  />
+                </span>
+              )}
+              <div className="min-w-0">
+                <h1 className="truncate text-base font-black leading-tight text-ink lg:text-lg">
+                  {pageTitle}
+                </h1>
+                <p className="hidden text-[11px] font-bold text-muted sm:block">
+                  {settings.name || "معمل هاشم"} · صنعاء
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {!isOnline ? (
+                <span className="chip bg-bad-soft text-bad">
+                  <WifiOff className="size-3.5" />
+                  <span className="hidden sm:inline">غير متصل</span>
+                </span>
               ) : null}
-              {canOpenSettings ? (
-                <Link to="/settings" className="btn-icon" aria-label="الإعدادات">
-                  <Settings className="size-5" />
-                </Link>
-              ) : null}
+
               <div className="relative">
                 <button
                   type="button"
@@ -261,7 +440,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 >
                   <Bell className="size-5" />
                   {lowStock.length > 0 ? (
-                    <span className="absolute -top-1 -left-1 flex size-4 items-center justify-center rounded-full bg-bad text-[10px] font-black text-brand-fg">
+                    <span className="num absolute -left-1 -top-1 flex size-5 min-w-5 items-center justify-center rounded-full bg-bad px-1 text-[10px] font-black text-brand-fg">
                       {lowStock.length}
                     </span>
                   ) : null}
@@ -279,27 +458,45 @@ export function AppShell({ children }: { children: ReactNode }) {
                         onClick={() => setNotesOpen(false)}
                       />
                       <motion.div
-                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        initial={{ opacity: 0, y: -8, scale: 0.97 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                        transition={{ duration: 0.15 }}
-                        className="absolute right-0 top-12 z-40 w-72 origin-top-right overflow-hidden rounded-2xl border border-line bg-paper shadow-xl"
+                        exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                        transition={{ duration: 0.16 }}
+                        className="absolute left-0 top-12 z-40 w-80 origin-top-left overflow-hidden rounded-3xl border border-line/70 bg-paper shadow-pop"
                       >
-                        <div className="border-b border-line bg-canvas px-3 py-2">
-                          <p className="text-sm font-black">تنبيهات المخزن</p>
+                        <div className="flex items-center justify-between border-b border-line/70 bg-canvas/70 px-4 py-3">
+                          <p className="text-sm font-black text-ink">تنبيهات المخزن</p>
+                          {lowStock.length > 0 ? (
+                            <span className="num chip bg-bad-soft text-bad">{lowStock.length}</span>
+                          ) : null}
                         </div>
-                        <div className="max-h-60 overflow-y-auto">
+                        <div className="max-h-64 overflow-y-auto">
                           {lowStock.length === 0 ? (
-                            <p className="p-4 text-center text-sm text-muted">لا توجد تنبيهات</p>
+                            <div className="flex flex-col items-center px-4 py-8 text-center">
+                              <span className="flex size-10 items-center justify-center rounded-2xl bg-good-soft text-good">
+                                <Boxes className="size-5" />
+                              </span>
+                              <p className="mt-2 text-sm font-bold text-ink">
+                                كل الكميات بحالة جيدة
+                              </p>
+                              <p className="text-xs text-muted">لا يوجد صنف تحت الحد الأدنى</p>
+                            </div>
                           ) : (
                             lowStock.map((item) => (
                               <Link
                                 key={item.id}
                                 to="/inventory"
-                                className="block border-b border-line px-3 py-2.5 text-right last:border-0 hover:bg-canvas"
+                                className="flex items-center gap-3 border-b border-line/60 px-4 py-2.5 last:border-0 hover:bg-brand-soft/40"
                               >
-                                <p className="text-sm font-bold">{item.name}</p>
-                                <p className="text-xs text-bad">المتبقي: {item.quantity}</p>
+                                <span className="flex size-8 items-center justify-center rounded-xl bg-bad-soft text-bad">
+                                  <AlertTriangle className="size-4" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-bold text-ink">{item.name}</p>
+                                  <p className="num text-[11px] font-bold text-bad">
+                                    المتبقي {item.quantity} / الحد {item.minQuantity || 0}
+                                  </p>
+                                </div>
                               </Link>
                             ))
                           )}
@@ -309,43 +506,43 @@ export function AppShell({ children }: { children: ReactNode }) {
                   )}
                 </AnimatePresence>
               </div>
-            </div>
-            <div className="flex items-center gap-2 text-left">
-              <div className="hidden sm:block">
-                <p className="text-sm font-black leading-tight text-brand">
-                  {settings.name.split(" ")[0]} هاشم
-                </p>
-                <p className="text-[11px] text-muted">صنعاء</p>
-              </div>
 
-              <div className="flex items-center">
-                {isOnline ? (
-                  <div className="flex items-center gap-1.5 rounded-full bg-good/10 px-2 py-1 text-[10px] font-bold text-good" title="متصل بالإنترنت">
-                    <Wifi className="size-3" />
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 rounded-full bg-bad/10 px-2 py-1 text-[10px] font-bold text-bad" title="وضع عدم الاتصال">
-                    <WifiOff className="size-3" />
-                    <span className="hidden sm:inline">غير متصل</span>
-                  </div>
-                )}
-              </div>
-
-              <img src={organizationLogo || "/icons/icon-192.png"} alt="شعار معمل هاشم" className="size-10 rounded-2xl object-contain shadow-sm" />
+              {canOpenSettings ? (
+                <Link to="/settings" className="btn-icon" aria-label="الإعدادات">
+                  <Settings className="size-5" />
+                </Link>
+              ) : null}
             </div>
           </header>
 
-          <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-32 pt-2 lg:px-8 lg:pb-10 relative overflow-x-hidden">
+          <main className="relative mx-auto w-full max-w-6xl flex-1 px-4 pb-32 pt-4 lg:px-8 lg:pb-12">
+            {!AUTH_REQUIRED ? (
+              <div className="mb-3 flex items-center gap-2.5 rounded-2xl border border-warn/30 bg-warn-soft/70 px-3.5 py-2 text-[11px] font-bold text-warn">
+                <ShieldAlert className="size-4 shrink-0" />
+                <span>
+                  وضع الإعداد: تسجيل الدخول موقوف مؤقتًا — النظام مفتوح لمن يملك الرابط. أعِد تفعيله
+                  قبل التشغيل الفعلي.
+                </span>
+              </div>
+            ) : null}
+
             {connectionState === "offline" ? (
-              <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-bad/10 px-4 py-2.5 text-xs font-bold text-bad" role="status">
-                <span>غير متصل — البيانات تُحفظ على الجهاز</span>
+              <div
+                className="mb-3 flex items-center gap-2.5 rounded-2xl border border-bad/25 bg-bad-soft/70 px-3.5 py-2 text-[11px] font-bold text-bad"
+                role="status"
+              >
+                <WifiOff className="size-4 shrink-0" />
+                غير متصل — البيانات تُحفظ على الجهاز وتُرفع عند عودة الاتصال.
               </div>
             ) : pendingSyncCount > 0 ? (
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-warn/10 px-4 py-2.5 text-xs font-bold text-warn" role="status">
+              <div
+                className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warn/30 bg-warn-soft/70 px-3.5 py-2 text-[11px] font-bold text-warn"
+                role="status"
+              >
                 <span>جارٍ مزامنة {pendingSyncCount} عملية مع السحابة…</span>
                 <button
                   type="button"
-                  className="rounded-lg border border-warn/40 px-2 py-1 text-[11px] hover:bg-warn/10"
+                  className="rounded-lg border border-warn/40 px-2 py-1 text-[10px] font-black transition hover:bg-warn/10"
                   onClick={() => {
                     try {
                       useStore.getState().clearStuckOutbox?.();
@@ -355,17 +552,21 @@ export function AppShell({ children }: { children: ReactNode }) {
                     }
                   }}
                 >
-                  إعادة المحاولة / تنظيف
+                  إعادة المحاولة
                 </button>
               </div>
             ) : null}
-            <div key={pathname} className="w-full">
+
+            <div className="w-full">
               {!pathAllowed ? (
-                <div className="mx-auto max-w-md rounded-3xl border border-line bg-paper p-8 text-center shadow-sm">
-                  <p className="text-lg font-black text-brand-dark">لا توجد صلاحية لفتح هذه الشاشة</p>
+                <div className="mx-auto max-w-md card p-8 text-center">
+                  <span className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl bg-warn-soft text-warn">
+                    <ShieldAlert className="size-6" />
+                  </span>
+                  <p className="text-lg font-black text-ink">لا توجد صلاحية لفتح هذه الشاشة</p>
                   <p className="mt-2 text-sm text-muted">
-                    دورك الحالي لا يسمح بالوصول إلى هذه الصفحة. اطلب من المدير تفعيل الشاشة أو الإجراء من
-                    «الأدوار وصلاحيات الشاشات».
+                    دورك الحالي لا يسمح بالوصول إلى هذه الصفحة. اطلب من المدير تفعيل الشاشة أو
+                    الإجراء من «الأدوار وصلاحيات الشاشات».
                   </p>
                   {firstAllowed ? (
                     <Link to={firstAllowed as never} className="btn-primary mt-6 inline-flex">
@@ -374,9 +575,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   ) : null}
                 </div>
               ) : (
-                <Suspense fallback={<PageSkeleton />}>
-                  {children}
-                </Suspense>
+                <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
               )}
             </div>
           </main>
@@ -390,7 +589,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="no-print fixed inset-0 z-40 bg-ink/20 lg:hidden"
+            className="no-print fixed inset-0 z-40 bg-ink/25 backdrop-blur-[2px] lg:hidden"
             onClick={() => setFabOpen(false)}
           />
         )}
@@ -399,11 +598,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       <AnimatePresence>
         {fabOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            initial={{ opacity: 0, y: 24, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            exit={{ opacity: 0, y: 24, scale: 0.96 }}
             transition={{ duration: 0.2, type: "spring", bounce: 0 }}
-            className="no-print fixed bottom-24 left-1/2 z-50 flex w-52 -translate-x-1/2 flex-col gap-2 lg:hidden"
+            className="no-print fixed bottom-28 left-1/2 z-50 flex w-64 -translate-x-1/2 flex-col gap-2 lg:hidden"
           >
             {quickItems.map((q) => {
               const Icon = q.icon;
@@ -411,10 +610,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <Link
                   key={q.to}
                   to={q.to}
-                  className="flex items-center justify-between rounded-2xl border border-line bg-paper px-4 py-3 shadow-lg"
+                  preload="intent"
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-line/70 bg-paper px-4 py-3 shadow-pop"
                 >
-                  <span className="text-sm font-bold">{q.label}</span>
-                  <span className={cn("rounded-xl p-2", q.tone)}>
+                  <span className="text-sm font-black text-ink">{q.label}</span>
+                  <span
+                    className={cn("flex size-9 items-center justify-center rounded-xl", q.tone)}
+                  >
                     <Icon className="size-5" />
                   </span>
                 </Link>
@@ -424,12 +626,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       </AnimatePresence>
 
-      <nav className="no-print fixed inset-x-0 bottom-0 z-50 border-t border-line bg-paper pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(20,50,58,0.06)] lg:hidden">
-        <div className="relative mx-auto flex h-20 max-w-lg items-center justify-around px-2">
+      <nav className="no-print fixed inset-x-0 bottom-0 z-50 border-t border-line/70 bg-paper/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_34px_-14px_rgba(20,50,58,0.25)] backdrop-blur-xl lg:hidden">
+        <div className="relative mx-auto flex h-[4.5rem] max-w-lg items-center justify-around px-2">
           <button
             type="button"
             className={cn(
-              "absolute -top-7 left-1/2 flex size-16 -translate-x-1/2 items-center justify-center rounded-full border-4 border-canvas text-brand-fg shadow-lg transition",
+              "absolute -top-7 left-1/2 flex size-14 -translate-x-1/2 items-center justify-center rounded-full border-4 border-canvas text-brand-fg shadow-pop transition-[transform,background-color] duration-200",
               fabOpen ? "rotate-45 bg-brand-dark" : "bg-brand",
             )}
             onClick={() => setFabOpen((v) => !v)}
@@ -440,19 +642,26 @@ export function AppShell({ children }: { children: ReactNode }) {
           {mobileNavItems.map((item, i) => {
             const Icon = item.icon;
             const active = pathname === item.to;
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  preload="intent"
-                  className={cn(
-                    "flex flex-1 flex-col items-center gap-1 pt-1 text-[11px] font-bold",
-                  i === 1 && "ml-8",
-                  i === 2 && "mr-8",
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                preload="intent"
+                className={cn(
+                  "flex flex-1 flex-col items-center gap-1 pt-1 text-[11px] font-bold transition-colors",
+                  i === 1 && "ml-10",
+                  i === 2 && "mr-10",
                   active ? "text-brand" : "text-muted",
                 )}
               >
-                <Icon className="size-6" strokeWidth={active ? 2.5 : 2} />
+                <span
+                  className={cn(
+                    "flex h-8 w-12 items-center justify-center rounded-2xl transition-colors",
+                    active && "bg-brand-soft",
+                  )}
+                >
+                  <Icon className="size-5" strokeWidth={active ? 2.5 : 2} />
+                </span>
                 {item.label}
               </Link>
             );

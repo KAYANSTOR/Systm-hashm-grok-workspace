@@ -4,12 +4,15 @@
   --font-sans: "Cairo", "Noto Naskh Arabic", "Tahoma", system-ui, sans-serif;
 
   --color-canvas: #eef3f4;
+  --color-canvas-deep: #e5ecee;
   --color-paper: #ffffff;
   --color-ink: #14323a;
+  --color-ink-soft: #24454e;
   --color-muted: #5c7178;
   --color-line: #dce6e8;
+  --color-line-strong: #c7d6d9;
   --color-brand: #1b7a76;
-  --color-brand-dark: #14635f;
+  --color-brand-dark: #125a57;
   --color-brand-soft: #e5f4f3;
   --color-brand-fg: #f4fffe;
   --color-accent: #b85a86;
@@ -21,17 +24,26 @@
   --color-warn: #b87618;
   --color-warn-soft: #f8ecd8;
   --color-navy: #1e3a4c;
+  --color-navy-soft: #e7edf1;
+  --color-gold: #a98436;
+  --color-gold-soft: #f7f0dd;
 
   --radius-sm: 0.5rem;
   --radius-md: 0.9rem;
   --radius-lg: 1.25rem;
   --radius-xl: 1.6rem;
+
+  --shadow-soft: 0 1px 2px rgba(20, 50, 58, 0.05), 0 10px 28px -20px rgba(20, 50, 58, 0.4);
+  --shadow-lift: 0 2px 6px rgba(20, 50, 58, 0.06), 0 22px 46px -26px rgba(20, 50, 58, 0.5);
+  --shadow-pop: 0 24px 60px -20px rgba(20, 50, 58, 0.35);
+  --shadow-hero: 0 30px 60px -30px rgba(18, 90, 87, 0.65);
 }
 
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    scrollbar-gutter: stable;
   }
 
   html,
@@ -41,7 +53,11 @@
   }
 
   body {
-    background: var(--color-canvas);
+    background:
+      radial-gradient(1100px 500px at 100% -5%, rgba(27, 122, 118, 0.07), transparent 60%),
+      radial-gradient(900px 460px at 0% 0%, rgba(184, 90, 134, 0.05), transparent 55%),
+      var(--color-canvas);
+    background-attachment: fixed;
     color: var(--color-ink);
     font-family: var(--font-sans);
   }
@@ -66,42 +82,171 @@
   textarea {
     font-family: inherit;
   }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-brand) 24%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--color-brand) 70%, transparent);
+    outline-offset: 2px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--color-muted) 35%, transparent) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 9px;
+    height: 9px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-muted) 30%, transparent);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--color-muted) 50%, transparent);
+    background-clip: padding-box;
+  }
 }
 
 @layer components {
+  /* ————— الأزرار ————— */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-5 py-2.5 font-bold text-brand-fg shadow-sm transition hover:bg-brand-dark active:scale-[0.98] disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-brand px-5 py-2.5 text-sm font-bold text-brand-fg shadow-sm transition-[background-color,transform,box-shadow] duration-150 hover:bg-brand-dark hover:shadow-lift active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50;
+    background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0));
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-navy px-5 py-2.5 font-bold text-brand-fg shadow-sm transition hover:opacity-90 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-navy px-5 py-2.5 text-sm font-bold text-brand-fg shadow-sm transition hover:bg-navy/90 hover:shadow-lift active:scale-[0.97] disabled:opacity-50;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-line bg-paper px-5 py-2.5 font-bold text-ink transition hover:border-brand/40 hover:bg-brand-soft;
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl border border-line bg-paper px-5 py-2.5 text-sm font-bold text-ink transition hover:border-brand/40 hover:bg-brand-soft hover:text-brand-dark active:scale-[0.97] disabled:opacity-50;
   }
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-bad px-5 py-2.5 font-bold text-brand-fg shadow-sm transition hover:opacity-90 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-bad px-5 py-2.5 text-sm font-bold text-brand-fg shadow-sm transition hover:opacity-90 hover:shadow-lift active:scale-[0.97] disabled:opacity-50;
+  }
+  .btn-success {
+    @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-good px-5 py-2.5 text-sm font-bold text-brand-fg shadow-sm transition hover:opacity-90 hover:shadow-lift active:scale-[0.97] disabled:opacity-50;
   }
   .btn-icon {
-    @apply inline-flex size-10 items-center justify-center rounded-2xl bg-paper text-ink shadow-sm transition-[transform,background-color,color] duration-150 hover:bg-brand-soft active:scale-[0.96];
+    @apply inline-flex size-10 items-center justify-center rounded-2xl border border-line/70 bg-paper text-ink shadow-soft transition-[transform,background-color,color,border-color] duration-150 hover:border-brand/30 hover:bg-brand-soft hover:text-brand-dark active:scale-[0.95];
+  }
+  .btn-sm {
+    @apply px-3 py-2 text-xs;
   }
 
+  /* ————— الحقول ————— */
   .input-field {
-    @apply w-full rounded-2xl border border-line bg-paper px-4 py-3 font-bold text-ink shadow-sm outline-none transition placeholder:font-medium placeholder:text-muted/70 hover:border-brand/40 focus:border-brand focus:ring-2 focus:ring-brand/20;
+    @apply w-full rounded-2xl border border-line bg-paper px-4 py-3 text-sm font-bold text-ink shadow-soft outline-none transition placeholder:font-medium placeholder:text-muted/70 hover:border-brand/40 focus:border-brand focus:ring-4 focus:ring-brand/12 disabled:bg-canvas disabled:text-muted;
   }
-
+  .input-search {
+    @apply w-full rounded-2xl border border-line bg-paper py-3 pl-4 pr-11 text-sm font-medium text-ink shadow-soft outline-none transition placeholder:text-muted/70 hover:border-brand/40 focus:border-brand focus:ring-4 focus:ring-brand/12;
+  }
   .label {
-    @apply mb-1.5 block text-sm font-bold text-ink;
+    @apply mb-1.5 block text-xs font-bold tracking-wide text-muted;
+  }
+  .field-hint {
+    @apply mt-1.5 text-[11px] font-medium text-muted;
   }
 
+  /* ————— الأسطح ————— */
   .card {
-    @apply rounded-3xl border border-line/80 bg-paper shadow-sm;
+    @apply rounded-3xl border border-line/70 bg-paper shadow-soft;
+  }
+  .card-pad {
+    @apply rounded-3xl border border-line/70 bg-paper p-4 shadow-soft sm:p-5;
+  }
+  .card-hover {
+    @apply transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift;
+  }
+  .card-hero {
+    @apply relative overflow-hidden rounded-3xl text-brand-fg shadow-hero;
+    background-image: linear-gradient(135deg, #1f8a85 0%, #14706c 45%, #0f5b58 100%);
+  }
+  .card-sunken {
+    @apply rounded-2xl border border-line/70 bg-canvas/70;
   }
 
+  /* ————— العناوين ————— */
   .page-title {
-    @apply text-2xl font-black tracking-tight text-ink;
+    @apply text-2xl font-black tracking-tight text-ink sm:text-[28px];
   }
   .page-subtitle {
     @apply mt-1 text-sm font-medium text-muted;
+  }
+  .section-title {
+    @apply text-base font-black tracking-tight text-ink;
+  }
+  .section-subtitle {
+    @apply mt-0.5 text-xs font-medium text-muted;
+  }
+  .overline {
+    @apply text-[11px] font-black uppercase tracking-[0.14em] text-muted;
+  }
+
+  /* ————— الشرائح والتبويبات ————— */
+  .segmented {
+    @apply inline-flex w-full gap-1 rounded-2xl border border-line/70 bg-paper p-1 shadow-soft;
+  }
+  .segmented-item {
+    @apply flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-bold text-muted transition-all duration-150 hover:bg-canvas hover:text-ink;
+  }
+  .segmented-item-active {
+    @apply bg-brand text-brand-fg shadow-sm hover:bg-brand hover:text-brand-fg;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold;
+  }
+  .chip-filter {
+    @apply inline-flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1.5 text-xs font-bold text-muted transition hover:border-brand/40 hover:text-ink;
+  }
+  .chip-filter-active {
+    @apply border-brand bg-brand-soft text-brand-dark hover:border-brand hover:text-brand-dark;
+  }
+
+  /* ————— الصفوف والقوائم ————— */
+  .list-row {
+    @apply flex items-center gap-3 rounded-2xl border border-line/70 bg-paper p-3 shadow-soft transition-[transform,box-shadow,border-color] duration-200 hover:border-brand/25 hover:shadow-lift sm:p-4;
+  }
+  .row-divider {
+    @apply divide-y divide-line/70;
+  }
+  .tile-icon {
+    @apply flex size-11 shrink-0 items-center justify-center rounded-2xl;
+  }
+
+  /* ————— الجداول ————— */
+  .table-shell {
+    @apply overflow-hidden rounded-2xl border border-line/70 bg-paper shadow-soft;
+  }
+  .data-table {
+    @apply w-full border-collapse text-right text-sm;
+  }
+  .data-table thead th {
+    @apply bg-canvas/80 px-3 py-3 text-[11px] font-black tracking-wide text-muted;
+  }
+  .data-table tbody td {
+    @apply border-t border-line/70 px-3 py-3 font-bold text-ink;
+  }
+  .data-table tbody tr:hover {
+    @apply bg-brand-soft/40;
+  }
+  .num {
+    @apply tabular-nums;
+  }
+
+  /* ————— مؤشرات ————— */
+  .meter {
+    @apply h-2 w-full overflow-hidden rounded-full bg-canvas-deep;
+  }
+  .meter-fill {
+    @apply h-full rounded-full transition-[width] duration-500;
   }
 
   a,
@@ -114,26 +259,18 @@
   }
 }
 
+/**
+ * الطباعة أصبحت معزولة عبر `components/print/print.css` (جذر طباعة واحد).
+ * كانت هنا قاعدة `body * { visibility: hidden }` قديمة تُفرغ الصفحة عند الطباعة
+ * من المتصفح مباشرة (Ctrl+P) ولا علاقة لها بالقوالب الحالية — أُزيلت.
+ */
 @media print {
   .no-print {
     display: none !important;
   }
+
   body {
-    background: white !important;
-  }
-  body * {
-    visibility: hidden;
-  }
-  .print-section,
-  .print-section * {
-    visibility: visible;
-  }
-  .print-section {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    box-shadow: none !important;
-    border: none !important;
+    background: #ffffff !important;
   }
 }
 

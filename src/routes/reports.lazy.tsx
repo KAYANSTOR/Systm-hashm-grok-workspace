@@ -1,11 +1,12 @@
 import { createLazyFileRoute } from "@tanstack/react-router";
 import { FileText, Printer, RefreshCw, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import DailySalesChart from "@/components/DailySalesChart";
 import { AppDatePicker } from "@/components/ui/AppDatePicker";
 import { AppSelect } from "@/components/ui/AppSelect";
 import { EmptyState } from "@/components/empty-state";
 import { Modal } from "@/components/modal";
+import ReportPrintTemplate from "@/components/print/ReportPrintTemplate";
 import { cashBalance } from "@/lib/accounting";
 import {
   AGING_BUCKETS,
@@ -14,6 +15,7 @@ import {
   productMovement,
   receivableAging,
 } from "@/domain/reporting";
+import { buildReportDocument, type ReportDocumentData, type ReportTab } from "@/domain/report-document";
 import type { InventoryItem, Invoice, Transaction } from "@/lib/types";
 import { useStore } from "@/lib/store";
 import { methodLabel } from "@/lib/labels";
@@ -21,7 +23,6 @@ import type { PaymentMethod } from "@/lib/types";
 import { daysAgoIso, formatCurrency, formatDate, formatMoney, todayIso } from "@/lib/utils";
 
 export const Route = createLazyFileRoute("/reports")({ component: ReportsPage });
-type ReportTab = "overview" | "sales" | "cash" | "stock" | "party" | "activity" | "analytics";
 type AnyRow = Record<string, any>;
 
 const rows = <T,>(value: unknown): T[] => (Array.isArray(value) ? value : []);
@@ -54,6 +55,8 @@ function ReportsPage() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [dataError, setDataError] = useState("");
+  // مستند الطباعة يُبنى عند الطلب فقط (لا يُثقل كل رسم للشاشة).
+  const [printData, setPrintData] = useState<ReportDocumentData | null>(null);
 
   const refresh = async () => {
     setRefreshing(true);
@@ -191,13 +194,111 @@ function ReportsPage() {
   const detail = detailId ? auditLog.find((a) => a.auditId === detailId) : null;
   const loading = connectionState === "syncing" && !invoices.length && !customers.length && !inventory.length;
 
+  const partyLabel = parties.find((party) => party.value === partyId)?.label;
+  const warehouseLabel = warehouseOptions.find((warehouse) => warehouse.value === warehouseId)?.label;
+
+  /**
+   * يفتح معاينة طباعة بمستند مستقل بهوية المنشأة.
+   * كانت الطباعة السابقة تطبع الشاشة نفسها (قائمة جانبية وأزرار داخل الورقة).
+   */
+  const openPrint = () => {
+    const document = buildReportDocument({
+      tab,
+      from,
+      to,
+      partyLabel: partyId === "all" ? undefined : partyLabel,
+      warehouseLabel: warehouseId === "all" ? undefined : warehouseLabel,
+      salesTotal,
+      collected,
+      receiptsTotal: receipts,
+      expenseTotal,
+      cashBalance: cash,
+      stockValue,
+      expensesByCategory,
+      dailySales: chart,
+      invoices: sales.map((invoice) => ({
+        number: String(invoice.invoiceNumber ?? "—"),
+        date: formatDate(String(invoice.date)),
+        party: String(customers.find((c) => String(c.id) === String(invoice.partyId))?.name || invoice.partyId || "—"),
+        status: invoice.isCancelled ? "ملغاة" : invoice.paymentType === "cash" ? "نقدي" : invoice.paymentType === "deferred" ? "آجل" : "جزئي",
+        total: num(invoice.total),
+        paid: num(invoice.paidAmount),
+      })),
+      cashRows: transactions
+        .filter((t) => (num(t.cashIn) || num(t.cashOut)) && inRange(t.date))
+        .map((t) => ({
+          date: formatDate(String(t.date)),
+          description: String(t.description || "حركة صندوق"),
+          inAmount: num(t.cashIn),
+          outAmount: num(t.cashOut),
+        })),
+      stock: stockRows.map((item) => ({
+        name: String(item.name ?? ""),
+        category: String(item.category ?? "—"),
+        quantity: num(item.quantity),
+        cost: num(item.costPrice),
+        value: num(item.quantity) * num(item.costPrice),
+        status: String(item.status ?? ""),
+      })),
+      partyRows: partyRunning.map((row) => ({
+        date: formatDate(String(row.date)),
+        description: String(row.description || "—"),
+        debit: num(row.debit),
+        credit: num(row.credit),
+        running: num(row.running),
+      })),
+      partyBalance: num(partyBalance),
+      agingBuckets: AGING_BUCKETS.map((bucket) => ({
+        key: bucket.key,
+        label: bucket.label,
+        amount: num(aging.buckets[bucket.key]),
+      })),
+      agingTotal: num(aging.total),
+      agingByParty: aging.byParty.slice(0, 25).map((row) => ({
+        name: String(customers.find((c) => String(c.id) === row.partyId)?.name || row.partyId),
+        days: num(row.oldestDays),
+        total: num(row.total),
+      })),
+      profit: {
+        serviceRevenue: num(profit.serviceRevenue),
+        productRevenue: num(profit.productRevenue),
+        estimatedCost: num(profit.estimatedCost),
+        grossProfit: num(profit.grossProfit),
+        marginPercent: num(profit.marginPercent),
+      },
+      movement: movement.map((row) => ({
+        name: String(row.name),
+        inQty: num(row.inQty),
+        outQty: num(row.outQty),
+        netQty: num(row.netQty),
+      })),
+      flow: {
+        in: num(flow.in),
+        out: num(flow.out),
+        net: num(flow.net),
+        byMethod: flow.byMethod.map((row) => ({
+          label: methodLabel[row.method as PaymentMethod] || String(row.method),
+          inAmount: num(row.in),
+          outAmount: num(row.out),
+        })),
+      },
+      activity: auditLog.slice(0, 120).map((row) => ({
+        date: formatDate(day(row.createdAt)),
+        summary: String(row.summary || `${row.action} · ${row.entityType}`),
+        entity: `${row.entityType} / ${row.entityId}`,
+        status: row.status === "success" ? "نجحت" : String(row.status || "—"),
+      })),
+    });
+    setPrintData(document);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div><h1 className="page-title">التقارير</h1><p className="text-sm text-muted">من مصادر الحقيقة: القيود · الحركات · المستندات</p></div>
         <div className="flex gap-2">
           <button type="button" className="btn-secondary" disabled={refreshing} onClick={() => void refresh()}><RefreshCw className={`size-4 ${refreshing ? "animate-spin" : ""}`} />تحديث</button>
-          <button type="button" className="btn-secondary" onClick={() => window.print()}><Printer className="size-4" />طباعة</button>
+          <button type="button" className="btn-primary" disabled={!validRange} onClick={openPrint}><Printer className="size-4" />معاينة وطباعة التقرير</button>
         </div>
       </div>
 
@@ -218,7 +319,7 @@ function ReportsPage() {
       {tab === "overview" && validRange && <>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4"><Kpi title="مبيعات الفترة" value={formatCurrency(salesTotal)} /><Kpi title="المقبوض (فواتير)" value={formatCurrency(collected)} /><Kpi title="سندات قبض" value={formatCurrency(receipts)} /><Kpi title="مصروفات" value={formatCurrency(expenseTotal)} /></div>
         <div className="grid gap-3 sm:grid-cols-2"><Kpi title="رصيد الصندوق (من القيود)" value={formatCurrency(cash)} /><Kpi title={`قيمة المخزون (${warehouseId === "all" ? "كل المخازن" : "المخزن المختار"})`} value={formatCurrency(stockValue)} /></div>
-        <div className="card p-4"><h2 className="mb-3 font-black">المبيعات اليومية</h2>{chart.length ? <div className="h-56"><ResponsiveContainer width="100%" height="100%"><BarChart data={chart}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" /><XAxis dataKey="date" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} width={48} /><Tooltip formatter={(v: number) => formatMoney(num(v))} /><Bar dataKey="total" fill="var(--color-brand)" radius={[8, 8, 0, 0]} /></BarChart></ResponsiveContainer></div> : <EmptyState icon={FileText} title="لا توجد مبيعات في الفترة المحددة" />}</div>
+        <div className="card p-4"><h2 className="mb-3 font-black">المبيعات اليومية</h2>{chart.length ? <DailySalesChart data={chart} /> : <EmptyState icon={FileText} title="لا توجد مبيعات في الفترة المحددة" />}</div>
         {expensesByCategory.length > 0 && (
           <section className="card overflow-hidden">
             <div className="border-b border-line px-4 py-3"><h2 className="font-black">المصروفات حسب الفئة</h2><p className="text-xs text-muted">كل فئة تُرحَّل في الدفتر إلى حساب مستقل — إجمالي الفترة {formatCurrency(expenseTotal)}</p></div>
@@ -339,6 +440,8 @@ function ReportsPage() {
       {tab === "activity" && validRange && <div className="card overflow-hidden"><div className="border-b border-line px-4 py-3 text-sm font-bold text-muted">سجل العمليات · {Math.min(auditLog.length, 100)}</div>{auditLog.length ? <ul className="divide-y divide-line">{auditLog.slice(0, 100).map((a) => <li key={a.auditId}><button type="button" className="flex w-full items-start justify-between gap-3 px-4 py-3 text-right hover:bg-canvas" onClick={() => setDetailId(a.auditId)}><div><p className="font-black">{a.summary || `${a.action} · ${a.entityType}`}</p><p className="text-xs text-muted">{formatDate(day(a.createdAt))} · {a.entityId}</p></div><span className={`rounded-lg px-2 py-0.5 text-[10px] font-bold ${a.status === "success" ? "bg-good-soft text-good" : "bg-warn-soft text-warn"}`}>{a.status === "success" ? "نجحت" : a.status || "—"}</span></button></li>)}</ul> : <EmptyState icon={FileText} title="لا سجلات بعد" />}</div>}
 
       <Modal open={!!detail} onClose={() => setDetailId(null)} title="تفاصيل العملية">{detail ? <div className="space-y-3 text-sm"><Row k="العملية" v={detail.summary || detail.action} /><Row k="الكيان" v={`${detail.entityType} / ${detail.entityId}`} /><Row k="Operation ID" v={detail.operationId || "—"} /><Row k="Audit ID" v={detail.auditId} /><Row k="الجهاز" v={detail.deviceId || "—"} /><Row k="التاريخ" v={detail.createdAt} /></div> : null}</Modal>
+
+      {printData ? <ReportPrintTemplate data={printData} onClose={() => setPrintData(null)} /> : null}
     </div>
   );
 }

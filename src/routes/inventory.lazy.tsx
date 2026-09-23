@@ -1,14 +1,35 @@
 import { createLazyFileRoute } from "@tanstack/react-router";
-import { AlertTriangle, Pencil, Plus, Scissors, Search, Trash2, ArrowDownRight, ArrowUpRight, Printer } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Boxes,
+  Layers,
+  Pencil,
+  Plus,
+  Scissors,
+  Trash2,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { Modal } from "@/components/modal";
 import { categoryLabel, unitLabel } from "@/lib/labels";
 import { AppSelect } from "@/components/ui/AppSelect";
+import {
+  Alert,
+  Chip,
+  FilterChip,
+  Meter,
+  Money,
+  PageHeader,
+  SearchField,
+  StatCard,
+  StatGrid,
+} from "@/components/ui/kit";
 import { useStore } from "@/lib/store";
 import type { InventoryCategory, InventoryItem, InventoryUnit } from "@/lib/types";
-import { formatCurrency, nextNumber, todayIso } from "@/lib/utils";
+import { cn, formatMoney, nextNumber, todayIso } from "@/lib/utils";
 import { ADVANCED_INVENTORY } from "@/lib/features";
 
 export const Route = createLazyFileRoute("/inventory")({ component: InventoryPage });
@@ -29,32 +50,40 @@ function InventoryPage() {
   const rawInventory = useStore((s) => s.inventory);
   const customers = useStore((s) => s.customers);
   const addCustomer = useStore((s) => s.addCustomer);
-  const inventory = Array.from(new Map(rawInventory.map(item => [item.id, item])).values());
+  const inventory = Array.from(new Map(rawInventory.map((item) => [item.id, item])).values());
   const invoices = useStore((s) => s.invoices);
   const addInvoice = useStore((s) => s.addInvoice);
   const addInventoryItem = useStore((s) => s.addInventoryItem);
-  const warehouses = useStore((s) => s.warehouses || []);
   const productCategories = useStore((s) => s.productCategories || []);
   const defaultWarehouseId = useStore((s) => s.defaultWarehouseId || "wh1");
-  const [warehouseId, setWarehouseId] = useState(defaultWarehouseId);
+  // المخزن الافتراضي ثابت في الوضع المبسّط (إدخال/إخراج) فلا حاجة لمبدّل مخازن.
+  const warehouseId = defaultWarehouseId;
   const updateInventoryItem = useStore((s) => s.updateInventoryItem);
   const deleteInventoryItem = useStore((s) => s.deleteInventoryItem);
 
   const [q, setQ] = useState("");
-  const [cat, setCat] = useState<"all" | InventoryCategory>("all");
+  const [cat, setCat] = useState<"all" | string>("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [issueOpen, setIssueOpen] = useState(false);
-  const [issueItems, setIssueItems] = useState<Array<{ id: string; inventoryItemId: string; quantity: string }>>([]);
-  const [receiptItems, setReceiptItems] = useState<Array<{ id: string; inventoryItemId: string; name: string; quantity: string }>>([]);
+  const [issueItems, setIssueItems] = useState<
+    Array<{ id: string; inventoryItemId: string; quantity: string }>
+  >([]);
+  const [receiptItems, setReceiptItems] = useState<
+    Array<{ id: string; inventoryItemId: string; name: string; quantity: string }>
+  >([]);
 
   // ملخص سريع: كم صنفًا، إجمالي الكميات، وكم صنفًا وصل للحد الأدنى.
   const summary = useMemo(() => {
     const totalUnits = inventory.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
     const lowCount = inventory.filter((item) => item.quantity <= (item.minQuantity || 0)).length;
-    return { items: inventory.length, totalUnits, lowCount };
+    const stockValue = inventory.reduce(
+      (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.costPrice) || 0),
+      0,
+    );
+    return { items: inventory.length, totalUnits, lowCount, stockValue };
   }, [inventory]);
 
   const categoryNames: Record<string, string> = { ...categoryLabel };
@@ -71,6 +100,11 @@ function InventoryPage() {
         return matchQ && matchC;
       }),
     [inventory, q, cat],
+  );
+
+  const maxQuantity = useMemo(
+    () => Math.max(1, ...inventory.map((i) => Number(i.quantity) || 0)),
+    [inventory],
   );
 
   const openNew = () => {
@@ -99,16 +133,19 @@ function InventoryPage() {
   };
 
   const save = () => {
-    if (!form.name.trim()) return toast.error("أدخل اسم المادة");
+    if (!form.name.trim()) {
+      toast.error("أدخل اسم المادة");
+      return;
+    }
     const payload = {
       code: form.code,
       name: form.name.trim(),
       category: form.category,
       unit: form.unit,
-      quantity: parseFloat(form.quantity) || 0,
-      costPrice: parseFloat(form.costPrice) || 0,
-      sellingPrice: parseFloat(form.sellingPrice) || 0,
-      minQuantity: parseFloat(form.minQuantity) || 0,
+      quantity: Number.parseFloat(form.quantity) || 0,
+      costPrice: Number.parseFloat(form.costPrice) || 0,
+      sellingPrice: Number.parseFloat(form.sellingPrice) || 0,
+      minQuantity: Number.parseFloat(form.minQuantity) || 0,
       color: form.color,
     };
     if (editing) {
@@ -121,23 +158,40 @@ function InventoryPage() {
     setOpen(false);
   };
 
-
-  
   const saveIssue = () => {
     const validItems = issueItems.filter((i) => i.inventoryItemId);
-    if (validItems.length === 0) return toast.error("أضف مادة واحدة على الأقل");
-    if (validItems.some((i) => !parseFloat(i.quantity))) return toast.error("تأكد من إدخال كميات صحيحة");
+    if (validItems.length === 0) {
+      toast.error("أضف مادة واحدة على الأقل");
+      return;
+    }
+    if (validItems.some((i) => !(Number.parseFloat(i.quantity) > 0))) {
+      toast.error("تأكد من إدخال كميات صحيحة");
+      return;
+    }
+    for (const line of validItems) {
+      const invItem = inventory.find((x) => x.id === line.inventoryItemId);
+      if (invItem && Number.parseFloat(line.quantity) > invItem.quantity) {
+        toast.error(`الكمية المطلوبة من «${invItem.name}» أكبر من المتوفر (${invItem.quantity})`);
+        return;
+      }
+    }
 
     const invoiceNumber = nextNumber(
       invoices.filter((i) => i.invoiceType === "ISSUE").map((i) => i.invoiceNumber),
-      "ISS"
+      "ISS",
     );
 
-    // Make sure we have an INTERNAL_ISSUE customer or just use a fallback
-    const internalParty = customers.find(c => c.name === "الورشة (صرف داخلي)");
+    // جهة داخلية ثابتة تمثل الورشة حتى لا تظهر أرصدة صرف داخلي على العملاء.
+    const internalParty = customers.find((c) => c.name === "الورشة (صرف داخلي)");
     let partyId = internalParty?.id;
     if (!partyId) {
-      partyId = addCustomer({ name: "الورشة (صرف داخلي)", phone: "-", address: "-", balance: 0, type: "retail" });
+      partyId = addCustomer({
+        name: "الورشة (صرف داخلي)",
+        phone: "-",
+        address: "-",
+        balance: 0,
+        type: "retail",
+      });
     }
 
     addInvoice({
@@ -148,14 +202,14 @@ function InventoryPage() {
       partyId: partyId,
       date: todayIso(),
       items: validItems.map((i) => {
-        const invItem = inventory.find(x => x.id === i.inventoryItemId);
+        const invItem = inventory.find((x) => x.id === i.inventoryItemId);
         return {
           id: Math.random().toString(36).slice(2),
           inventoryItemId: i.inventoryItemId,
           name: invItem?.name || "مادة",
-          quantity: parseFloat(i.quantity) || 1,
+          quantity: Number.parseFloat(i.quantity) || 1,
           unitPrice: 0,
-          total: 0
+          total: 0,
         };
       }),
       subTotal: 0,
@@ -165,13 +219,12 @@ function InventoryPage() {
       remainingAmount: 0,
       paymentType: "cash",
       status: "paid",
-      isApproved: true, // Auto-approve issues
+      isApproved: true, // صرف داخلي معتمد تلقائيًا
     });
 
     toast.success("تم صرف المواد بنجاح");
     setIssueOpen(false);
   };
-
 
   /**
    * إدخال بضاعة: في الوضع المبسّط يُضاف المخزون **فورًا** (بلا انتظار مطابقة)،
@@ -181,16 +234,24 @@ function InventoryPage() {
    */
   const saveReceipt = () => {
     const validItems = receiptItems.filter((i) => i.inventoryItemId || i.name.trim());
-    if (validItems.length === 0) return toast.error("أضف صنفاً واحداً على الأقل");
-    if (validItems.some((i) => !(parseFloat(i.quantity) > 0))) return toast.error("تأكد من إدخال كميات صحيحة");
+    if (validItems.length === 0) {
+      toast.error("أضف صنفاً واحداً على الأقل");
+      return;
+    }
+    if (validItems.some((i) => !(Number.parseFloat(i.quantity) > 0))) {
+      toast.error("تأكد من إدخال كميات صحيحة");
+      return;
+    }
 
     const invoiceNumber = nextNumber(
       invoices.filter((i) => i.type === "purchase").map((i) => i.invoiceNumber),
-      "PUR"
+      "PUR",
     );
 
     const lines = validItems.map((i) => {
-      const existing = i.inventoryItemId ? inventory.find((inv) => inv.id === i.inventoryItemId) : undefined;
+      const existing = i.inventoryItemId
+        ? inventory.find((inv) => inv.id === i.inventoryItemId)
+        : undefined;
       let productId = existing?.id;
       const typedName = i.name.trim();
       if (!productId && typedName) {
@@ -210,7 +271,7 @@ function InventoryPage() {
         id: Math.random().toString(36).slice(2),
         inventoryItemId: productId || undefined,
         name: existing?.name || typedName || "مادة",
-        quantity: parseFloat(i.quantity) || 1,
+        quantity: Number.parseFloat(i.quantity) || 1,
         unitPrice: 0,
         total: 0,
       };
@@ -241,125 +302,187 @@ function InventoryPage() {
     setReceiptOpen(false);
   };
 
+  const categoryChips = ["all", ...categoryOptions.map(([k]) => k)];
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="page-title">{ADVANCED_INVENTORY ? "المخزن والأقمشة" : "المخزن"}</h1>
-          <p className="page-subtitle">
-            {ADVANCED_INVENTORY
-              ? "إدارة المواد الأولية ومستلزمات التطريز."
-              : "إدخال بضاعة، إخراج بضاعة، ومعرفة الكميات المتبقية."}
-          </p>
-        </div>
+      <PageHeader
+        title={ADVANCED_INVENTORY ? "المخزن والأقمشة" : "المخزن"}
+        subtitle={
+          ADVANCED_INVENTORY
+            ? "إدارة المواد الأولية ومستلزمات التطريز."
+            : "إدخال بضاعة، إخراج بضاعة، ومعرفة الكميات المتبقية."
+        }
+        icon={Boxes}
+        tone="navy"
+        actions={
+          <>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => {
+                setReceiptItems([
+                  { id: Math.random().toString(), inventoryItemId: "", name: "", quantity: "1" },
+                ]);
+                setReceiptOpen(true);
+              }}
+            >
+              <ArrowDownToLine className="size-5" />
+              {ADVANCED_INVENTORY ? "أمر توريد مخزني" : "إدخال بضاعة"}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                setIssueItems([
+                  { id: Math.random().toString(), inventoryItemId: "", quantity: "1" },
+                ]);
+                setIssueOpen(true);
+              }}
+            >
+              <ArrowUpFromLine className="size-5" />
+              {ADVANCED_INVENTORY ? "أمر صرف" : "إخراج بضاعة"}
+            </button>
+            <button type="button" className="btn-ghost" onClick={openNew}>
+              <Plus className="size-5" />
+              مادة جديدة
+            </button>
+          </>
+        }
+      />
+
+      <StatGrid>
+        <StatCard
+          label="عدد الأصناف"
+          value={summary.items}
+          icon={Layers}
+          tone="brand"
+          hint="مادة مسجّلة"
+        />
+        <StatCard
+          label="إجمالي الكميات"
+          value={Number(summary.totalUnits.toFixed(2))}
+          icon={Boxes}
+          tone="navy"
+          hint="مجموع المتبقي بكل الوحدات"
+        />
+        <StatCard
+          label="تحت الحد الأدنى"
+          value={summary.lowCount}
+          icon={AlertTriangle}
+          tone={summary.lowCount > 0 ? "bad" : "good"}
+          hint={summary.lowCount > 0 ? "تحتاج تزويد عاجل" : "كل الكميات جيدة"}
+        />
+        <StatCard
+          label="قيمة المخزون"
+          value={formatMoney(summary.stockValue)}
+          icon={Scissors}
+          tone="gold"
+          hint="بسعر التكلفة"
+        />
+      </StatGrid>
+
+      {summary.lowCount > 0 ? (
+        <Alert tone="warn" icon={AlertTriangle} title={`${summary.lowCount} صنف وصل للحد الأدنى`}>
+          راجع الكميات وأدخل بضاعة قبل أن تتوقف الخدمة على نفاد المستلزمات.
+        </Alert>
+      ) : null}
+
+      <div className="card space-y-3 p-3 sm:p-4">
+        <SearchField value={q} onChange={setQ} placeholder="بحث بالاسم أو الرمز أو اللون…" />
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="btn-primary" onClick={() => { setReceiptItems([{ id: Math.random().toString(), inventoryItemId: "", name: "", quantity: "1" }]); setReceiptOpen(true); }}>
-            <ArrowDownRight className="size-5" />
-            {ADVANCED_INVENTORY ? "أمر توريد مخزني" : "إدخال بضاعة"}
-          </button>
-
-          <button type="button" className="btn-secondary text-bad" onClick={() => {
-            setIssueItems([{ id: Math.random().toString(), inventoryItemId: "", quantity: "1" }]);
-            setIssueOpen(true);
-          }}>
-            <ArrowUpRight className="size-5" />
-            {ADVANCED_INVENTORY ? "أمر صرف" : "إخراج بضاعة"}
-          </button>
-          <button type="button" className="btn-ghost" onClick={openNew}>
-            <Plus className="size-5" />
-            مادة جديدة
-          </button>
-        </div>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="card p-4">
-          <p className="text-xs font-bold text-muted">عدد الأصناف</p>
-          <p className="mt-1 text-2xl font-black tabular-nums">{summary.items}</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs font-bold text-muted">إجمالي الكميات المتبقية</p>
-          <p className="mt-1 text-2xl font-black tabular-nums">{summary.totalUnits}</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs font-bold text-muted">أصناف وصلت للحد الأدنى</p>
-          <p className={`mt-1 text-2xl font-black tabular-nums ${summary.lowCount ? "text-bad" : "text-good"}`}>
-            {summary.lowCount}
-          </p>
-        </div>
-      </div>
-
-      <div className="card flex flex-col gap-3 p-3 sm:flex-row">
-        <div className="relative flex-1">
-          <Search className="absolute right-3 top-1/2 size-5 -translate-y-1/2 text-muted" />
-          <input
-            className="input-field pr-10"
-            placeholder="بحث بالاسم أو الرمز أو اللون…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
-        <select
-          className="input-field sm:w-44"
-          value={cat}
-          onChange={(e) => setCat(e.target.value as typeof cat)}
-        >
-          <option value="all">كل الفئات</option>
-          {categoryOptions.map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
+          {categoryChips.map((key) => (
+            <FilterChip key={key} active={cat === key} onClick={() => setCat(key)}>
+              {key === "all" ? "كل الفئات" : categoryNames[key] || key}
+            </FilterChip>
           ))}
-        </select>
+        </div>
       </div>
 
       {filtered.length === 0 ? (
         <div className="card">
-          <EmptyState icon={Scissors} title="لا توجد مواد" hint="أضف أول قطعة قماش أو خيط." />
+          <EmptyState
+            icon={Scissors}
+            title="لا توجد مواد مطابقة"
+            hint={q || cat !== "all" ? "جرّب بحثًا أو فئة أخرى." : "أضف أول قطعة قماش أو خيط."}
+          />
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-2">
           {filtered.map((item) => {
             const low = item.quantity <= (item.minQuantity || 0);
+            const pct = ((Number(item.quantity) || 0) / maxQuantity) * 100;
             return (
-              <article key={item.id} className="card p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-mono text-xs text-muted">{item.code}</p>
-                    <h3 className="text-lg font-black">{item.name}</h3>
-                    <p className="text-xs text-muted">اللون: {item.color || "غير محدد"}</p>
-                  </div>
-                  <span className="rounded-full bg-brand-soft px-2.5 py-1 text-xs font-bold text-brand">
-                    {categoryNames[item.category] || item.category}
-                  </span>
-                </div>
-                <div className="mt-4 flex items-end justify-between">
-                  <div>
-                    <p className={`text-2xl font-black tabular-nums ${low ? "text-bad" : "text-ink"}`}>
-                      {item.quantity}
-                      <span className="mr-1 text-xs font-bold text-muted">
-                        {unitLabel[item.unit]}
-                      </span>
-                    </p>
-                    {low ? (
-                      <p className="mt-1 flex items-center gap-1 text-xs font-bold text-bad">
-                        <AlertTriangle className="size-3.5" />
-                        أقل من الحد الأدنى ({item.minQuantity})
+              <article key={item.id} className="card card-hover overflow-hidden">
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="num font-mono text-[11px] font-bold text-muted">
+                          {item.code}
+                        </span>
+                        <Chip tone="brand">{categoryNames[item.category] || item.category}</Chip>
+                      </div>
+                      <h3 className="mt-1 truncate text-base font-black text-ink">{item.name}</h3>
+                      {item.color ? (
+                        <p className="text-[11px] font-bold text-muted">اللون: {item.color}</p>
+                      ) : null}
+                    </div>
+                    <div className="shrink-0 text-left">
+                      <p className={cn("num text-2xl font-black", low ? "text-bad" : "text-ink")}>
+                        {item.quantity}
                       </p>
-                    ) : null}
+                      <p className="text-[11px] font-bold text-muted">{unitLabel[item.unit]}</p>
+                    </div>
                   </div>
-                  <div className="text-left text-xs text-muted">
-                    <p>تكلفة {formatCurrency(item.costPrice)}</p>
-                    <p className="font-bold text-brand">بيع {formatCurrency(item.sellingPrice)}</p>
+
+                  <div className="mt-3">
+                    <Meter
+                      value={Number(item.quantity) || 0}
+                      max={maxQuantity}
+                      tone={low ? "bad" : "brand"}
+                    />
+                    {low ? (
+                      <p className="mt-1.5 flex items-center gap-1 text-[11px] font-black text-bad">
+                        <AlertTriangle className="size-3.5" />
+                        تحت الحد الأدنى ({item.minQuantity || 0})
+                      </p>
+                    ) : (
+                      <p className="mt-1.5 text-[11px] font-bold text-muted">
+                        الحد الأدنى {item.minQuantity || 0} · النسبة من أعلى كمية {Math.round(pct)}%
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="card-sunken px-3 py-2">
+                      <p className="text-[10px] font-black text-muted">سعر التكلفة</p>
+                      <Money value={formatMoney(item.costPrice)} className="text-sm text-ink" />
+                    </div>
+                    <div className="card-sunken px-3 py-2">
+                      <p className="text-[10px] font-black text-muted">سعر البيع</p>
+                      <Money
+                        value={formatMoney(item.sellingPrice)}
+                        tone="brand"
+                        className="text-sm"
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="mt-3 flex justify-end gap-1 border-t border-line pt-3">
-                  <button type="button" className="btn-icon size-9" onClick={() => openEdit(item)}>
+
+                <div className="flex justify-end gap-1 border-t border-line/70 bg-canvas/40 px-3 py-2">
+                  <button
+                    type="button"
+                    className="btn-icon size-9"
+                    onClick={() => openEdit(item)}
+                    aria-label="تعديل"
+                  >
                     <Pencil className="size-4" />
                   </button>
                   <button
                     type="button"
-                    className="btn-icon size-9 text-bad"
+                    className="btn-icon size-9 text-bad hover:bg-bad-soft hover:text-bad"
+                    aria-label="حذف"
                     onClick={() => {
                       if (confirm("حذف هذه المادة؟")) {
                         deleteInventoryItem(item.id);
@@ -376,10 +499,12 @@ function InventoryPage() {
         </div>
       )}
 
+      {/* ————— مادة جديدة/تعديل ————— */}
       <Modal
         open={open}
         title={editing ? "تعديل مادة" : "مادة جديدة"}
         onClose={() => setOpen(false)}
+        wide
         footer={
           <>
             <button type="button" className="btn-ghost" onClick={() => setOpen(false)}>
@@ -391,96 +516,134 @@ function InventoryPage() {
           </>
         }
       >
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="الرمز">
-            <input className="input-field" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} />
+            <input
+              className="input-field num"
+              value={form.code}
+              onChange={(e) => setForm({ ...form, code: e.target.value })}
+            />
           </Field>
           <Field label="الاسم">
-            <input className="input-field" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <input
+              className="input-field"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
           </Field>
           <Field label="الفئة">
-            <select
-              className="input-field"
+            <AppSelect
               value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value as InventoryCategory })}
-            >
-              {categoryOptions.map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setForm({ ...form, category: v as InventoryCategory })}
+              options={categoryOptions.map(([value, label]) => ({ value, label }))}
+              searchable={false}
+            />
           </Field>
           <Field label="الوحدة">
-            <select
-              className="input-field"
+            <AppSelect
               value={form.unit}
-              onChange={(e) => setForm({ ...form, unit: e.target.value as InventoryUnit })}
-            >
-              {Object.entries(unitLabel).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setForm({ ...form, unit: v as InventoryUnit })}
+              options={Object.entries(unitLabel).map(([value, label]) => ({ value, label }))}
+              searchable={false}
+            />
           </Field>
           {!editing || ADVANCED_INVENTORY ? (
             <Field label={editing ? "الكمية" : "الكمية الافتتاحية (اختياري)"}>
-              <input className="input-field" inputMode="decimal" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+              <input
+                className="input-field num"
+                inputMode="decimal"
+                value={form.quantity}
+                onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+              />
             </Field>
           ) : (
-            <div className="rounded-2xl border border-line bg-canvas/50 px-3 py-2 text-xs text-muted">
-              الكمية المتبقية تتغير من «إدخال بضاعة» و«إخراج بضاعة» فقط — لا تُعدَّل من هنا حتى لا يختلف المخزون عن الحركات المسجّلة.
+            <div className="card-sunken flex items-start gap-2 px-3 py-2.5 text-[11px] font-bold text-muted sm:col-span-1">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" />
+              الكمية المتبقية تتغير من «إدخال بضاعة» و«إخراج بضاعة» فقط — لا تُعدَّل من هنا حتى لا
+              يختلف المخزون عن الحركات المسجّلة.
             </div>
           )}
           <Field label="الحد الأدنى">
-            <input className="input-field" inputMode="decimal" value={form.minQuantity} onChange={(e) => setForm({ ...form, minQuantity: e.target.value })} />
+            <input
+              className="input-field num"
+              inputMode="decimal"
+              value={form.minQuantity}
+              onChange={(e) => setForm({ ...form, minQuantity: e.target.value })}
+            />
           </Field>
           <Field label="سعر التكلفة">
-            <input className="input-field" inputMode="decimal" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} />
+            <input
+              className="input-field num"
+              inputMode="decimal"
+              value={form.costPrice}
+              onChange={(e) => setForm({ ...form, costPrice: e.target.value })}
+            />
           </Field>
           <Field label="سعر البيع">
-            <input className="input-field" inputMode="decimal" value={form.sellingPrice} onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })} />
+            <input
+              className="input-field num"
+              inputMode="decimal"
+              value={form.sellingPrice}
+              onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })}
+            />
           </Field>
           <Field label="اللون">
-            <input className="input-field" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
+            <input
+              className="input-field"
+              value={form.color}
+              onChange={(e) => setForm({ ...form, color: e.target.value })}
+            />
           </Field>
         </div>
       </Modal>
 
+      {/* ————— إدخال بضاعة ————— */}
       <Modal
         open={receiptOpen}
         onClose={() => setReceiptOpen(false)}
+        wide
         title={ADVANCED_INVENTORY ? "أمر توريد مخزني" : "إدخال بضاعة"}
+        footer={
+          <>
+            <button type="button" className="btn-ghost" onClick={() => setReceiptOpen(false)}>
+              إلغاء
+            </button>
+            <button type="button" className="btn-primary" onClick={saveReceipt}>
+              {ADVANCED_INVENTORY ? "إرسال للمطابقة" : "إدخال البضاعة"}
+            </button>
+          </>
+        }
       >
         <div className="space-y-4">
-          <p className="text-sm text-muted">
+          <Alert tone="brand" icon={ArrowDownToLine} title="إدخال كميات إلى المخزن">
             {ADVANCED_INVENTORY
               ? "سيتم إرسال هذا الأمر للإدارة لمطابقته مع فاتورة المشتريات وإضافة الأسعار."
               : "تُضاف الكميات إلى المخزن مباشرة ويظهر المتبقي في القائمة. الاسم الجديد يُنشئ مادة جديدة تلقائيًا."}
-          </p>
-          <div className="space-y-3">
+          </Alert>
+
+          <div className="space-y-2">
             {receiptItems.map((item, index) => (
-              <div key={item.id} className="flex gap-2 items-start">
-                <div className="flex-1 space-y-2">
-                  <select
-                    className="input-field"
+              <div key={item.id} className="card-sunken flex items-start gap-2 p-2.5">
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <AppSelect
                     value={item.inventoryItemId}
-                    onChange={(e) => {
+                    onChange={(v) => {
                       const newItems = [...receiptItems];
-                      newItems[index].inventoryItemId = e.target.value;
+                      newItems[index].inventoryItemId = v;
                       setReceiptItems(newItems);
                     }}
-                  >
-                    <option value="">-- اختر من المخزن (أو اكتب اسم جديد) --</option>
-                    {inventory.map((inv) => (
-                      <option key={inv.id} value={inv.id}>{inv.name} ({inv.code})</option>
-                    ))}
-                  </select>
-                  {!item.inventoryItemId && (
+                    placeholder="اختر صنفًا من المخزن…"
+                    clearable
+                    options={inventory.map((inv) => ({
+                      value: inv.id,
+                      label: inv.name,
+                      description: `${inv.code} · المتبقي ${inv.quantity} ${unitLabel[inv.unit]}`,
+                    }))}
+                  />
+                  {!item.inventoryItemId ? (
                     <input
                       className="input-field"
-                      placeholder="اسم الصنف (إذا لم يكن في المخزن)"
+                      placeholder="أو اكتب اسم صنف جديد ليُنشأ تلقائيًا"
                       value={item.name}
                       onChange={(e) => {
                         const newItems = [...receiptItems];
@@ -488,14 +651,14 @@ function InventoryPage() {
                         setReceiptItems(newItems);
                       }}
                     />
-                  )}
+                  ) : null}
                 </div>
                 <input
                   type="number"
-                  className="input-field w-24"
+                  className="input-field num w-24 shrink-0"
                   placeholder="الكمية"
-                  value={item.quantity}
                   min="1"
+                  value={item.quantity}
                   onChange={(e) => {
                     const newItems = [...receiptItems];
                     newItems[index].quantity = e.target.value;
@@ -504,7 +667,8 @@ function InventoryPage() {
                 />
                 <button
                   type="button"
-                  className="btn-icon text-bad"
+                  className="btn-icon shrink-0 text-bad hover:bg-bad-soft hover:text-bad"
+                  aria-label="حذف البند"
                   onClick={() => setReceiptItems(receiptItems.filter((_, i) => i !== index))}
                 >
                   <Trash2 className="size-4" />
@@ -512,79 +676,122 @@ function InventoryPage() {
               </div>
             ))}
           </div>
+
           <button
             type="button"
             className="btn-ghost w-full"
-            onClick={() => setReceiptItems([...receiptItems, { id: Math.random().toString(), inventoryItemId: "", name: "", quantity: "1" }])}
+            onClick={() =>
+              setReceiptItems([
+                ...receiptItems,
+                { id: Math.random().toString(), inventoryItemId: "", name: "", quantity: "1" },
+              ])
+            }
           >
             <Plus className="size-4" />
             إضافة صنف آخر
           </button>
-          <div className="flex gap-3 pt-4">
-            <button type="button" className="btn-primary flex-1" onClick={saveReceipt}>
-              {ADVANCED_INVENTORY ? "إرسال للمطابقة" : "إدخال البضاعة"}
-            </button>
-            <button type="button" className="btn-ghost flex-1" onClick={() => setReceiptOpen(false)}>
-              إلغاء
-            </button>
-          </div>
         </div>
       </Modal>
 
+      {/* ————— إخراج بضاعة ————— */}
       <Modal
         open={issueOpen}
         onClose={() => setIssueOpen(false)}
+        wide
         title={ADVANCED_INVENTORY ? "أمر صرف مخزني" : "إخراج بضاعة"}
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-muted">
-            سجّل ما خرج من المخزن (للورشة أو لأي جهة)، ويُخصم من المتبقي فورًا. لا يمكن إخراج كمية أكبر من المتوفر.
-          </p>
-          <div className="space-y-3">
-            {issueItems.map((item, index) => (
-              <div key={item.id} className="flex items-start gap-2">
-                <select
-                  className="input-field flex-1"
-                  value={item.inventoryItemId}
-                  onChange={(e) => {
-                    const next = [...issueItems];
-                    next[index] = { ...next[index], inventoryItemId: e.target.value };
-                    setIssueItems(next);
-                  }}
-                >
-                  <option value="">اختر مادة من المخزن</option>
-                  {inventory.map((inv) => <option key={inv.id} value={inv.id}>{inv.name} ({inv.quantity} {unitLabel[inv.unit]})</option>)}
-                </select>
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  className="input-field w-24"
-                  value={item.quantity}
-                  onChange={(e) => {
-                    const next = [...issueItems];
-                    next[index] = { ...next[index], quantity: e.target.value };
-                    setIssueItems(next);
-                  }}
-                />
-                <button type="button" className="btn-icon text-bad" aria-label="حذف البند" onClick={() => setIssueItems(issueItems.filter((_, i) => i !== index))}>
-                  <Trash2 className="size-4" />
-                </button>
-              </div>
-            ))}
-          </div>
-          <button type="button" className="btn-ghost w-full" onClick={() => setIssueItems([...issueItems, { id: Math.random().toString(), inventoryItemId: "", quantity: "1" }])}>
-            <Plus className="size-4" /> إضافة مادة أخرى
-          </button>
-          <div className="flex gap-3 pt-4">
-            <button type="button" className="btn-primary flex-1" onClick={saveIssue}>
+        footer={
+          <>
+            <button type="button" className="btn-ghost" onClick={() => setIssueOpen(false)}>
+              إلغاء
+            </button>
+            <button type="button" className="btn-secondary" onClick={saveIssue}>
               {ADVANCED_INVENTORY ? "حفظ أمر الصرف" : "إخراج البضاعة"}
             </button>
-            <button type="button" className="btn-ghost flex-1" onClick={() => setIssueOpen(false)}>إلغاء</button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <Alert tone="warn" icon={ArrowUpFromLine} title="صرف من المخزن إلى الورشة">
+            سجّل ما خرج من المخزن، ويُخصم من المتبقي فورًا. لا يمكن إخراج كمية أكبر من المتوفر.
+          </Alert>
+
+          <div className="space-y-2">
+            {issueItems.map((item, index) => {
+              const selected = inventory.find((x) => x.id === item.inventoryItemId);
+              const requested = Number.parseFloat(item.quantity) || 0;
+              const over = Boolean(selected) && requested > (selected?.quantity || 0);
+              return (
+                <div key={item.id} className="card-sunken p-2.5">
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <AppSelect
+                        value={item.inventoryItemId}
+                        onChange={(v) => {
+                          const next = [...issueItems];
+                          next[index] = { ...next[index], inventoryItemId: v };
+                          setIssueItems(next);
+                        }}
+                        placeholder="اختر مادة من المخزن…"
+                        options={inventory.map((inv) => ({
+                          value: inv.id,
+                          label: inv.name,
+                          description: `المتبقي ${inv.quantity} ${unitLabel[inv.unit]}`,
+                        }))}
+                      />
+                    </div>
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      className="input-field num w-24 shrink-0"
+                      value={item.quantity}
+                      onChange={(e) => {
+                        const next = [...issueItems];
+                        next[index] = { ...next[index], quantity: e.target.value };
+                        setIssueItems(next);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn-icon shrink-0 text-bad hover:bg-bad-soft hover:text-bad"
+                      aria-label="حذف البند"
+                      onClick={() => setIssueItems(issueItems.filter((_, i) => i !== index))}
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                  {selected ? (
+                    <p
+                      className={cn(
+                        "mt-1.5 text-[11px] font-black",
+                        over ? "text-bad" : "text-muted",
+                      )}
+                    >
+                      {over
+                        ? `المطلوب أكبر من المتوفر (${selected.quantity})`
+                        : `المتوفر ${selected.quantity} → بعد الصرف ${Number((selected.quantity - requested).toFixed(2))}`}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
+
+          <button
+            type="button"
+            className="btn-ghost w-full"
+            onClick={() =>
+              setIssueItems([
+                ...issueItems,
+                { id: Math.random().toString(), inventoryItemId: "", quantity: "1" },
+              ])
+            }
+          >
+            <Plus className="size-4" />
+            إضافة مادة أخرى
+          </button>
         </div>
       </Modal>
-
     </div>
   );
 }

@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .vercel/
+.tanstack/
+tsconfig.tsbuildinfo
 .env
 .env.*
 !.env.example

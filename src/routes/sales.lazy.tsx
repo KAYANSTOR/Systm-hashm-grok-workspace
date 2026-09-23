@@ -1,18 +1,34 @@
 import { createLazyFileRoute } from "@tanstack/react-router";
 import {
   AlertTriangle, CheckCircle2,
+  Layers,
   Pencil,
   Plus,
   Printer,
-  Search,
+  Receipt,
   ShoppingBag,
+  Sparkles,
+  Tag,
   Trash2,
+  UserRound,
+  Wallet,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { Modal } from "@/components/modal";
 import { AppSelect } from "@/components/ui/AppSelect";
+import { AppDatePicker } from "@/components/ui/AppDatePicker";
+import { FieldLabel, FormGrid, FormSection, MoneyField, TextField, TotalsBar } from "@/components/ui/form";
+import {
+  Chip,
+  FilterChip,
+  Money,
+  PageHeader,
+  SearchField,
+  StatCard,
+  StatGrid,
+} from "@/components/ui/kit";
 import InvoicePrintTemplate from "@/components/print/InvoicePrintTemplate";
 import DocumentActionsSheet from "@/components/DocumentActionsSheet";
 import { methodLabel, paymentTypeLabel, statusLabel, unitLabel } from "@/lib/labels";
@@ -263,67 +279,124 @@ function SalesPage() {
   const printing = invoices.find((i) => i.id === printId);
   const pendingReceiptReview = Boolean(editing && invoices.find((invoice) => invoice.id === editing)?.partyId === "PENDING_RECEIPT");
 
+  // اقتراحات الخدمات السابقة: نفس البيان يتكرر في المعمل كثيرًا (تطريز 100 قطعة…)؛
+  // الاقتراح يوفّر الكتابة ويوحّد التسميات في الفواتير والتقارير.
+  const serviceSuggestions = useMemo(() => {
+    const names = invoices
+      .filter((invoice) => invoice.invoiceType === "SERVICE")
+      .flatMap((invoice) => invoice.items.map((item) => item.name.trim()))
+      .filter(Boolean);
+    const counts = new Map<string, number>();
+    for (const name of names) counts.set(name, (counts.get(name) || 0) + 1);
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name]) => name);
+  }, [invoices]);
+
+  const updateLine = (index: number, patch: Partial<InvoiceLine>) => {
+    setItems((previous) =>
+      previous.map((item, itemIndex) => {
+        if (itemIndex !== index) return item;
+        const merged = { ...item, ...patch };
+        return { ...merged, total: (Number(merged.quantity) || 0) * (Number(merged.unitPrice) || 0) };
+      }),
+    );
+  };
+
+  const lineError = (raw: string): string | undefined => {
+    const parsed = parseAmountStrict(raw);
+    if (raw.trim() === "") return undefined;
+    if (!parsed.ok) return "رقم غير صحيح";
+    return undefined;
+  };
+
+  const itemsTotal = items.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+  const itemsCount = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="page-title">{PRODUCT_SALES ? "المبيعات والمشتريات" : "خدمات التطريز"}</h1>
-          <p className="page-subtitle">
-            {PRODUCT_SALES
-              ? "فواتير البضاعة، خدمات التطريز، والمشتريات."
-              : "إنشاء فاتورة خدمة تطريز ومتابعة فواتير الخدمات."}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {/* فواتير بيع/شراء البضاعة مخفية عن الواجهة (FEATURES.PRODUCT_SALES = false)
-              — المنطق كامل في الكود، والقديم يبقى في القائمة أدناه للتعديل والطباعة. */}
-          {PRODUCT_SALES ? (
-            <button type="button" className="btn-primary" onClick={() => openModal("sale", "PRODUCT_SALE")}>
-              <Plus className="size-5" />
-              بيع بضاعة
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className={
-              PRODUCT_SALES
-                ? "inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 font-bold text-brand-fg"
-                : "btn-primary"
-            }
-            onClick={() => openModal("sale", "SERVICE")}
-          >
-            <Plus className="size-5" />
-            {PRODUCT_SALES ? "خدمة تطريز" : "فاتورة خدمة تطريز"}
-          </button>
-          {PRODUCT_SALES ? (
-            <button type="button" className="btn-secondary" onClick={() => openModal("purchase")}>
-              <Plus className="size-5" />
-              مشتريات
-            </button>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="card flex flex-col gap-3 p-3 sm:flex-row">
-        <div className="relative flex-1">
-          <Search className="absolute right-3 top-1/2 size-5 -translate-y-1/2 text-muted" />
-          <input
-            className="input-field pr-10"
-            placeholder="بحث برقم الفاتورة أو اسم الطرف…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-1">
-          {(["all", "sale", ...(PRODUCT_SALES ? (["purchase"] as const) : [])] as const).map((f) => (
+      <PageHeader
+        title={PRODUCT_SALES ? "المبيعات والمشتريات" : "خدمات التطريز"}
+        subtitle={
+          PRODUCT_SALES
+            ? "فواتير البضاعة، خدمات التطريز، والمشتريات."
+            : "إنشاء فاتورة خدمة تطريز ومتابعة فواتير الخدمات."
+        }
+        icon={Sparkles}
+        tone="accent"
+        actions={
+          <>
+            {/* فواتير بيع/شراء البضاعة مخفية عن الواجهة (FEATURES.PRODUCT_SALES = false)
+                — المنطق كامل في الكود، والقديم يبقى في القائمة أدناه للتعديل والطباعة. */}
+            {PRODUCT_SALES ? (
+              <button type="button" className="btn-primary" onClick={() => openModal("sale", "PRODUCT_SALE")}>
+                <Plus className="size-5" />
+                بيع بضاعة
+              </button>
+            ) : null}
             <button
-              key={f}
               type="button"
-              onClick={() => setFilter(f)}
-              className={`rounded-xl px-3 py-2 text-sm font-bold ${filter === f ? "bg-brand text-brand-fg" : "bg-canvas text-muted"}`}
+              className="btn-primary"
+              onClick={() => openModal("sale", "SERVICE")}
             >
-              {f === "all" ? "الكل" : f === "sale" ? "مبيعات" : "مشتريات"}
+              <Plus className="size-5" />
+              {PRODUCT_SALES ? "خدمة تطريز" : "فاتورة خدمة تطريز"}
             </button>
+            {PRODUCT_SALES ? (
+              <button type="button" className="btn-secondary" onClick={() => openModal("purchase")}>
+                <Plus className="size-5" />
+                مشتريات
+              </button>
+            ) : null}
+          </>
+        }
+      />
+
+      <StatGrid cols={3}>
+        <StatCard
+          label={PRODUCT_SALES ? "إجمالي المبيعات" : "إجمالي خدمات التطريز"}
+          value={formatCurrency(
+            invoices
+              .filter((i) => i.type === "sale" && i.isApproved && !i.isCancelled)
+              .reduce((s, i) => s + i.total, 0),
+          )}
+          icon={Sparkles}
+          tone="brand"
+          hint={`${invoices.filter((i) => i.type === "sale" && i.isApproved).length} فاتورة معتمدة`}
+        />
+        <StatCard
+          label="غير مسدَّد"
+          value={formatCurrency(
+            invoices
+              .filter((i) => i.type === "sale" && i.isApproved && !i.isCancelled)
+              .reduce((s, i) => s + (i.remainingAmount || 0), 0),
+          )}
+          icon={AlertTriangle}
+          tone="accent"
+          hint="ذمم على العملاء"
+        />
+        <StatCard
+          label="بانتظار الاعتماد"
+          value={invoices.filter((i) => !i.isApproved && !i.isCancelled).length}
+          icon={CheckCircle2}
+          tone="warn"
+          hint="مسودة أو أمر توريد"
+        />
+      </StatGrid>
+
+      <div className="card flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:p-4">
+        <SearchField
+          value={q}
+          onChange={setQ}
+          placeholder="بحث برقم الفاتورة أو اسم الطرف…"
+          className="flex-1"
+        />
+        <div className="flex flex-wrap gap-2">
+          {(["all", "sale", ...(PRODUCT_SALES ? (["purchase"] as const) : [])] as const).map((f) => (
+            <FilterChip key={f} active={filter === f} onClick={() => setFilter(f)}>
+              {f === "all" ? "الكل" : f === "sale" ? (PRODUCT_SALES ? "مبيعات" : "خدمات") : "مشتريات"}
+            </FilterChip>
           ))}
         </div>
       </div>
@@ -344,30 +417,45 @@ function SalesPage() {
                 ? customers.find((c) => c.id === inv.partyId)?.name
                 : suppliers.find((s) => s.id === inv.partyId)?.name;
             return (
-              <article key={inv.id} className="card p-4">
+              <article key={inv.id} className="card card-hover p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="font-mono text-xs font-bold text-muted">{inv.invoiceNumber}</p>
-                    <h3 className="font-black">{inv.partyId === "PENDING_RECEIPT" ? <span className="text-warn flex items-center gap-1"><AlertTriangle className="size-4" /> توريد مخزني (بانتظار المطابقة)</span> : (party || "—")}</h3>
-                    <p className="text-xs text-muted">
-                      {formatDate(inv.date)} ·{" "}
-                      {inv.type === "purchase"
-                        ? "مشتريات"
-                        : inv.invoiceType === "SERVICE"
-                          ? "خدمة تطريز"
-                          : "بيع بضاعة"}
-                    </p>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="num font-mono text-[11px] font-bold text-muted">
+                        {inv.invoiceNumber}
+                      </span>
+                      <Chip tone={inv.invoiceType === "SERVICE" ? "accent" : "muted"}>
+                        {inv.type === "purchase"
+                          ? "مشتريات"
+                          : inv.invoiceType === "SERVICE"
+                            ? "خدمة تطريز"
+                            : "بيع بضاعة"}
+                      </Chip>
+                      {inv.isCancelled ? <Chip tone="bad">ملغاة</Chip> : null}
+                    </div>
+                    <h3 className="mt-1 truncate font-black text-ink">
+                      {inv.partyId === "PENDING_RECEIPT" ? (
+                        <span className="flex items-center gap-1 text-warn">
+                          <AlertTriangle className="size-4" /> توريد مخزني (بانتظار المطابقة)
+                        </span>
+                      ) : (
+                        party || "—"
+                      )}
+                    </h3>
+                    <p className="text-[11px] font-bold text-muted">{formatDate(inv.date)}</p>
                   </div>
                   <div className="text-left">
-                    <p className="text-lg font-black tabular-nums">{formatCurrency(inv.total)}</p>
-                    <span
-                      className={`text-xs font-bold ${inv.status === "paid" ? "text-good" : inv.status === "partial" ? "text-warn" : "text-bad"}`}
-                    >
-                      {statusLabel[inv.status]} · {paymentTypeLabel[inv.paymentType]}
-                    </span>
+                    <Money value={formatCurrency(inv.total)} className="text-lg text-ink" />
+                    <p className="mt-0.5 text-[11px] font-bold text-muted">
+                      <span className={inv.status === "paid" ? "text-good" : inv.status === "partial" ? "text-warn" : "text-bad"}>
+                        {statusLabel[inv.status]}
+                      </span>
+                      {" · "}
+                      {paymentTypeLabel[inv.paymentType]}
+                    </p>
                   </div>
                 </div>
-                <div className="mt-3 flex flex-wrap justify-end gap-1 border-t border-line pt-3">
+                <div className="mt-3 flex flex-wrap justify-end gap-1 border-t border-line/70 pt-3">
                   <button type="button" className="btn-ghost px-3 py-2 text-xs" onClick={() => setPrintId(inv.id)}>
                     <Printer className="size-4" />
                     طباعة
@@ -468,47 +556,50 @@ function SalesPage() {
           </>
         }
       >
-        <div className="grid gap-3 sm:grid-cols-3">
-          <label>
-            <span className="label">الرقم</span>
-            <input className="input-field" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
-          </label>
-          <div>
-            <AppSelect
-              label={mode.kind === "sale" ? "العميل" : "المورد"}
-              value={partyId}
-              onChange={setPartyId}
-              searchable
-              placeholder="ابحث بالاسم أو الرقم…"
-              options={parties.map((p) => ({
-                value: p.id,
-                label: p.name,
-                description: `الرصيد الحالي: ${formatCurrency(Number(p.balance) || 0)}${p.phone ? ` · ${p.phone}` : ""}`,
-              }))}
+        <FormSection
+          title="بيانات الفاتورة"
+          description="الرقم والطرف والتاريخ — الرقم يُقترح تلقائيًا ويمكن تعديله"
+          icon={Receipt}
+        >
+          <FormGrid cols={3}>
+            <TextField
+              label="رقم الفاتورة"
+              value={invoiceNumber}
+              onChange={(event) => setInvoiceNumber(event.target.value)}
+              className="num"
             />
-            {partyId ? (
-              <p className="mt-1.5 text-xs text-muted">
-                الرصيد الحالي: <span className="font-bold text-ink">{formatCurrency(previousBalance)}</span>
-                {" → "}بعد هذه الفاتورة:{" "}
-                <span className={`font-bold ${grandTotal > 0 ? "text-bad" : "text-good"}`}>
-                  {formatCurrency(grandTotal)}
-                </span>
-              </p>
-            ) : null}
-          </div>
+            <div>
+              <FieldLabel icon={UserRound} required>
+                {mode.kind === "sale" ? "العميل" : "المورد"}
+              </FieldLabel>
+              <AppSelect
+                value={partyId}
+                onChange={setPartyId}
+                searchable
+                placeholder="ابحث بالاسم أو الرقم…"
+                options={parties.map((p) => ({
+                  value: p.id,
+                  label: p.name,
+                  description: `الرصيد الحالي: ${formatCurrency(Number(p.balance) || 0)}${p.phone ? ` · ${p.phone}` : ""}`,
+                }))}
+              />
+            </div>
+            <AppDatePicker label="التاريخ" value={date} onChange={setDate} />
+          </FormGrid>
+
           {pendingReceiptReview ? (
-            <label>
-              <span className="label">اسم المورد الجديد</span>
-              <input className="input-field" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} placeholder="أدخل اسم المورد" />
-            </label>
+            <TextField
+              label="اسم المورد الجديد"
+              value={supplierName}
+              onChange={(event) => setSupplierName(event.target.value)}
+              placeholder="أدخل اسم المورد"
+              hint="اكتب اسم المورد ثم اختر الأصناف وأسعار الشراء قبل الاعتماد."
+            />
           ) : null}
-          <label>
-            <span className="label">التاريخ</span>
-            <input className="input-field" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </label>
+
           <div>
+            <FieldLabel>المخزن</FieldLabel>
             <AppSelect
-              label="المخزن"
               value={warehouseId}
               onChange={setWarehouseId}
               options={(warehouses || [])
@@ -517,144 +608,302 @@ function SalesPage() {
               searchable={false}
             />
           </div>
-        </div>
 
-        {pendingReceiptReview ? (
-          <p className="mt-3 rounded-xl bg-brand-soft px-3 py-2 text-sm font-bold text-brand">تم تحميل الأصناف التي أرسلها مستلم المخزن. راجع القائمة وعدّل الكمية أو سعر الشراء قبل الاعتماد.</p>
-        ) : null}
+          {partyId ? (
+            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-line/70 bg-canvas/60 p-2.5">
+              <div className="rounded-xl bg-paper px-3 py-2">
+                <p className="text-[10px] font-black text-muted">الرصيد الحالي</p>
+                <Money value={formatCurrency(previousBalance)} className="text-sm text-ink" />
+              </div>
+              <div className="rounded-xl bg-paper px-3 py-2">
+                <p className="text-[10px] font-black text-muted">الرصيد بعد هذه الفاتورة</p>
+                <Money
+                  value={formatCurrency(grandTotal)}
+                  tone={grandTotal > 0 ? "bad" : "good"}
+                  className="text-sm"
+                />
+              </div>
+            </div>
+          ) : null}
 
-        <div
-          className="mt-4 rounded-2xl border border-line bg-canvas/50 p-3"
-          onKeyDown={(e) => {
-            // إدخال سريع: Enter في أي حقل بند يضيف البند دون نزول لزر الإضافة.
-            if (e.key === "Enter") {
-              e.preventDefault();
-              addLine();
-            }
-          }}
+          {pendingReceiptReview ? (
+            <p className="rounded-xl bg-brand-soft px-3 py-2 text-xs font-bold text-brand-dark">
+              تم تحميل الأصناف التي أرسلها مستلم المخزن. راجع القائمة وعدّل الكمية أو سعر الشراء قبل الاعتماد.
+            </p>
+          ) : null}
+        </FormSection>
+
+        <FormSection
+          title={mode.salesType === "SERVICE" ? "بنود خدمة التطريز" : "بنود الفاتورة"}
+          description="اكتب البيان والكمية والسعر ثم اضغط Enter — البند يُضاف فورًا"
+          icon={Layers}
+          tone="warn"
+          action={
+            items.length ? (
+              <Chip tone="brand">
+                {items.length} بند · {formatCurrency(itemsTotal)}
+              </Chip>
+            ) : null
+          }
         >
-          {mode.kind === "sale" && mode.salesType === "SERVICE" ? (
-            <div className="grid gap-2 sm:grid-cols-4">
-              <input className="input-field sm:col-span-2" placeholder="البيان / اسم الخدمة" value={serviceName} onChange={(e) => setServiceName(e.target.value)} />
-              <input className="input-field" placeholder="الوحدة" value={serviceUnit} onChange={(e) => setServiceUnit(e.target.value)} />
-              <input className="input-field" inputMode="decimal" placeholder="الكمية" value={qty} onChange={(e) => setQty(e.target.value)} />
-              <input className="input-field sm:col-span-2" placeholder="وصف البيان" value={serviceDesc} onChange={(e) => setServiceDesc(e.target.value)} />
-              <input className="input-field" inputMode="decimal" placeholder="سعر الوحدة" value={price} onChange={(e) => setPrice(e.target.value)} />
-              <button type="button" className="btn-primary" onClick={addLine}>
-                إضافة
-              </button>
-            </div>
-          ) : (
-            <div className="grid gap-2 sm:grid-cols-4">
-              <select className="input-field sm:col-span-2" value={itemId} onChange={(e) => {
-                setItemId(e.target.value);
-                const it = inventory.find((i) => i.id === e.target.value);
-                if (it) setPrice(String(mode.kind === "sale" ? it.sellingPrice : it.costPrice));
-              }}>
-                <option value="">اختر المادة…</option>
-                {inventory.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name} — المتاح {i.quantity}
-                  </option>
-                ))}
-              </select>
-              <input className="input-field" inputMode="decimal" placeholder="الكمية" value={qty} onChange={(e) => setQty(e.target.value)} />
-              <input className="input-field" inputMode="decimal" placeholder="سعر الوحدة" value={price} onChange={(e) => setPrice(e.target.value)} />
-              <button type="button" className="btn-primary sm:col-span-4" onClick={addLine}>
-                إضافة بند
-              </button>
-            </div>
-          )}
-        </div>
-
-        {items.length > 0 ? (
-          <ul className="mt-3 divide-y divide-line rounded-2xl border border-line">
-            {items.map((line, idx) => (
-              <li key={line.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                {pendingReceiptReview ? (
-                  <div className="grid flex-1 gap-2 sm:grid-cols-3">
-                    <input className="input-field" value={line.name} placeholder="اسم الصنف" onChange={(e) => setItems((previous) => previous.map((item, itemIndex) => itemIndex === idx ? { ...item, name: e.target.value } : item))} />
-                    <input className="input-field" inputMode="decimal" value={line.quantity} placeholder="الكمية" onChange={(e) => setItems((previous) => previous.map((item, itemIndex) => itemIndex === idx ? { ...item, quantity: Number(e.target.value) || 0, total: (Number(e.target.value) || 0) * item.unitPrice } : item))} />
-                    <input className="input-field" inputMode="decimal" value={line.unitPrice} placeholder="سعر الشراء" onChange={(e) => setItems((previous) => previous.map((item, itemIndex) => itemIndex === idx ? { ...item, unitPrice: Number(e.target.value) || 0, total: item.quantity * (Number(e.target.value) || 0) } : item))} />
-                  </div>
-                ) : (
-                  <div>
-                    <p className="font-bold">{line.name}</p>
-                    <p className="text-xs text-muted">{line.quantity} {line.unit} × {formatCurrency(line.unitPrice)}</p>
-                  </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <span className="font-black tabular-nums">{formatCurrency(line.total)}</span>
-                  <button type="button" className="text-bad" onClick={() => setItems((p) => p.filter((_, i) => i !== idx))}>
-                    <Trash2 className="size-4" />
+          <div
+            className="rounded-2xl border border-line/70 bg-canvas/50 p-3"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addLine();
+              }
+            }}
+          >
+            {mode.kind === "sale" && mode.salesType === "SERVICE" ? (
+              <div className="grid gap-3 sm:grid-cols-6">
+                <TextField
+                  label="البيان / اسم الخدمة"
+                  icon={Tag}
+                  value={serviceName}
+                  onChange={(e) => setServiceName(e.target.value)}
+                  placeholder="مثال: تطريز 100 قطعة"
+                  className="sm:col-span-3"
+                />
+                <TextField
+                  label="الوحدة"
+                  value={serviceUnit}
+                  onChange={(e) => setServiceUnit(e.target.value)}
+                  placeholder="قطعة"
+                  className="sm:col-span-1"
+                />
+                <TextField
+                  label="الكمية"
+                  value={qty}
+                  onChange={(e) => setQty(e.target.value)}
+                  inputMode="decimal"
+                  error={lineError(qty)}
+                  className="num sm:col-span-1"
+                />
+                <MoneyField
+                  label="سعر الوحدة"
+                  value={price}
+                  onChange={setPrice}
+                  error={lineError(price)}
+                  className="sm:col-span-1"
+                />
+                <TextField
+                  label="وصف تفصيلي (اختياري)"
+                  value={serviceDesc}
+                  onChange={(e) => setServiceDesc(e.target.value)}
+                  placeholder="نوع القماش أو لون الخيط…"
+                  className="sm:col-span-4"
+                />
+                <div className="flex items-end sm:col-span-2">
+                  <button type="button" className="btn-primary w-full" onClick={addLine}>
+                    <Plus className="size-4" />
+                    إضافة البند
                   </button>
                 </div>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-4">
+                <div className="sm:col-span-2">
+                  <FieldLabel required>المادة</FieldLabel>
+                  <AppSelect
+                    value={itemId}
+                    onChange={(value) => {
+                      setItemId(value);
+                      const selected = inventory.find((item) => item.id === value);
+                      if (selected) setPrice(String(mode.kind === "sale" ? selected.sellingPrice : selected.costPrice));
+                    }}
+                    searchable
+                    placeholder="ابحث عن المادة…"
+                    options={inventory.map((item) => ({
+                      value: item.id,
+                      label: item.name,
+                      description: `المتاح: ${item.quantity} · التكلفة: ${formatCurrency(item.costPrice)}`,
+                    }))}
+                  />
+                </div>
+                <TextField
+                  label="الكمية"
+                  value={qty}
+                  onChange={(e) => setQty(e.target.value)}
+                  inputMode="decimal"
+                  error={lineError(qty)}
+                  className="num"
+                />
+                <MoneyField
+                  label="سعر الوحدة"
+                  value={price}
+                  onChange={setPrice}
+                  error={lineError(price)}
+                />
+                <div className="flex items-end sm:col-span-4">
+                  <button type="button" className="btn-primary w-full sm:w-auto" onClick={addLine}>
+                    <Plus className="size-4" />
+                    إضافة البند
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <label>
-            <span className="label">الخصم</span>
-            <input className="input-field" inputMode="decimal" value={discount} onChange={(e) => setDiscount(e.target.value)} />
-          </label>
-          <label>
-            <span className="label">طريقة الدفع</span>
-            <select
-              className="input-field"
-              value={paymentType}
-              onChange={(e) => setPaymentType(e.target.value as PaymentType)}
-            >
-              <option value="cash">نقدي</option>
-              <option value="deferred">آجل</option>
-              <option value="partial">جزئي</option>
-            </select>
-          </label>
-          {paymentType !== "deferred" && (
-            <label>
-              <span className="label">عبر شبكة</span>
-              <select
-                className="input-field"
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-              >
-                {Object.entries(methodLabel).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {paymentType === "partial" ? (
-            <label>
-              <span className="label">المدفوع</span>
-              <input className="input-field" inputMode="decimal" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} />
-            </label>
+          {serviceSuggestions.length > 0 && mode.salesType === "SERVICE" ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-black text-muted">خدمات سابقة:</span>
+              {serviceSuggestions.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  className="chip-filter"
+                  onClick={() => setServiceName(name)}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          {items.length > 0 ? (
+            <ul className="divide-y divide-line/70 overflow-hidden rounded-2xl border border-line/70">
+              {items.map((line, idx) => (
+                <li key={line.id} className="bg-paper p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      {pendingReceiptReview ? (
+                        <input
+                          className="input-field"
+                          value={line.name}
+                          placeholder="اسم الصنف"
+                          onChange={(e) => updateLine(idx, { name: e.target.value })}
+                        />
+                      ) : (
+                        <>
+                          <p className="truncate text-sm font-black text-ink">
+                            {idx + 1}. {line.name}
+                          </p>
+                          {line.description ? (
+                            <p className="truncate text-[11px] font-bold text-muted">{line.description}</p>
+                          ) : null}
+                        </>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-icon size-8 text-bad hover:bg-bad-soft hover:text-bad"
+                      aria-label={`حذف البند ${idx + 1}`}
+                      onClick={() => setItems((previous) => previous.filter((_, i) => i !== idx))}
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+
+                  <div className="mt-2 grid grid-cols-2 items-end gap-2 sm:grid-cols-4">
+                    <TextField
+                      label="الكمية"
+                      value={String(line.quantity)}
+                      onChange={(e) => updateLine(idx, { quantity: Number(e.target.value.replace(/[^\d.]/g, "")) || 0 })}
+                      inputMode="decimal"
+                      className="num"
+                    />
+                    <MoneyField
+                      label="سعر الوحدة"
+                      value={String(line.unitPrice)}
+                      onChange={(value) => updateLine(idx, { unitPrice: Number(value.replace(/[^\d.]/g, "")) || 0 })}
+                    />
+                    <div>
+                      <FieldLabel>الوحدة</FieldLabel>
+                      <input
+                        className="input-field"
+                        value={line.unit || ""}
+                        onChange={(e) => updateLine(idx, { unit: e.target.value })}
+                        placeholder="قطعة"
+                      />
+                    </div>
+                    <div className="rounded-2xl bg-brand-soft/70 px-3 py-2 text-center">
+                      <p className="text-[10px] font-black text-muted">إجمالي البند</p>
+                      <Money value={formatCurrency(line.total)} className="text-sm text-brand-dark" />
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
           ) : (
-            <div className="hidden sm:block" />
+            <p className="rounded-2xl border border-dashed border-line px-4 py-6 text-center text-xs font-bold text-muted">
+              لم تُضَف بنود بعد — ابدأ بإضافة أول بند من الأعلى.
+            </p>
           )}
-        </div>
-        <label className="mt-3 block">
-          <span className="label">البيان</span>
-          <input className="input-field" value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </label>
+        </FormSection>
 
-        <div className="mt-4 rounded-2xl bg-brand-soft p-4 text-sm">
-          <div className="flex justify-between font-bold">
-            <span>اجمالي الفاتورة</span>
-            <span className="tabular-nums">{formatCurrency(total)}</span>
-          </div>
-          <div className="mt-1 flex justify-between text-muted">
-            <span>الرصيد السابق</span>
-            <span className="tabular-nums">{formatCurrency(previousBalance)}</span>
-          </div>
-          <div className="mt-1 flex justify-between font-black text-accent">
-            <span>الرصيد بعد الفاتورة</span>
-            <span className="tabular-nums">{formatCurrency(grandTotal)}</span>
-          </div>
-        </div>
+        <FormSection
+          title="الدفع والملاحظات"
+          description="طريقة السداد والخصم ثم البيان الذي يُطبع على الفاتورة"
+          icon={Wallet}
+          tone="good"
+        >
+          <FormGrid cols={3}>
+            <MoneyField
+              label="الخصم"
+              icon={Tag}
+              value={discount}
+              onChange={setDiscount}
+              error={lineError(discount)}
+              hint="اتركه صفرًا إن لم يوجد خصم."
+            />
+            <div>
+              <FieldLabel required>طريقة الدفع</FieldLabel>
+              <AppSelect
+                value={paymentType}
+                onChange={(value) => setPaymentType(value as PaymentType)}
+                searchable={false}
+                options={[
+                  { value: "cash", label: "نقدي — يُسدَّد كاملًا" },
+                  { value: "deferred", label: "آجل — على الحساب" },
+                  { value: "partial", label: "جزئي — دفعة الآن" },
+                ]}
+              />
+            </div>
+            {paymentType !== "deferred" ? (
+              <div>
+                <FieldLabel>عبر شبكة</FieldLabel>
+                <AppSelect
+                  value={paymentMethod}
+                  onChange={(value) => setPaymentMethod(value as PaymentMethod)}
+                  searchable={false}
+                  options={Object.entries(methodLabel).map(([value, label]) => ({ value, label }))}
+                />
+              </div>
+            ) : null}
+            {paymentType === "partial" ? (
+              <MoneyField
+                label="المدفوع الآن"
+                value={paidAmount}
+                onChange={setPaidAmount}
+                error={lineError(paidAmount)}
+                hint={`المتبقي بعد الدفعة: ${formatCurrency(Math.max(0, total - paid))}`}
+              />
+            ) : null}
+          </FormGrid>
+
+          <TextField
+            label="البيان / ملاحظات الفاتورة"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="مثال: تطريز 100 قطعة قماش قطن — تسليم بعد 5 أيام"
+            hint="يظهر هذا البيان في الفاتورة المطبوعة وفي التقرير."
+          />
+        </FormSection>
+
+        <TotalsBar
+          title="ملخص الفاتورة"
+          lines={[
+            { label: `عدد البنود (${items.length})`, value: itemsCount },
+            { label: "الإجمالي قبل الخصم", value: formatCurrency(subTotal) },
+            { label: "الخصم", value: formatCurrency(disc), tone: disc > 0 ? "bad" : "muted" },
+            { label: "إجمالي الفاتورة", value: formatCurrency(total), strong: true },
+            { label: "المدفوع", value: formatCurrency(paid), tone: "good" },
+            { label: "المتبقي", value: formatCurrency(Math.max(0, remaining)), tone: remaining > 0 ? "bad" : "good" },
+            { label: "الرصيد السابق", value: formatCurrency(previousBalance) },
+            { label: "الرصيد بعد الفاتورة", value: formatCurrency(grandTotal), strong: true },
+          ]}
+        />
       </Modal>
 
       {printing ? (

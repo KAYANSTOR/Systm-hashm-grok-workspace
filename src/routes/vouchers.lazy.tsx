@@ -1,10 +1,33 @@
 import { createLazyFileRoute } from "@tanstack/react-router";
-import { ArrowDownRight, ArrowUpRight, Plus, Printer, Receipt, Search, Trash2 } from "lucide-react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Calculator,
+  NotebookPen,
+  Plus,
+  Printer,
+  Receipt,
+  Trash2,
+  UserRound,
+  Wallet,
+} from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { Modal } from "@/components/modal";
 import { AppSelect } from "@/components/ui/AppSelect";
+import { AppDatePicker } from "@/components/ui/AppDatePicker";
+import { FieldLabel, FormGrid, FormSection, MoneyField, TextField, TotalsBar } from "@/components/ui/form";
+import {
+  Chip,
+  FilterChip,
+  Money,
+  PageHeader,
+  SearchField,
+  Segmented,
+  StatCard,
+  StatGrid,
+} from "@/components/ui/kit";
 import { amountInArabicWords } from "@/lib/numbers-ar";
 import VoucherPrintTemplate from "@/components/print/VoucherPrintTemplate";
 import DocumentActionsSheet from "@/components/DocumentActionsSheet";
@@ -13,6 +36,7 @@ import { useStore } from "@/lib/store";
 import type { PartyKind, PaymentMethod, Voucher, VoucherType } from "@/lib/types";
 import {
   amountInputError,
+  cn,
   formatCurrency,
   formatDate,
   nextNumber,
@@ -134,42 +158,71 @@ function VouchersPage() {
       ? selectedPartyBalance - voucherAmount
       : selectedPartyBalance + voucherAmount;
   })();
+  const totals = useMemo(() => {
+    const receiptTotal = vouchers.filter((v) => v.type === "receipt").reduce((s, v) => s + v.amount, 0);
+    const paymentTotal = vouchers.filter((v) => v.type === "payment").reduce((s, v) => s + v.amount, 0);
+    return { receiptTotal, paymentTotal, net: receiptTotal - paymentTotal };
+  }, [vouchers]);
+
   const printing = vouchers.find((v) => v.id === printId);
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="page-title">السندات</h1>
-          <p className="page-subtitle">قبض من العملاء وصرف للموردين.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className="btn-primary" onClick={() => openNew("receipt")}>
-            <ArrowDownRight className="size-5" />
-            سند قبض
-          </button>
-          <button type="button" className="btn-danger" onClick={() => openNew("payment")}>
-            <ArrowUpRight className="size-5" />
-            سند صرف
-          </button>
-        </div>
-      </div>
-
-      <div className="card flex flex-col gap-3 p-3 sm:flex-row">
-        <div className="relative flex-1">
-          <Search className="absolute right-3 top-1/2 size-5 -translate-y-1/2 text-muted" />
-          <input className="input-field pr-10" placeholder="بحث…" value={q} onChange={(e) => setQ(e.target.value)} />
-        </div>
-        <div className="flex gap-1 overflow-x-auto">
-          {(["all", "receipt", "payment"] as const).map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFilter(f)}
-              className={`whitespace-nowrap rounded-xl px-3 py-2 text-sm font-bold ${filter === f ? "bg-brand text-brand-fg" : "bg-canvas text-muted"}`}
-            >
-              {f === "all" ? "الكل" : voucherTypeLabel[f]}
+      <PageHeader
+        title="السندات"
+        subtitle="قبض من العملاء وصرف للموردين — كل سند يُرحَّل على الذمة والصندوق معًا."
+        icon={Receipt}
+        tone="good"
+        actions={
+          <>
+            <button type="button" className="btn-success" onClick={() => openNew("receipt")}>
+              <ArrowDownRight className="size-5" />
+              سند قبض
             </button>
+            <button type="button" className="btn-danger" onClick={() => openNew("payment")}>
+              <ArrowUpRight className="size-5" />
+              سند صرف
+            </button>
+          </>
+        }
+      />
+
+      <StatGrid cols={3}>
+        <StatCard
+          label="إجمالي القبض"
+          value={formatCurrency(totals.receiptTotal)}
+          icon={ArrowDownRight}
+          tone="good"
+          hint={`${vouchers.filter((v) => v.type === "receipt").length} سند`}
+        />
+        <StatCard
+          label="إجمالي الصرف"
+          value={formatCurrency(totals.paymentTotal)}
+          icon={ArrowUpRight}
+          tone="bad"
+          hint={`${vouchers.filter((v) => v.type === "payment").length} سند`}
+        />
+        <StatCard
+          label="صافي حركة السندات"
+          value={formatCurrency(totals.net)}
+          icon={Wallet}
+          tone={totals.net >= 0 ? "brand" : "accent"}
+          hint="قبض − صرف"
+        />
+      </StatGrid>
+
+      <div className="card flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:p-4">
+        <SearchField
+          value={q}
+          onChange={setQ}
+          placeholder="ابحث برقم السند أو الطرف أو البيان…"
+          className="flex-1"
+        />
+        <div className="flex flex-wrap gap-2">
+          {(["all", "receipt", "payment"] as const).map((f) => (
+            <FilterChip key={f} active={filter === f} onClick={() => setFilter(f)}>
+              {f === "all" ? "الكل" : voucherTypeLabel[f]}
+            </FilterChip>
           ))}
         </div>
       </div>
@@ -183,38 +236,47 @@ function VouchersPage() {
           {filtered.map((v) => {
             const inn = v.type === "receipt";
             return (
-              <article key={v.id} className="card flex items-center gap-3 p-4">
-                <div className={`flex size-12 shrink-0 items-center justify-center rounded-2xl ${inn ? "bg-good-soft text-good" : "bg-bad-soft text-bad"}`}>
-                  {inn ? <ArrowDownRight className="size-6" /> : <ArrowUpRight className="size-6" />}
-                </div>
+              <article key={v.id} className="list-row group">
+                <span className={cn("tile-icon", inn ? "bg-good-soft text-good" : "bg-bad-soft text-bad")}>
+                  {inn ? <ArrowDownRight className="size-5" /> : <ArrowUpRight className="size-5" />}
+                </span>
                 <div className="min-w-0 flex-1">
-                  <p className="font-mono text-xs text-muted">{v.voucherNumber}</p>
-                  <h3 className="truncate font-black">{partyName(v)}</h3>
-                  <p className="truncate text-xs text-muted">
-                    {formatDate(v.date)} · {methodLabel[v.paymentMethod]} · {v.description}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="truncate text-sm font-black text-ink">{partyName(v)}</h3>
+                    <Chip tone={inn ? "good" : "bad"}>{voucherTypeLabel[v.type]}</Chip>
+                  </div>
+                  <p className="mt-0.5 truncate text-[11px] font-bold text-muted">
+                    <span className="num">{v.voucherNumber}</span> · {formatDate(v.date)} ·{" "}
+                    {methodLabel[v.paymentMethod]} · {v.description}
                   </p>
                 </div>
-                <div className="text-left">
-                  <p className={`font-black tabular-nums ${inn ? "text-good" : "text-bad"}`}>
-                    {formatCurrency(v.amount)}
-                  </p>
-                  <div className="mt-1 flex justify-end gap-1">
-                    <button type="button" className="btn-icon size-8" onClick={() => setPrintId(v.id)}>
-                      <Printer className="size-4" />
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-icon size-8 text-bad"
-                      onClick={() => {
-                        if (confirm("حذف السند وعكس أثره؟")) {
-                          deleteVoucher(v.id);
-                          toast.success("تم الحذف");
-                        }
-                      }}
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Money
+                    value={formatCurrency(v.amount)}
+                    tone={inn ? "good" : "bad"}
+                    className="text-sm"
+                  />
+                  <button
+                    type="button"
+                    className="btn-icon size-8"
+                    onClick={() => setPrintId(v.id)}
+                    aria-label="طباعة السند"
+                  >
+                    <Printer className="size-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-icon size-8 text-bad hover:bg-bad-soft hover:text-bad"
+                    aria-label="حذف السند"
+                    onClick={() => {
+                      if (confirm("حذف السند وعكس أثره؟")) {
+                        deleteVoucher(v.id);
+                        toast.success("تم الحذف");
+                      }
+                    }}
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
                 </div>
               </article>
             );
@@ -238,86 +300,156 @@ function VouchersPage() {
           </>
         }
       >
-        <div className="grid gap-3">
-          <label>
-            <span className="label">رقم السند</span>
-            <input className="input-field" value={voucherNumber} onChange={(e) => setVoucherNumber(e.target.value)} />
-          </label>
-          <label>
-            <span className="label">نوع الطرف</span>
-            <select
-              className="input-field"
-              value={partyType}
-              onChange={(e) => {
-                setPartyType(e.target.value as PartyKind);
-                setPartyId("");
-              }}
-            >
-              <option value="customer">عميل</option>
-              <option value="supplier">مورد</option>
-              <option value="other">أخرى</option>
-            </select>
-          </label>
-          {partyType !== "other" ? (
-            <div>
-              <AppSelect
-                label="الطرف"
-                value={partyId}
-                onChange={setPartyId}
-                searchable
-                placeholder="ابحث بالاسم أو الرقم…"
-                options={parties.map((p) => ({
-                  value: p.id,
-                  label: p.name,
-                  description: `الرصيد: ${formatCurrency(Number(p.balance) || 0)}${p.phone ? ` · ${p.phone}` : ""}`,
-                }))}
+        <div className="grid gap-4">
+          <Segmented
+            value={type}
+            onChange={(t) => {
+              setType(t);
+              setPartyType(t === "receipt" ? "customer" : t === "payment" ? "supplier" : "other");
+              setPartyId("");
+            }}
+            options={[
+              { value: "receipt" as VoucherType, label: "سند قبض", icon: ArrowDownRight },
+              { value: "payment" as VoucherType, label: "سند صرف", icon: ArrowUpRight },
+            ]}
+          />
+
+          <FormSection
+            title="بيانات السند"
+            description="الرقم والنوع والطرف — الرقم يُقترح تلقائيًا"
+            icon={Receipt}
+            tone={type === "receipt" ? "good" : "bad"}
+          >
+            <FormGrid cols={3}>
+              <TextField
+                label="رقم السند"
+                value={voucherNumber}
+                onChange={(e) => setVoucherNumber(e.target.value)}
+                className="num"
               />
-              {selectedPartyBalance !== null ? (
-                <p className="mt-1.5 text-xs text-muted">
-                  الرصيد الحالي: <span className="font-bold text-ink">{formatCurrency(selectedPartyBalance)}</span>
-                  {balanceAfter !== null ? (
-                    <>
-                      {" → "}بعد هذا السند:{" "}
-                      <span className={`font-bold ${balanceAfter < 0 ? "text-good" : "text-brand"}`}>
-                        {formatCurrency(balanceAfter)}
-                      </span>
-                    </>
-                  ) : null}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-          <label>
-            <span className="label">المبلغ</span>
-            <input className="input-field" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              <div>
+                <FieldLabel required>نوع الطرف</FieldLabel>
+                <AppSelect
+                  value={partyType}
+                  onChange={(v) => {
+                    setPartyType(v as PartyKind);
+                    setPartyId("");
+                  }}
+                  searchable={false}
+                  options={[
+                    { value: "customer", label: "عميل" },
+                    { value: "supplier", label: "مورد" },
+                    { value: "other", label: "أخرى" },
+                  ]}
+                />
+              </div>
+              <AppDatePicker value={date} onChange={setDate} label="التاريخ" />
+            </FormGrid>
+
+            {partyType !== "other" ? (
+              <div>
+                <FieldLabel icon={UserRound} required>
+                  الطرف
+                </FieldLabel>
+                <AppSelect
+                  value={partyId}
+                  onChange={setPartyId}
+                  searchable
+                  placeholder="ابحث بالاسم أو الرقم…"
+                  options={parties.map((p) => ({
+                    value: p.id,
+                    label: p.name,
+                    description: `الرصيد: ${formatCurrency(Number(p.balance) || 0)}${p.phone ? ` · ${p.phone}` : ""}`,
+                  }))}
+                />
+                {selectedPartyBalance !== null ? (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="card-sunken px-3 py-2">
+                      <p className="text-[10px] font-black text-muted">الرصيد الحالي</p>
+                      <Money value={formatCurrency(selectedPartyBalance)} className="text-sm text-ink" />
+                    </div>
+                    <div className="card-sunken px-3 py-2">
+                      <p className="text-[10px] font-black text-muted">بعد هذا السند</p>
+                      {balanceAfter !== null ? (
+                        <Money
+                          value={formatCurrency(balanceAfter)}
+                          tone={balanceAfter < 0 ? "good" : "brand"}
+                          className="text-sm"
+                        />
+                      ) : (
+                        <span className="text-sm font-black text-muted">—</span>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </FormSection>
+
+          <FormSection
+            title={type === "receipt" ? "المبلغ المقبوض" : "المبلغ المصروف"}
+            description="اكتب رقمًا واحدًا فقط — ولن يُقبل أي نص مخلوط"
+            icon={Calculator}
+          >
+            <MoneyField
+              label="المبلغ"
+              required
+              value={amount}
+              onChange={setAmount}
+              error={parsedAmount.ok ? undefined : amountInputError(parsedAmount.reason, "المبلغ")}
+              hint="المبلغ كتابةً يظهر تلقائيًا في السند المطبوع."
+            />
             {voucherAmount > 0 ? (
-              <span className="mt-1.5 block text-xs text-muted">
+              <span className="flex items-start gap-2 rounded-2xl bg-brand-soft/70 px-3 py-2 text-[11px] font-bold text-brand-dark">
+                <Calculator className="mt-0.5 size-3.5 shrink-0" />
                 {amountInArabicWords(voucherAmount)}
               </span>
             ) : null}
-          </label>
-          <label>
-            <span className="label">التاريخ</span>
-            <input className="input-field" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </label>
-          <label>
-            <span className="label">طريقة الدفع</span>
-            <select
-              className="input-field"
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-            >
-              {Object.entries(methodLabel).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className="label">البيان</span>
-            <input className="input-field" value={description} onChange={(e) => setDescription(e.target.value)} />
-          </label>
+            <div>
+              <FieldLabel>طريقة الدفع</FieldLabel>
+              <AppSelect
+                value={paymentMethod}
+                onChange={(v) => setPaymentMethod(v as PaymentMethod)}
+                searchable={false}
+                options={Object.entries(methodLabel).map(([value, label]) => ({ value, label }))}
+              />
+            </div>
+          </FormSection>
+
+          <FormSection
+            title="البيان"
+            description="سبب السند — يظهر مطبوعًا وفي دفتر القيود"
+            icon={NotebookPen}
+            tone="warn"
+          >
+            <TextField
+              label="البيان"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={
+                type === "receipt" ? "مثال: دفعة على حساب تطريز 200 قطعة" : "مثال: سداد دفعة لمورد الخيوط"
+              }
+              hint="اتركه فارغًا وسيُكتب بيان تلقائي واضح بدل سند بلا بيان."
+            />
+          </FormSection>
+
+          <TotalsBar
+            title="ملخص السند"
+            lines={[
+              { label: "نوع السند", value: voucherTypeLabel[type] },
+              { label: "الطرف", value: partyType === "other" ? "أخرى" : partyId ? "محدد" : "لم يُحدد" },
+              {
+                label: "المبلغ",
+                value: formatCurrency(voucherAmount),
+                tone: type === "receipt" ? "good" : "bad",
+                strong: true,
+              },
+              {
+                label: balanceAfter === null ? "الرصيد بعد السند" : "رصيد الطرف بعد السند",
+                value: balanceAfter === null ? "—" : formatCurrency(balanceAfter),
+              },
+            ]}
+          />
         </div>
       </Modal>
 
