@@ -23,6 +23,7 @@ export const ACCESS_MANAGEMENT_PERMISSIONS = ["roles.manage", "users.manage", "e
 
 /** وصف عربي للشاشات في واجهة الصلاحيات */
 export const PAGE_LABELS: { path: string; title: string; permissionIds: string[] }[] = [
+  { path: "/", title: "الرئيسية", permissionIds: [] },
   { path: "/sales", title: "المبيعات والفواتير", permissionIds: ROUTE_ACCESS["/sales"] },
   { path: "/inventory", title: "المخزن والمخزون", permissionIds: ROUTE_ACCESS["/inventory"] },
   { path: "/parties", title: "العملاء والموردون", permissionIds: ROUTE_ACCESS["/parties"] },
@@ -62,7 +63,7 @@ export function canAccessPath(
     return normalized === "/" || normalized === "/settings";
   }
 
-  if (normalized === "/") return canManageAccess(userPermissions);
+  if (normalized === "/") return true;
 
   // تطابق أطول مسار أولاً
   const keys = Object.keys(ROUTE_ACCESS).sort((a, b) => b.length - a.length);

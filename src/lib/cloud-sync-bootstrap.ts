@@ -3,9 +3,9 @@ import { useStore } from "./store";
 /**
  * Client-side cloud synchronization bootstrap.
  *
- * Local state is the fast offline projection. The complete snapshot is fetched
- * once on the first online entry; later visits only drain local mutations.
- * A manual sync from Settings remains the explicit way to pull remote changes.
+ * Local state is the fast offline projection. Every online entry refreshes the
+ * shared snapshot in the background without blocking the first paint; pending
+ * local mutations are drained before the refresh.
  */
 let started = false;
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -25,9 +25,7 @@ async function syncNow() {
       useStore.setState({ pendingSyncCount: 0 });
     }
 
-    if (!useStore.getState().initialDataLoaded) {
-      await useStore.getState().fetchFromDb();
-    }
+    await useStore.getState().fetchFromDb();
   })()
     .catch((error) => {
       console.error("cloud-sync-bootstrap", error);

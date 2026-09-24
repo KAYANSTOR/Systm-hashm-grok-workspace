@@ -37,7 +37,7 @@ export const Route = createLazyFileRoute("/cashbox")({ component: CashBoxPage })
 
 type RangeKey = "all" | "today" | "week" | "month";
 
-const PAYMENT_METHODS: PaymentMethod[] = ["cash", "remittance", "jeeb", "e_wallet"];
+const PAYMENT_METHODS: PaymentMethod[] = ["cash"];
 
 const METHOD_ICON: Record<PaymentMethod, typeof Banknote> = {
   cash: Banknote,
@@ -347,7 +347,7 @@ function CashBoxPage() {
             <AppSelect
               value={method}
               onChange={(v) => setMethod(v as PaymentMethod)}
-              options={Object.entries(methodLabel).map(([value, label]) => ({ value, label }))}
+              options={[{ value: "cash", label: methodLabel.cash }]}
               searchable={false}
             />
           </div>

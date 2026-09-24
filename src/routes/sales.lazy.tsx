@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/kit";
 import InvoicePrintTemplate from "@/components/print/InvoicePrintTemplate";
 import DocumentActionsSheet from "@/components/DocumentActionsSheet";
-import { methodLabel, paymentTypeLabel, statusLabel, unitLabel } from "@/lib/labels";
+import { methodLabel, paymentMethodOptions, paymentTypeLabel, statusLabel, unitLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type {
   Invoice,
@@ -258,7 +258,6 @@ function SalesPage() {
       const current = useStore.getState().invoices.find((x) => x.id === editing);
       if (approved) {
         if (current?.isApproved) {
-          setActionsId(editing);
           toast.success("تم اعتماد الفاتورة");
         } else {
           toast.error("تعذر اعتماد الفاتورة — راجع الكميات أو البيانات");
@@ -270,7 +269,7 @@ function SalesPage() {
     } else {
       const id = addInvoice(payload);
       if (!id) return; // domain/application rejected
-      if (approved) setActionsId(id);
+      setPrintId(id);
       toast.success(approved ? "تم اعتماد الفاتورة" : "حُفظت كمسودة");
     }
     setOpen(false);
@@ -565,7 +564,8 @@ function SalesPage() {
             <TextField
               label="رقم الفاتورة"
               value={invoiceNumber}
-              onChange={(event) => setInvoiceNumber(event.target.value)}
+                  onChange={() => undefined}
+                  readOnly
               className="num"
             />
             <div>
@@ -867,7 +867,7 @@ function SalesPage() {
                   value={paymentMethod}
                   onChange={(value) => setPaymentMethod(value as PaymentMethod)}
                   searchable={false}
-                  options={Object.entries(methodLabel).map(([value, label]) => ({ value, label }))}
+                  options={paymentMethodOptions.map((option) => ({ value: option.value, label: option.label }))}
                 />
               </div>
             ) : null}

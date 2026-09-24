@@ -30,7 +30,7 @@ import {
   StatGrid,
 } from "@/components/ui/kit";
 import { cashBalance } from "@/lib/accounting";
-import { expenseCategories, expenseKindLabel, methodLabel } from "@/lib/labels";
+import { expenseCategories, expenseKindLabel, methodLabel, paymentMethodOptions } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { ExpenseKind, PaymentMethod } from "@/lib/types";
 import { formatMoney, todayIso } from "@/lib/utils";
@@ -324,7 +324,7 @@ function ExpensesPage() {
               <AppSelect
                 value={method}
                 onChange={(v) => setMethod(v as PaymentMethod)}
-                options={Object.entries(methodLabel).map(([value, label]) => ({ value, label }))}
+                options={paymentMethodOptions.map((option) => ({ value: option.value, label: option.label }))}
                 searchable={false}
               />
             </div>

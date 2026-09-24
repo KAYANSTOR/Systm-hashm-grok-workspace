@@ -68,11 +68,14 @@ export const partyKindLabel: Record<PartyKind, string> = {
 };
 
 export const methodLabel: Record<PaymentMethod, string> = {
-  cash: "نقدي",
-  remittance: "حوالة",
-  jeeb: "جيب",
-  e_wallet: "محفظة إلكترونية",
+  cash: "الصندوق",
+  remittance: "الصندوق",
+  jeeb: "الصندوق",
+  e_wallet: "الصندوق",
 };
+
+/** وسيلة موحّدة لكل القبض والصرف؛ القيم القديمة تُعرض أيضًا ضمن الصندوق. */
+export const paymentMethodOptions = [{ value: "cash", label: "الصندوق" }] as const;
 
 export const expenseKindLabel: Record<ExpenseKind, string> = {
   work: "عمل",

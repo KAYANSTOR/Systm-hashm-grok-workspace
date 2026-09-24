@@ -277,7 +277,9 @@ export const useStore = create<Store>()(
           ...(data.expenses || []),
         ] as any[]) {
           if (doc.paymentMethod || doc.payment_method) {
-            methodByDoc.set(doc.id, String(doc.paymentMethod || doc.payment_method));
+            // الحوالة/جيب/المحفظة كانت فئات مستقلة في النسخ القديمة؛ تُوحّد
+            // الآن داخل الصندوق حتى لا تتجزأ الأرصدة بين شاشات مختلفة.
+            methodByDoc.set(doc.id, "cash");
           }
           const number = doc.invoiceNumber || doc.invoice_number || doc.voucherNumber || doc.voucher_number;
           if (number) numberByDoc.set(doc.id, String(number));
@@ -390,7 +392,7 @@ export const useStore = create<Store>()(
               paidAmount: Number(inv.paid_amount),
               remainingAmount: Number(inv.remaining_amount),
               paymentType: inv.payment_type,
-              paymentMethod: inv.payment_method,
+              paymentMethod: "cash",
               isApproved: inv.is_approved,
               isCancelled: Boolean(inv.notes && String(inv.notes).includes("[CANCELLED]")),
               warehouseId: inv.warehouse_id || get().defaultWarehouseId || "wh1",
@@ -407,12 +409,12 @@ export const useStore = create<Store>()(
               voucherNumber: v.voucher_number,
               partyType: v.party_type,
               partyId: v.party_id,
-              paymentMethod: v.payment_method,
+              paymentMethod: "cash",
               createdAt: v.created_at
            })),
            expenses: (data.expenses || []).map((e: any) => ({
               ...e,
-              paymentMethod: e.payment_method,
+              paymentMethod: "cash",
               createdAt: e.created_at
            })),
            transactions: transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -752,9 +754,9 @@ if (typeof window !== "undefined") {
       } catch {
         /* ignore */
       }
-      // اجلب البيانات عند أول تشغيل فقط. بعد ذلك تكون النسخة المحلية هي مصدر
-      // العرض السريع، ولا نعيد تحميل كل البيانات عند كل فتح أو عودة للتركيز.
-      if (!state.initialDataLoaded && navigator.onLine) {
+      // اعرض النسخة المحلية فورًا، ثم حدّثها من السحابة في الخلفية عند كل دخول
+      // حتى يرى هذا الجهاز بيانات الأجهزة الأخرى دون حجب أول رسم للشاشة.
+      if (navigator.onLine) {
         state.fetchFromDb().catch(console.error);
       } else if (!navigator.onLine) {
         useStore.setState({

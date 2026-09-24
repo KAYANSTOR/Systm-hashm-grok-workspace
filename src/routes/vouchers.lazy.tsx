@@ -31,7 +31,7 @@ import {
 import { amountInArabicWords } from "@/lib/numbers-ar";
 import VoucherPrintTemplate from "@/components/print/VoucherPrintTemplate";
 import DocumentActionsSheet from "@/components/DocumentActionsSheet";
-import { methodLabel, voucherTypeLabel } from "@/lib/labels";
+import { methodLabel, paymentMethodOptions, voucherTypeLabel } from "@/lib/labels";
 import { useStore } from "@/lib/store";
 import type { PartyKind, PaymentMethod, Voucher, VoucherType } from "@/lib/types";
 import {
@@ -131,7 +131,7 @@ function VouchersPage() {
       description: finalDescription,
     });
     toast.success("تم حفظ السند");
-    setActionsId(id);
+    setPrintId(id);
     setOpen(false);
   };
 
@@ -324,7 +324,8 @@ function VouchersPage() {
               <TextField
                 label="رقم السند"
                 value={voucherNumber}
-                onChange={(e) => setVoucherNumber(e.target.value)}
+                onChange={() => undefined}
+                readOnly
                 className="num"
               />
               <div>
@@ -411,7 +412,7 @@ function VouchersPage() {
                 value={paymentMethod}
                 onChange={(v) => setPaymentMethod(v as PaymentMethod)}
                 searchable={false}
-                options={Object.entries(methodLabel).map(([value, label]) => ({ value, label }))}
+                options={paymentMethodOptions.map((option) => ({ value: option.value, label: option.label }))}
               />
             </div>
           </FormSection>
