@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useState, useEffect, type ReactNode } from "react";
+import { Suspense, useMemo, useRef, useState, useEffect, type ReactNode } from "react";
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "motion/react";
 import type { LucideIcon } from "lucide-react";
@@ -144,6 +144,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isOnline = useOnlineStatus();
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const initialRouteChecked = useRef(false);
   const inventory = useStore((s) => s.inventory);
   const settings = useStore((s) => s.settings);
   const organizationLogo = useStore((s) => s.organization.logo);
@@ -195,6 +196,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     () => (permissionsEnforced ? firstAllowedPath(userPermissions) : null),
     [permissionsEnforced, userPermissions],
   );
+
+  useEffect(() => {
+    // Always start a new app session on the dashboard. This runs once when the
+    // shell mounts, so normal in-app navigation remains fully unrestricted.
+    if (initialRouteChecked.current) return;
+    initialRouteChecked.current = true;
+    if (pathname !== "/") void router.navigate({ to: "/" });
+  }, [pathname, router]);
 
   useEffect(() => {
     const logo = organizationLogo || "/icons/icon-192.png";
