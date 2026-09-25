@@ -43,7 +43,13 @@ export function Modal({
               <h3 id="modal-title" className="text-lg font-black text-ink">
                 {title}
               </h3>
-              <button type="button" className="btn-icon size-9" onClick={onClose} aria-label="إغلاق">
+              {/* هدف اللمس 36px يكفي للفأرة ولا يكفي للإصبع: 44px على الجوال */}
+              <button
+                type="button"
+                className="btn-icon size-11 shrink-0 sm:size-9"
+                onClick={onClose}
+                aria-label="إغلاق"
+              >
                 <X className="size-5" />
               </button>
             </header>

@@ -366,11 +366,11 @@ function VouchersPage() {
                 {selectedPartyBalance !== null ? (
                   <div className="mt-2 grid grid-cols-2 gap-2">
                     <div className="card-sunken px-3 py-2">
-                      <p className="text-[10px] font-black text-muted">الرصيد الحالي</p>
+                      <p className="text-[11px] font-black text-muted">الرصيد الحالي</p>
                       <Money value={formatCurrency(selectedPartyBalance)} className="text-sm text-ink" />
                     </div>
                     <div className="card-sunken px-3 py-2">
-                      <p className="text-[10px] font-black text-muted">بعد هذا السند</p>
+                      <p className="text-[11px] font-black text-muted">بعد هذا السند</p>
                       {balanceAfter !== null ? (
                         <Money
                           value={formatCurrency(balanceAfter)}

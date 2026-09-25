@@ -428,7 +428,7 @@ function ReportsPage() {
               type="button"
               disabled={!validRange}
               onClick={() => setTab(t.id)}
-              className={`rounded-xl px-3 py-2 text-xs font-bold transition ${tab === t.id ? "bg-brand text-brand-fg" : "bg-canvas text-muted hover:bg-brand-soft"}`}
+              className={`min-h-11 rounded-xl px-3 py-2 text-xs font-bold transition sm:min-h-0 ${tab === t.id ? "bg-brand text-brand-fg" : "bg-canvas text-muted hover:bg-brand-soft"}`}
             >
               {t.label}
             </button>
@@ -771,7 +771,7 @@ function ReportsPage() {
                       </p>
                     </div>
                     <span
-                      className={`rounded-lg px-2 py-0.5 text-[10px] font-bold ${a.status === "success" ? "bg-good-soft text-good" : "bg-warn-soft text-warn"}`}
+                      className={`rounded-lg px-2 py-0.5 text-[11px] font-bold ${a.status === "success" ? "bg-good-soft text-good" : "bg-warn-soft text-warn"}`}
                     >
                       {a.status === "success" ? "نجحت" : a.status || "—"}
                     </span>

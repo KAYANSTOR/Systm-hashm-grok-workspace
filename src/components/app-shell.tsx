@@ -110,12 +110,12 @@ const PAGE_TITLES: Record<string, string> = {
 };
 
 function useOnlineStatus() {
-  // Start with the same value on the server and client; read the browser state
-  // after hydration to avoid replacing the shell because of an SSR mismatch.
+  // نبدأ دائمًا بـ true ثم نقرأ `navigator.onLine` بعد التركيب في `useEffect`:
+  // قراءتها أثناء الرسم تجعل HTML الخادم يخالف رسم العميل الأول فيفشل ترطيب React.
   const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
-    setIsOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
+    setIsOnline(navigator.onLine);
 
     function handleOnline() {
       setIsOnline(true);
@@ -222,6 +222,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [fabOpen, setFabOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  /**
+   * حالة الاتصال كما تُعرض: قبل اكتمال التركيب لا نعرض الحالة الحقيقية لأن المتجر
+   * يبنيها من `navigator.onLine` على العميل بينما الخادم لا يعرفه — واختلافهما كان
+   * يسبب خطأ ترطيب في كل الشاشات. نعرض «غير معروف» بدلًا منه حتى ينتهي التركيب.
+   */
+  const cloudState: "unknown" | "offline" | "online" | "syncing" = isHydrated
+    ? connectionState
+    : "unknown";
 
   useEffect(() => {
     if (
@@ -354,7 +362,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                         <Icon className="size-5 shrink-0" strokeWidth={active ? 2.4 : 2} />
                         <span className="truncate">{item.label}</span>
                         {badge ? (
-                          <span className="num mr-auto rounded-full bg-bad-soft px-1.5 py-0.5 text-[10px] font-black text-bad">
+                          <span className="num mr-auto rounded-full bg-bad-soft px-1.5 py-0.5 text-[11px] font-black text-bad">
                             {badge}
                           </span>
                         ) : null}
@@ -377,25 +385,33 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span
                   className={cn(
                     "flex size-7 items-center justify-center rounded-lg",
-                    isHydrated && connectionState === "offline"
+                    cloudState === "offline"
                       ? "bg-bad-soft text-bad"
-                      : "bg-good-soft text-good",
+                      : cloudState === "unknown"
+                        ? "bg-canvas text-muted ring-1 ring-line"
+                        : "bg-good-soft text-good",
                   )}
                 >
-                  {isHydrated && connectionState === "offline" ? (
+                  {cloudState === "offline" ? (
                     <WifiOff className="size-3.5" />
                   ) : (
-                    <Wifi className="size-3.5" />
+                    <Wifi className={cn("size-3.5", cloudState === "unknown" && "opacity-50")} />
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-black text-ink">
-                    {isHydrated && connectionState === "offline" ? "غير متصل" : "متصل بالسحابة"}
+                    {cloudState === "unknown"
+                      ? "جارٍ التحقق…"
+                      : cloudState === "offline"
+                        ? "غير متصل"
+                        : "متصل بالسحابة"}
                   </p>
-                  <p className="truncate text-[10px] font-bold text-muted">
-                    {pendingSyncCount > 0
-                      ? `${pendingSyncCount} عملية بالمزامنة`
-                      : "كل البيانات محدّثة"}
+                  <p className="truncate text-[11px] font-bold text-muted">
+                    {cloudState === "unknown"
+                      ? "جارٍ تحميل بيانات الجهاز…"
+                      : pendingSyncCount > 0
+                        ? `${pendingSyncCount} عملية بالمزامنة`
+                        : "كل البيانات محدّثة"}
                   </p>
                 </div>
                 {pendingSyncCount > 0 ? (
@@ -463,7 +479,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 >
                   <Bell className="size-5" />
                   {lowStock.length > 0 ? (
-                    <span className="num absolute -left-1 -top-1 flex size-5 min-w-5 items-center justify-center rounded-full bg-bad px-1 text-[10px] font-black text-brand-fg">
+                    <span className="num absolute -left-1 -top-1 flex size-5 min-w-5 items-center justify-center rounded-full bg-bad px-1 text-[11px] font-black text-brand-fg">
                       {lowStock.length}
                     </span>
                   ) : null}
@@ -484,8 +500,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                         initial={{ opacity: 0, y: -8, scale: 0.97 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                        /*
+                         * على الجوال تتمدد اللوحة بين حافتي الشاشة (`fixed inset-x-3`) لأن اللوحة
+                         * المثبّتة أسفل زر التنبيهات كانت تخرج عن الشاشة عند العرض 320px، وعلى
+                         * الحاسوب تبقى قائمة منسدلة بعرض ثابت أسفل الزر.
+                         */
                         transition={{ duration: 0.1 }}
-                        className="absolute left-0 top-12 z-40 w-80 origin-top-left overflow-hidden rounded-3xl border border-line/70 bg-paper shadow-pop"
+                        className="fixed inset-x-3 top-[4.25rem] z-40 origin-top-left overflow-hidden rounded-3xl border border-line/70 bg-paper shadow-pop sm:absolute sm:inset-x-auto sm:left-0 sm:top-12 sm:w-80"
                       >
                         <div className="flex items-center justify-between border-b border-line/70 bg-canvas/70 px-4 py-3">
                           <p className="text-sm font-black text-ink">تنبيهات المخزن</p>
@@ -549,7 +570,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             ) : null}
 
-            {isHydrated && connectionState === "offline" ? (
+            {cloudState === "offline" ? (
               <div
                 className="mb-3 flex items-center gap-2.5 rounded-2xl border border-bad/25 bg-bad-soft/70 px-3.5 py-2 text-[11px] font-bold text-bad"
                 role="status"
@@ -557,7 +578,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <WifiOff className="size-4 shrink-0" />
                 غير متصل — البيانات تُحفظ على الجهاز وتُرفع عند عودة الاتصال.
               </div>
-            ) : isHydrated && pendingSyncCount > 0 ? (
+            ) : cloudState !== "unknown" && pendingSyncCount > 0 ? (
               <div
                 className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warn/30 bg-warn-soft/70 px-3.5 py-2 text-[11px] font-bold text-warn"
                 role="status"
@@ -565,7 +586,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span>جارٍ مزامنة {pendingSyncCount} عملية مع السحابة…</span>
                 <button
                   type="button"
-                  className="rounded-lg border border-warn/40 px-2 py-1 text-[10px] font-black transition hover:bg-warn/10"
+                  className="rounded-lg border border-warn/40 px-2 py-1 text-[11px] font-black transition hover:bg-warn/10"
                   onClick={() => {
                     try {
                       useStore.getState().clearStuckOutbox?.();

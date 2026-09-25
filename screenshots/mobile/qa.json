@@ -1,0 +1,969 @@
+{
+  "base": "http://127.0.0.1:8080",
+  "screens": [],
+  "interactions": [
+    {
+      "name": "fab-menu",
+      "route": "/",
+      "ok": false,
+      "note": "TimeoutError: locator.click: Timeout 6000ms exceeded.",
+      "pageErrors": []
+    },
+    {
+      "name": "notifications",
+      "route": "/",
+      "ok": true,
+      "note": "",
+      "shot": "/home/daytona/codebase/screenshots/mobile/390-notifications.png",
+      "pageOverflow": 0,
+      "overflowing": [],
+      "clipped": [],
+      "tinyTargets": [
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "لوحة المعمل",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "خدمات التطريز",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "السندات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "المخزن",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "الصندوق",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "المصروفات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "العملاء والموردون",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "التقارير",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "الإعدادات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "cls": "btn-icon relative",
+          "text": "التنبيهات",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "btn-icon",
+          "text": "الإعدادات",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "inline-flex min-h-11 items-center text-xs font-black text-brand hover:",
+          "text": "عرض الصندوق",
+          "w": 79,
+          "h": 16
+        }
+      ],
+      "tinyText": [],
+      "lowContrast": [],
+      "pageErrors": []
+    },
+    {
+      "name": "bottom-nav",
+      "route": "/",
+      "ok": false,
+      "note": "TimeoutError: locator.click: Timeout 6000ms exceeded.",
+      "pageErrors": []
+    },
+    {
+      "name": "invoice-modal",
+      "route": "/sales",
+      "ok": true,
+      "note": "",
+      "shot": "/home/daytona/codebase/screenshots/mobile/390-invoice-modal.png",
+      "pageOverflow": 0,
+      "overflowing": [],
+      "clipped": [],
+      "tinyTargets": [
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "لوحة المعمل",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "خدمات التطريز",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "السندات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "المخزن",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "الصندوق",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "المصروفات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "العملاء والموردون",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "التقارير",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "الإعدادات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "btn-icon",
+          "text": "الرئيسية",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "cls": "btn-icon relative",
+          "text": "التنبيهات",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "btn-icon",
+          "text": "الإعدادات",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "cls": "btn-primary",
+          "text": "فاتورة خدمة تطريز",
+          "w": 182,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "cls": "chip-filter chip-filter-active",
+          "text": "الكل",
+          "w": 51,
+          "h": 30
+        }
+      ],
+      "tinyText": [],
+      "lowContrast": [],
+      "pageErrors": []
+    },
+    {
+      "name": "voucher-modal",
+      "route": "/vouchers",
+      "ok": true,
+      "note": "",
+      "shot": "/home/daytona/codebase/screenshots/mobile/390-voucher-modal.png",
+      "pageOverflow": 0,
+      "overflowing": [],
+      "clipped": [],
+      "tinyTargets": [
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "لوحة المعمل",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "خدمات التطريز",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "السندات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "المخزن",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "الصندوق",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "المصروفات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "العملاء والموردون",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "التقارير",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "الإعدادات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "btn-icon",
+          "text": "الرئيسية",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "cls": "btn-icon relative",
+          "text": "التنبيهات",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "btn-icon",
+          "text": "الإعدادات",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "cls": "btn-success",
+          "text": "سند قبض",
+          "w": 129,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "cls": "btn-danger",
+          "text": "سند صرف",
+          "w": 129,
+          "h": 40
+        }
+      ],
+      "tinyText": [],
+      "lowContrast": [],
+      "pageErrors": []
+    },
+    {
+      "name": "inventory-in",
+      "route": "/inventory",
+      "ok": true,
+      "note": "",
+      "shot": "/home/daytona/codebase/screenshots/mobile/390-inventory-in.png",
+      "pageOverflow": 0,
+      "overflowing": [],
+      "clipped": [],
+      "tinyTargets": [
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "لوحة المعمل",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "خدمات التطريز",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "السندات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "المخزن",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "الصندوق",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "المصروفات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "العملاء والموردون",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "التقارير",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "الإعدادات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "btn-icon",
+          "text": "الرئيسية",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "cls": "btn-icon relative",
+          "text": "التنبيهات",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "btn-icon",
+          "text": "الإعدادات",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "cls": "btn-primary",
+          "text": "إدخال بضاعة",
+          "w": 143,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "cls": "btn-secondary",
+          "text": "إخراج بضاعة",
+          "w": 139,
+          "h": 40
+        }
+      ],
+      "tinyText": [],
+      "lowContrast": [],
+      "pageErrors": []
+    },
+    {
+      "name": "inventory-out",
+      "route": "/inventory",
+      "ok": true,
+      "note": "",
+      "shot": "/home/daytona/codebase/screenshots/mobile/390-inventory-out.png",
+      "pageOverflow": 0,
+      "overflowing": [],
+      "clipped": [],
+      "tinyTargets": [
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "لوحة المعمل",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "خدمات التطريز",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "السندات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "المخزن",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "الصندوق",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "المصروفات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "العملاء والموردون",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "التقارير",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "الإعدادات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "btn-icon",
+          "text": "الرئيسية",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "cls": "btn-icon relative",
+          "text": "التنبيهات",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "btn-icon",
+          "text": "الإعدادات",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "cls": "btn-primary",
+          "text": "إدخال بضاعة",
+          "w": 143,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "cls": "btn-secondary",
+          "text": "إخراج بضاعة",
+          "w": 139,
+          "h": 40
+        }
+      ],
+      "tinyText": [],
+      "lowContrast": [],
+      "pageErrors": []
+    },
+    {
+      "name": "expense-modal",
+      "route": "/expenses",
+      "ok": true,
+      "note": "",
+      "shot": "/home/daytona/codebase/screenshots/mobile/390-expense-modal.png",
+      "pageOverflow": 0,
+      "overflowing": [],
+      "clipped": [],
+      "tinyTargets": [
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "لوحة المعمل",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "خدمات التطريز",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "السندات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "المخزن",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "الصندوق",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "المصروفات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "العملاء والموردون",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "التقارير",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-",
+          "text": "الإعدادات",
+          "w": 231,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "btn-icon",
+          "text": "الرئيسية",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "cls": "btn-icon relative",
+          "text": "التنبيهات",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "tag": "a",
+          "cls": "btn-icon",
+          "text": "الإعدادات",
+          "w": 40,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "cls": "btn-primary",
+          "text": "مصروف جديد",
+          "w": 149,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "cls": "segmented-item segmented-item-active",
+          "text": "عمل",
+          "w": 217,
+          "h": 36
+        }
+      ],
+      "tinyText": [],
+      "lowContrast": [],
+      "pageErrors": []
+    },
+    {
+      "name": "parts-modal",
+      "route": "/parties",
+      "ok": false,
+      "note": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:8080/parties",
+      "pageErrors": []
+    },
+    {
+      "name": "voucher-print",
+      "route": "/vouchers",
+      "ok": false,
+      "note": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:8080/vouchers",
+      "pageErrors": []
+    },
+    {
+      "name": "report-print",
+      "route": "/reports",
+      "ok": false,
+      "note": "Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:8080/reports",
+      "pageErrors": []
+    }
+  ],
+  "issues": [
+    {
+      "kind": "tap-target",
+      "detail": "231×40 a.relative flex items-center gap-3 rounded «لوحة المعمل»",
+      "count": 6,
+      "screens": [
+        "حالة-notifications@1280",
+        "حالة-invoice-modal@1280",
+        "حالة-voucher-modal@1280",
+        "حالة-inventory-in@1280",
+        "حالة-inventory-out@1280",
+        "حالة-expense-modal@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "231×40 a.relative flex items-center gap-3 rounded «خدمات التطريز»",
+      "count": 6,
+      "screens": [
+        "حالة-notifications@1280",
+        "حالة-invoice-modal@1280",
+        "حالة-voucher-modal@1280",
+        "حالة-inventory-in@1280",
+        "حالة-inventory-out@1280",
+        "حالة-expense-modal@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "231×40 a.relative flex items-center gap-3 rounded «السندات»",
+      "count": 6,
+      "screens": [
+        "حالة-notifications@1280",
+        "حالة-invoice-modal@1280",
+        "حالة-voucher-modal@1280",
+        "حالة-inventory-in@1280",
+        "حالة-inventory-out@1280",
+        "حالة-expense-modal@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "231×40 a.relative flex items-center gap-3 rounded «المخزن»",
+      "count": 6,
+      "screens": [
+        "حالة-notifications@1280",
+        "حالة-invoice-modal@1280",
+        "حالة-voucher-modal@1280",
+        "حالة-inventory-in@1280",
+        "حالة-inventory-out@1280",
+        "حالة-expense-modal@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "231×40 a.relative flex items-center gap-3 rounded «الصندوق»",
+      "count": 6,
+      "screens": [
+        "حالة-notifications@1280",
+        "حالة-invoice-modal@1280",
+        "حالة-voucher-modal@1280",
+        "حالة-inventory-in@1280",
+        "حالة-inventory-out@1280",
+        "حالة-expense-modal@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "231×40 a.relative flex items-center gap-3 rounded «المصروفات»",
+      "count": 6,
+      "screens": [
+        "حالة-notifications@1280",
+        "حالة-invoice-modal@1280",
+        "حالة-voucher-modal@1280",
+        "حالة-inventory-in@1280",
+        "حالة-inventory-out@1280",
+        "حالة-expense-modal@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "231×40 a.relative flex items-center gap-3 rounded «العملاء والموردون»",
+      "count": 6,
+      "screens": [
+        "حالة-notifications@1280",
+        "حالة-invoice-modal@1280",
+        "حالة-voucher-modal@1280",
+        "حالة-inventory-in@1280",
+        "حالة-inventory-out@1280",
+        "حالة-expense-modal@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "231×40 a.relative flex items-center gap-3 rounded «التقارير»",
+      "count": 6,
+      "screens": [
+        "حالة-notifications@1280",
+        "حالة-invoice-modal@1280",
+        "حالة-voucher-modal@1280",
+        "حالة-inventory-in@1280",
+        "حالة-inventory-out@1280",
+        "حالة-expense-modal@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "231×40 a.relative flex items-center gap-3 rounded «الإعدادات»",
+      "count": 6,
+      "screens": [
+        "حالة-notifications@1280",
+        "حالة-invoice-modal@1280",
+        "حالة-voucher-modal@1280",
+        "حالة-inventory-in@1280",
+        "حالة-inventory-out@1280",
+        "حالة-expense-modal@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "40×40 button.btn-icon relative «التنبيهات»",
+      "count": 6,
+      "screens": [
+        "حالة-notifications@1280",
+        "حالة-invoice-modal@1280",
+        "حالة-voucher-modal@1280",
+        "حالة-inventory-in@1280",
+        "حالة-inventory-out@1280",
+        "حالة-expense-modal@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "40×40 a.btn-icon «الإعدادات»",
+      "count": 6,
+      "screens": [
+        "حالة-notifications@1280",
+        "حالة-invoice-modal@1280",
+        "حالة-voucher-modal@1280",
+        "حالة-inventory-in@1280",
+        "حالة-inventory-out@1280",
+        "حالة-expense-modal@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "40×40 a.btn-icon «الرئيسية»",
+      "count": 5,
+      "screens": [
+        "حالة-invoice-modal@1280",
+        "حالة-voucher-modal@1280",
+        "حالة-inventory-in@1280",
+        "حالة-inventory-out@1280",
+        "حالة-expense-modal@1280"
+      ]
+    },
+    {
+      "kind": "interaction",
+      "detail": "لم تُفتح — TimeoutError: locator.click: Timeout 6000ms exceeded.",
+      "count": 2,
+      "screens": [
+        "حالة-fab-menu@1280",
+        "حالة-bottom-nav@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "143×40 button.btn-primary «إدخال بضاعة»",
+      "count": 2,
+      "screens": [
+        "حالة-inventory-in@1280",
+        "حالة-inventory-out@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "139×40 button.btn-secondary «إخراج بضاعة»",
+      "count": 2,
+      "screens": [
+        "حالة-inventory-in@1280",
+        "حالة-inventory-out@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "79×16 a.inline-flex min-h-11 items-center text-x «عرض الصندوق»",
+      "count": 1,
+      "screens": [
+        "حالة-notifications@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "182×40 button.btn-primary «فاتورة خدمة تطريز»",
+      "count": 1,
+      "screens": [
+        "حالة-invoice-modal@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "51×30 button.chip-filter chip-filter-active «الكل»",
+      "count": 1,
+      "screens": [
+        "حالة-invoice-modal@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "129×40 button.btn-success «سند قبض»",
+      "count": 1,
+      "screens": [
+        "حالة-voucher-modal@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "129×40 button.btn-danger «سند صرف»",
+      "count": 1,
+      "screens": [
+        "حالة-voucher-modal@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "149×40 button.btn-primary «مصروف جديد»",
+      "count": 1,
+      "screens": [
+        "حالة-expense-modal@1280"
+      ]
+    },
+    {
+      "kind": "tap-target",
+      "detail": "217×36 button.segmented-item segmented-item-active «عمل»",
+      "count": 1,
+      "screens": [
+        "حالة-expense-modal@1280"
+      ]
+    },
+    {
+      "kind": "interaction",
+      "detail": "لم تُفتح — Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:8080/parties",
+      "count": 1,
+      "screens": [
+        "حالة-parts-modal@1280"
+      ]
+    },
+    {
+      "kind": "interaction",
+      "detail": "لم تُفتح — Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:8080/vouchers",
+      "count": 1,
+      "screens": [
+        "حالة-voucher-print@1280"
+      ]
+    },
+    {
+      "kind": "interaction",
+      "detail": "لم تُفتح — Error: page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:8080/reports",
+      "count": 1,
+      "screens": [
+        "حالة-report-print@1280"
+      ]
+    }
+  ]
+}

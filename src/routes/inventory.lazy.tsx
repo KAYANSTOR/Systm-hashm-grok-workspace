@@ -456,11 +456,11 @@ function InventoryPage() {
 
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <div className="card-sunken px-3 py-2">
-                      <p className="text-[10px] font-black text-muted">سعر التكلفة</p>
+                      <p className="text-[11px] font-black text-muted">سعر التكلفة</p>
                       <Money value={formatMoney(item.costPrice)} className="text-sm text-ink" />
                     </div>
                     <div className="card-sunken px-3 py-2">
-                      <p className="text-[10px] font-black text-muted">سعر البيع</p>
+                      <p className="text-[11px] font-black text-muted">سعر البيع</p>
                       <Money
                         value={formatMoney(item.sellingPrice)}
                         tone="brand"

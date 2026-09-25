@@ -612,11 +612,11 @@ function SalesPage() {
           {partyId ? (
             <div className="grid grid-cols-2 gap-2 rounded-2xl border border-line/70 bg-canvas/60 p-2.5">
               <div className="rounded-xl bg-paper px-3 py-2">
-                <p className="text-[10px] font-black text-muted">الرصيد الحالي</p>
+                <p className="text-[11px] font-black text-muted">الرصيد الحالي</p>
                 <Money value={formatCurrency(previousBalance)} className="text-sm text-ink" />
               </div>
               <div className="rounded-xl bg-paper px-3 py-2">
-                <p className="text-[10px] font-black text-muted">الرصيد بعد هذه الفاتورة</p>
+                <p className="text-[11px] font-black text-muted">الرصيد بعد هذه الفاتورة</p>
                 <Money
                   value={formatCurrency(grandTotal)}
                   tone={grandTotal > 0 ? "bad" : "good"}
@@ -818,7 +818,7 @@ function SalesPage() {
                       />
                     </div>
                     <div className="rounded-2xl bg-brand-soft/70 px-3 py-2 text-center">
-                      <p className="text-[10px] font-black text-muted">إجمالي البند</p>
+                      <p className="text-[11px] font-black text-muted">إجمالي البند</p>
                       <Money value={formatCurrency(line.total)} className="text-sm text-brand-dark" />
                     </div>
                   </div>

@@ -218,7 +218,10 @@ function Dashboard() {
         subtitle="أحدث الحركات المسجّلة في الدفاتر"
         icon={Receipt}
         action={
-          <Link to="/cashbox" className="text-xs font-black text-brand hover:underline">
+          <Link
+            to="/cashbox"
+            className="inline-flex min-h-11 items-center text-xs font-black text-brand hover:underline sm:min-h-0"
+          >
             عرض الصندوق
           </Link>
         }
@@ -286,7 +289,7 @@ function HeroStat({
     <div className="px-1 text-center">
       <Icon className="mx-auto mb-1 size-4 opacity-85" />
       <p className="num text-base font-black sm:text-lg">{value}</p>
-      <p className="text-[10px] font-bold opacity-80">{label}</p>
+      <p className="text-[11px] font-bold opacity-80">{label}</p>
     </div>
   );
 }

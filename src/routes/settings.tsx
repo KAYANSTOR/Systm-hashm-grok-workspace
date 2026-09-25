@@ -286,7 +286,7 @@ function SettingsRootPage() {
                   <input
                     type="file"
                     accept="image/*"
-                    className="max-w-full cursor-pointer text-xs text-muted file:mr-3 file:rounded-full file:border-0 file:bg-brand-soft file:px-3 file:py-2 file:text-xs file:font-bold file:text-brand hover:file:bg-brand/20 sm:text-sm"
+                    className="min-h-11 max-w-full cursor-pointer text-xs text-muted file:mr-3 file:rounded-full file:border-0 file:bg-brand-soft file:px-3 file:py-2 file:text-xs file:font-bold file:text-brand hover:file:bg-brand/20 sm:min-h-0 sm:text-sm"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
@@ -710,7 +710,7 @@ function SettingsRootPage() {
           <Info className="size-4" />
           معمل هاشم · الإصدار 2.0 (متزامن سحابياً)
         </div>
-        <p className="text-[10px] uppercase tracking-widest opacity-60">Supabase · Offline-first</p>
+        <p className="text-[11px] uppercase tracking-widest opacity-80">Supabase · Offline-first</p>
       </div>
     </div>
   );

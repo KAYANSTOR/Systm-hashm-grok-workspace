@@ -262,6 +262,49 @@
 }
 
 /**
+ * إرغونوميا الجوال (≤ 640px) — فحص آلي بمتصفح حقيقي (scripts/mobile-qa.mjs) أظهر أن
+ * أهداف اللمس كانت أصغر من معيار 44×44: أزرار الأيقونات 40px، وشرائح التصفية 30px،
+ * والحقول 40px. القواعد أدناه ترفعها على الشاشات الصغيرة **بلا تغيير شكل الحاسوب**،
+ * وتزيد أهداف اللمس متجاورة دون لمس المقاسات على الشاشات الكبيرة.
+ */
+@media (max-width: 640px) {
+  @layer components {
+    .btn-primary,
+    .btn-secondary,
+    .btn-ghost,
+    .btn-danger,
+    .btn-success {
+      min-height: 44px;
+    }
+
+    .btn-icon {
+      width: 44px;
+      height: 44px;
+      /* بلا انكماش: صف الرأس مزدحم على 320px وكان يضغط الزر إلى 42px */
+      flex: none;
+    }
+
+    .chip-filter {
+      min-height: 44px;
+      padding-inline: 14px;
+    }
+
+    .segmented-item {
+      min-height: 44px;
+    }
+
+    .input-field,
+    .input-search {
+      min-height: 46px;
+    }
+
+    .list-row {
+      padding-block: 12px;
+    }
+  }
+}
+
+/**
  * الطباعة أصبحت معزولة عبر `components/print/print.css` (جذر طباعة واحد).
  * كانت هنا قاعدة `body * { visibility: hidden }` قديمة تُفرغ الصفحة عند الطباعة
  * من المتصفح مباشرة (Ctrl+P) ولا علاقة لها بالقوالب الحالية — أُزيلت.

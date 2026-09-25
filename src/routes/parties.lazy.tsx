@@ -262,7 +262,7 @@ function PartiesPage() {
                           tone={zero ? "muted" : positive ? "accent" : "good"}
                           className="text-base"
                         />
-                        <p className="text-[10px] font-bold text-muted">
+                        <p className="text-[11px] font-bold text-muted">
                           {zero ? "مسدَّد" : positive ? "مدين" : "دائن"}
                         </p>
                       </div>

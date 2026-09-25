@@ -52,7 +52,7 @@ export default function DailySalesChart({
         {ticks.length ? (
           <div className="flex w-16 shrink-0 flex-col justify-between pb-6 pl-1 text-left">
             {ticks.map((tick) => (
-              <span key={tick} className="num text-[10px] font-bold text-muted">
+              <span key={tick} className="num text-[11px] font-bold text-muted">
                 {formatMoney(tick)}
               </span>
             ))}
@@ -86,14 +86,14 @@ export default function DailySalesChart({
                   className="group relative flex h-full flex-1 flex-col justify-end"
                 >
                   <div
-                    className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink px-2 py-1 text-[10px] font-bold text-canvas group-hover:block"
+                    className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-lg bg-ink px-2 py-1 text-[11px] font-bold text-canvas group-hover:block"
                     role="tooltip"
                   >
                     <span className="num">{point.date}</span> ·{" "}
                     <span className="num">{formatMoney(value)}</span>
                   </div>
                   {showValues && value > 0 ? (
-                    <span className="num mb-1 text-center text-[9px] font-bold text-muted">
+                    <span className="num mb-1 text-center text-[11px] font-bold text-muted">
                       {formatMoney(value)}
                     </span>
                   ) : null}
@@ -117,7 +117,7 @@ export default function DailySalesChart({
             {data.map((point, index) => (
               <span
                 key={`label-${point.date}-${index}`}
-                className="num flex-1 truncate text-center text-[9px] font-bold text-muted"
+                className="num flex-1 truncate text-center text-[11px] font-bold text-muted"
               >
                 {index % labelEvery === 0 ? point.date : ""}
               </span>

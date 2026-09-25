@@ -1215,14 +1215,29 @@
   }
 
   .print-toolbar__title h2 {
-    font-size: 13px;
+    font-size: 14px;
+  }
+
+  .print-toolbar__title p {
+    font-size: 11px;
   }
 
   .print-btn span {
     display: none;
   }
 
+  /*
+   * أزرار شريط المعاينة على الجوال: هدف لمس 44×44 (كانت 38×34 و30×28).
+   * النص يُخفي على الجوال فتصبح الأزرار أيقونات — لذلك `min-width` ضروري لتبقى 44px.
+   */
   .print-btn {
-    padding: 8px 10px;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px 12px;
+  }
+
+  .print-zoom button {
+    width: 44px;
+    height: 44px;
   }
 }

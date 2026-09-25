@@ -183,7 +183,7 @@ export function Segmented<T extends string>({
             {typeof opt.count === "number" ? (
               <span
                 className={cn(
-                  "num rounded-full px-1.5 py-0.5 text-[10px] font-black",
+                  "num rounded-full px-1.5 py-0.5 text-[11px] font-black",
                   active ? "bg-brand-fg/20 text-brand-fg" : "bg-canvas-deep text-muted",
                 )}
               >
