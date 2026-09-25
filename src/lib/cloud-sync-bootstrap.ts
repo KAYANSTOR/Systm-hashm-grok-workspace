@@ -41,7 +41,15 @@ export function startCloudSync() {
   started = true;
 
   const start = () => {
-    void syncNow();
+    // Keep the first interaction free of network/database work. The local
+    // Zustand projection renders immediately; cloud refresh can safely wait
+    // for an idle slice after the app becomes usable.
+    const runWhenIdle = () => void syncNow();
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(runWhenIdle, { timeout: 2500 });
+    } else {
+      globalThis.setTimeout(runWhenIdle, 500);
+    }
     if (!timer) {
       timer = setInterval(() => void syncNow(), 30_000);
     }

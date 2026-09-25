@@ -63,20 +63,6 @@ const NAV_GROUPS: ReadonlyArray<{ label: string; items: ReadonlyArray<NavItem> }
 
 const ALL_NAV = NAV_GROUPS.flatMap((g) => g.items);
 
-// لا نعتمد على preloadRoute وحده؛ بعض بيئات الإنتاج تؤجل lazy route modules
-// حتى لحظة التنقل. تحميلها صراحة عند الدخول الأول يجعل كل الشاشات جاهزة
-// للعمل دون إنترنت أو انتظار شبكة عند أول نقرة.
-const SCREEN_MODULES = [
-  () => import("../routes/index.lazy"),
-  () => import("../routes/sales.lazy"),
-  () => import("../routes/vouchers.lazy"),
-  () => import("../routes/inventory.lazy"),
-  () => import("../routes/cashbox.lazy"),
-  () => import("../routes/expenses.lazy"),
-  () => import("../routes/parties.lazy"),
-  () => import("../routes/reports.lazy"),
-] as const;
-
 const MOBILE_NAV = [
   { to: "/", label: "الرئيسية", icon: Home },
   { to: "/cashbox", label: "الصندوق", icon: Wallet },
@@ -245,37 +231,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     setIsHydrated(true);
   }, []);
-
-  /**
-   * تحميل كود كل الشاشات بعد أول رسم مباشرة حتى لا تنتظر أول نقرة الشبكة.
-   * البيانات نفسها محفوظة في Zustand persist، لذلك بعد الدخول الأول تعمل
-   * الشاشات من الذاكرة/التخزين المحلي حتى عند انقطاع الإنترنت.
-   */
-  useEffect(() => {
-    // حمّل المسارات التي تظهر في شريط الجوال أولًا، ثم أكمل الباقي في وقت
-    // خامل حتى لا تنافس المزامنة أو أول نقرة على موارد الهاتف.
-    const priority = new Set(["/", "/cashbox", "/reports", "/inventory"]);
-    const targets = Array.from(new Set([
-      ...navItems.map((item) => item.to),
-      ...mobileNavItems.map((item) => item.to),
-      ...quickItems.map((item) => item.to),
-    ]));
-    const warmPriority = () => {
-      void Promise.all([SCREEN_MODULES[0](), SCREEN_MODULES[4](), SCREEN_MODULES[7](), SCREEN_MODULES[3]()]).catch(() => undefined);
-      for (const to of targets.filter((path) => priority.has(path))) {
-        void router.preloadRoute({ to } as never).catch(() => undefined);
-      }
-    };
-    const warmRemaining = () => {
-      void Promise.all(SCREEN_MODULES.map((load) => load())).catch(() => undefined);
-      for (const to of targets.filter((path) => !priority.has(path))) {
-        void router.preloadRoute({ to } as never).catch(() => undefined);
-      }
-    };
-    warmPriority();
-    const timer = window.setTimeout(warmRemaining, 1200);
-    return () => window.clearTimeout(timer);
-  }, [navItems, mobileNavItems, quickItems, router]);
 
   useEffect(() => {
     setFabOpen(false);

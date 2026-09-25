@@ -259,9 +259,10 @@ export default defineConfig(({ command, isPreview }) => ({
 
     tailwindcss(),
     tanstackStart({
-      // التطبيق يعمل غالبًا دون إنترنت: حمّل كود كل الشاشات مع أول دخول
-      // بدل انتظار أول نقرة لجلب chunk جديد من الشبكة.
-      autoCodeSplitting: false,
+      // Keep route modules in independent chunks. Links already use
+      // `preload="intent"`, so the next screen is fetched on intent without
+      // competing with first paint by downloading every screen eagerly.
+      autoCodeSplitting: true,
     }),
     ...(command === "build" || isPreview
       ? [
