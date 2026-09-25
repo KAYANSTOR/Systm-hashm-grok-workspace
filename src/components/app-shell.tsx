@@ -244,22 +244,28 @@ export function AppShell({ children }: { children: ReactNode }) {
    * الشاشات من الذاكرة/التخزين المحلي حتى عند انقطاع الإنترنت.
    */
   useEffect(() => {
-    // سخّن كل المسارات فور أول إطار بدل requestIdleCallback؛ الخمول قد يتأخر
-    // مئات الملي ثانية، وهو ما كان يجعل أول نقرة تبدو بطيئة جدًا.
-    const targets = Array.from(
-      new Set([
-        ...navItems.map((item) => item.to),
-        ...mobileNavItems.map((item) => item.to),
-        ...quickItems.map((item) => item.to),
-      ]),
-    );
-    const warm = () => {
-      void Promise.all(SCREEN_MODULES.map((load) => load())).catch(() => undefined);
-      for (const to of targets) {
+    // حمّل المسارات التي تظهر في شريط الجوال أولًا، ثم أكمل الباقي في وقت
+    // خامل حتى لا تنافس المزامنة أو أول نقرة على موارد الهاتف.
+    const priority = new Set(["/", "/cashbox", "/reports", "/inventory"]);
+    const targets = Array.from(new Set([
+      ...navItems.map((item) => item.to),
+      ...mobileNavItems.map((item) => item.to),
+      ...quickItems.map((item) => item.to),
+    ]));
+    const warmPriority = () => {
+      void Promise.all([SCREEN_MODULES[0](), SCREEN_MODULES[4](), SCREEN_MODULES[7](), SCREEN_MODULES[3]()]).catch(() => undefined);
+      for (const to of targets.filter((path) => priority.has(path))) {
         void router.preloadRoute({ to } as never).catch(() => undefined);
       }
     };
-    const timer = window.setTimeout(warm, 0);
+    const warmRemaining = () => {
+      void Promise.all(SCREEN_MODULES.map((load) => load())).catch(() => undefined);
+      for (const to of targets.filter((path) => !priority.has(path))) {
+        void router.preloadRoute({ to } as never).catch(() => undefined);
+      }
+    };
+    warmPriority();
+    const timer = window.setTimeout(warmRemaining, 1200);
     return () => window.clearTimeout(timer);
   }, [navItems, mobileNavItems, quickItems, router]);
 

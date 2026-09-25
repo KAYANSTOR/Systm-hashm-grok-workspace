@@ -33,6 +33,15 @@ import { fetchAllData, syncLegacyData, saveOrganization, addParty, updateParty, 
 let fetchInFlight = false;
 let lastFetchAt = 0;
 
+function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error("SYNC_TIMEOUT")), milliseconds);
+    }),
+  ]);
+}
+
 /** يسمح بإعادة الجلب فورًا بعد مزامنة يدوية (يتجاوز throttle الـ 15 ثانية). */
 export function forceAllowFetch() {
   lastFetchAt = 0;
@@ -254,11 +263,16 @@ export const useStore = create<Store>()(
         // The persisted counter is only a display/status hint and may outlive
         // the queue after a successful drain. Never use it to replay a full
         // legacy snapshot; inspect the actual retryable operations instead.
-        if (outboxPendingCount(get().outbox) > 0) return get().drainPendingOutbox();
+        if (outboxPendingCount(get().outbox) > 0) {
+          return withTimeout(get().drainPendingOutbox(), 7000).catch(() => {
+            set({ connectionState: "offline", lastSyncMessage: "تعذر الاتصال الآن — البيانات المحلية متاحة" });
+          });
+        }
         fetchInFlight = true;
         lastFetchAt = now;
         try {
-        const data = await fetchAllData();
+        // The local projection must remain usable even when the cloud is slow.
+        const data = await withTimeout(fetchAllData(), 8000);
 
         // Auto-migration
         if (data.organization) set({ organization: data.organization });
@@ -425,7 +439,14 @@ export const useStore = create<Store>()(
           initialDataLoaded: true,
           lastSyncMessage: "تم تحديث البيانات من السحابة",
         });
-          await get().refreshAuditFromServer();
+          // Audit history is secondary; never make the main screen wait for it.
+          void withTimeout(get().refreshAuditFromServer(), 4000).catch(() => undefined);
+        } catch (error) {
+          set({
+            connectionState: typeof navigator !== "undefined" && navigator.onLine ? "online" : "offline",
+            lastSyncMessage: "تعذر تحديث السحابة — تم إبقاء البيانات المحلية متاحة",
+          });
+          console.warn("cloud snapshot skipped", error);
         } finally {
           fetchInFlight = false;
         }
