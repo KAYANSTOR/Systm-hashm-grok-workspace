@@ -110,11 +110,13 @@ const PAGE_TITLES: Record<string, string> = {
 };
 
 function useOnlineStatus() {
-  const [isOnline, setIsOnline] = useState(
-    typeof navigator !== "undefined" ? navigator.onLine : true,
-  );
+  // Start with the same value on the server and client; read the browser state
+  // after hydration to avoid replacing the shell because of an SSR mismatch.
+  const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
+    setIsOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
+
     function handleOnline() {
       setIsOnline(true);
       toast.info("تمت استعادة الاتصال، جارٍ ترحيل العمليات المحفوظة إلى السحابة…", {
@@ -141,7 +143,7 @@ function PageSkeleton() {
   return (
     <div className="space-y-5" aria-label="جاري تحميل الشاشة" role="status">
       <div className="h-12 w-64 animate-pulse rounded-2xl bg-paper/80" />
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
         <div className="h-24 animate-pulse rounded-3xl bg-paper/80" />
         <div className="h-24 animate-pulse rounded-3xl bg-paper/80" />
         <div className="h-24 animate-pulse rounded-3xl bg-paper/80" />
@@ -298,7 +300,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="flex min-h-dvh w-full">
         {/* ————— القائمة الجانبية ————— */}
-        <aside className="no-print sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-l border-line/70 bg-paper lg:flex">
+        <aside className="no-print sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-l border-line/70 bg-paper xl:flex">
           <div className="flex items-center gap-3 border-b border-line/70 px-4 py-4">
             <span className="flex size-11 items-center justify-center overflow-hidden rounded-2xl bg-brand-soft shadow-soft">
               <img
@@ -369,12 +371,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span
                   className={cn(
                     "flex size-7 items-center justify-center rounded-lg",
-                    connectionState === "offline"
+                    isHydrated && connectionState === "offline"
                       ? "bg-bad-soft text-bad"
                       : "bg-good-soft text-good",
                   )}
                 >
-                  {connectionState === "offline" ? (
+                  {isHydrated && connectionState === "offline" ? (
                     <WifiOff className="size-3.5" />
                   ) : (
                     <Wifi className="size-3.5" />
@@ -382,7 +384,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-black text-ink">
-                    {connectionState === "offline" ? "غير متصل" : "متصل بالسحابة"}
+                    {isHydrated && connectionState === "offline" ? "غير متصل" : "متصل بالسحابة"}
                   </p>
                   <p className="truncate text-[10px] font-bold text-muted">
                     {pendingSyncCount > 0
@@ -413,14 +415,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div className="flex min-w-0 flex-1 flex-col">
           {/* ————— الترويسة ————— */}
-          <header className="no-print sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-line/60 bg-canvas/85 px-4 backdrop-blur-xl lg:px-6">
+          <header className="no-print sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-line/60 bg-canvas/85 px-4 backdrop-blur-xl xl:px-6">
             <div className="flex min-w-0 items-center gap-2">
               {!isRoot ? (
                 <Link to="/" className="btn-icon" aria-label="الرئيسية">
                   <ArrowRight className="size-5" />
                 </Link>
               ) : (
-                <span className="flex size-10 items-center justify-center rounded-2xl bg-brand-soft text-brand lg:hidden">
+                <span className="flex size-10 items-center justify-center rounded-2xl bg-brand-soft text-brand xl:hidden">
                   <img
                     src={organizationLogo || "/icons/icon-192.png"}
                     alt=""
@@ -429,7 +431,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </span>
               )}
               <div className="min-w-0">
-                <h1 className="truncate text-base font-black leading-tight text-ink lg:text-lg">
+                <h1 className="truncate text-base font-black leading-tight text-ink xl:text-lg">
                   {pageTitle}
                 </h1>
                 <p className="hidden text-[11px] font-bold text-muted sm:block">
@@ -530,7 +532,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          <main className="relative mx-auto w-full max-w-6xl flex-1 px-4 pb-32 pt-4 lg:px-8 lg:pb-12">
+          <main className="relative mx-auto w-full max-w-6xl flex-1 px-4 pb-32 pt-4 xl:px-8 xl:pb-12">
             {!AUTH_REQUIRED ? (
               <div className="mb-3 flex items-center gap-2.5 rounded-2xl border border-warn/30 bg-warn-soft/70 px-3.5 py-2 text-[11px] font-bold text-warn">
                 <ShieldAlert className="size-4 shrink-0" />
@@ -541,7 +543,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
             ) : null}
 
-            {connectionState === "offline" ? (
+            {isHydrated && connectionState === "offline" ? (
               <div
                 className="mb-3 flex items-center gap-2.5 rounded-2xl border border-bad/25 bg-bad-soft/70 px-3.5 py-2 text-[11px] font-bold text-bad"
                 role="status"
@@ -549,7 +551,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <WifiOff className="size-4 shrink-0" />
                 غير متصل — البيانات تُحفظ على الجهاز وتُرفع عند عودة الاتصال.
               </div>
-            ) : pendingSyncCount > 0 ? (
+            ) : isHydrated && pendingSyncCount > 0 ? (
               <div
                 className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warn/30 bg-warn-soft/70 px-3.5 py-2 text-[11px] font-bold text-warn"
                 role="status"
@@ -604,7 +606,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.08 }}
-            className="no-print fixed inset-0 z-40 bg-ink/25 backdrop-blur-[2px] lg:hidden"
+            className="no-print fixed inset-0 z-40 bg-ink/25 backdrop-blur-[2px] xl:hidden"
             onClick={() => setFabOpen(false)}
           />
         )}
@@ -617,7 +619,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.96 }}
             transition={{ duration: 0.12 }}
-            className="no-print fixed bottom-28 left-1/2 z-50 flex w-64 -translate-x-1/2 flex-col gap-2 lg:hidden"
+            className="no-print fixed bottom-28 left-1/2 z-50 flex w-64 -translate-x-1/2 flex-col gap-2 xl:hidden"
           >
             {quickItems.map((q) => {
               const Icon = q.icon;
@@ -641,7 +643,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       </AnimatePresence>
 
-      <nav className="no-print fixed inset-x-0 bottom-0 z-50 border-t border-line/70 bg-paper/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_34px_-14px_rgba(20,50,58,0.25)] backdrop-blur-xl lg:hidden">
+      <nav className="no-print fixed inset-x-0 bottom-0 z-50 border-t border-line/70 bg-paper/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_34px_-14px_rgba(20,50,58,0.25)] backdrop-blur-xl xl:hidden">
         <div className="relative mx-auto flex h-[4.5rem] max-w-lg items-center justify-around px-2">
           <button
             type="button"
