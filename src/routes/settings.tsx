@@ -1,708 +1,111 @@
+import { useState } from "react";
 import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
-import {
-  Building2,
-  Cloud,
-  Database,
-  Download,
-  Info,
-  MapPin,
-  Phone,
-  RefreshCw,
-  Save,
-  Store,
-  Upload,
-  Wifi,
-  ShieldCheck,
-  Trash2,
-  AlertTriangle,
-} from "lucide-react";
-import { useRef, useState, useEffect } from "react";
-import { toast } from "sonner";
-import { forceAllowFetch, syncErrorMessage, useStore } from "@/lib/store";
-import type { AppData } from "@/lib/types";
-import { signOut } from "@/lib/auth/client";
-import { useCurrentUser } from "@/lib/auth/use-current-user";
-import { AccessControlCard } from "@/components/settings/access-control-card";
-import { ensureMyAccountIsAdmin } from "@/server/employees";
-import { canManageAccess } from "@/lib/access";
-import { ACCESS_CONTROL, AUTH_REQUIRED } from "@/lib/features";
+import { Cloud, Database, Info, Settings2 } from "lucide-react";
+import { useStore } from "@/lib/store";
+import { useHydrated } from "@/lib/use-hydrated";
+import { Chip, PageHeader } from "@/components/ui/kit";
+import { SettingsNav } from "@/components/settings/settings-nav";
+import { DEFAULT_SETTINGS_SECTION, type SettingsSectionId } from "@/components/settings/settings-sections";
+import { OverviewPanel } from "@/components/settings/overview-panel";
+import { OrganizationPanel } from "@/components/settings/organization-panel";
+import { AccountPanel } from "@/components/settings/account-panel";
+import { SyncPanel } from "@/components/settings/sync-panel";
+import { CatalogPanel } from "@/components/settings/catalog-panel";
+import { BackupPanel } from "@/components/settings/backup-panel";
+import { DangerPanel } from "@/components/settings/danger-panel";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
-const RESET_PHRASE = "حذف الكل";
-
+/**
+ * شاشة الإعدادات — قشرة (Shell) فقط
+ * ----------------------------------
+ * كانت هذه الشاشة ملفًا واحدًا بطول 700 سطر يجمع كل الأقسام معًا في شبكة
+ * قابلة للتمرير الطويل. الآن:
+ *   • قائمة جانبية ثابتة على الحاسوب وشريط أفقي على الجوال،
+ *   • قسم واحد ظاهر في كل مرة (تبويب حقيقي) فلا تمرير طويل ولا تشتيت،
+ *   • كل قسم في ملف مستقل تحت `src/components/settings/`،
+ *   • وسجل الأقسام في `settings-sections.ts` كي لا تتكرر القائمة.
+ * المنطق نفسه لم يتغير: نفس الدوال ونفس رسائل النجاح والخطأ ونفس بنية النسخة
+ * الاحتياطية وعبارة تأكيد التصفية.
+ */
 function SettingsPage() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  // مسارات الإعدادات الفرعية (مثل /settings/access-control) تُعرض كما هي.
   return pathname !== "/settings" ? <Outlet /> : <SettingsRootPage />;
 }
 
 function SettingsRootPage() {
-  const user = useCurrentUser();
-  const settings = useStore((s) => s.settings);
-  const org = useStore((s) => s.organization);
-  const updateOrganization = useStore((s) => s.updateOrganization);
-  const importData = useStore((s) => s.importData);
-  const resetDatabase = useStore((s) => s.resetDatabase);
-  const warehouses = useStore((s) => s.warehouses || []);
-  const productCategories = useStore((s) => s.productCategories || []);
-  const addWarehouse = useStore((s) => s.addWarehouse);
-  const updateWarehouse = useStore((s) => s.updateWarehouse);
-  const addProductCategory = useStore((s) => s.addProductCategory);
-  const updateProductCategory = useStore((s) => s.updateProductCategory);
-  const userPermissions = useStore((s) => s.userPermissions || []);
+  const [active, setActive] = useState<SettingsSectionId>(DEFAULT_SETTINGS_SECTION);
+
+  /**
+   * قيم المتجر التالية تُبنى على العميل (من `navigator.onLine` أو من التخزين
+   * المحلي) فلا وجود لها على الخادم. نعرضها فقط بعد اكتمال الترطيب، وإلا فشل
+   * ترطيب React كما كان يحدث في هذه الشاشة.
+   */
+  const hydrated = useHydrated();
   const connectionState = useStore((s) => s.connectionState);
   const pendingSyncCount = useStore((s) => s.pendingSyncCount);
   const initialDataLoaded = useStore((s) => s.initialDataLoaded);
   const lastSyncMessage = useStore((s) => s.lastSyncMessage);
-  const fileRef = useRef<HTMLInputElement>(null);
 
-  /** مدير النظام: يملك إدارة الأدوار أو الحسابات أو الموظفين — يُحفظ مرة واحدة في قاعدة البيانات */
-  const isAlreadyAdmin = canManageAccess(userPermissions);
-
-  const [orgForm, setOrgForm] = useState(org);
-  // Keep the first SSR render deterministic; update from the browser after mount.
-  const [isOnline, setIsOnline] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
-  const [promotingAdmin, setPromotingAdmin] = useState(false);
-  const [warehouseName, setWarehouseName] = useState("");
-  const [warehouseLocation, setWarehouseLocation] = useState("");
-  const [categoryName, setCategoryName] = useState("");
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [resetConfirmText, setResetConfirmText] = useState("");
-
-  const settingsSections = [
-    { id: "organization", label: "بيانات المعمل", icon: Store },
-    { id: "sync", label: "المزامنة والاتصال", icon: Cloud },
-    { id: "catalog", label: "المخازن والفئات", icon: Database },
-    { id: "backup", label: "النسخ الاحتياطي", icon: Download },
-    { id: "danger", label: "منطقة الخطر", icon: Trash2 },
-  ] as const;
-
-  const jumpTo = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  useEffect(() => {
-    setOrgForm(org);
-  }, [org]);
-
-  useEffect(() => {
-    setIsOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
-    const onOnline = () => setIsOnline(true);
-    const onOffline = () => setIsOnline(false);
-    window.addEventListener("online", onOnline);
-    window.addEventListener("offline", onOffline);
-    return () => {
-      window.removeEventListener("online", onOnline);
-      window.removeEventListener("offline", onOffline);
-    };
-  }, []);
-
-  const exportJson = () => {
-    const data = useStore.getState();
-    const payload: AppData = {
-      customers: data.customers,
-      suppliers: data.suppliers,
-      inventory: data.inventory,
-      invoices: data.invoices,
-      vouchers: data.vouchers,
-      transactions: data.transactions,
-      expenses: data.expenses,
-      settings: data.settings,
-      organization: data.organization,
-      warehouses: data.warehouses,
-      productCategories: data.productCategories,
-      auditLog: data.auditLog,
-      warehouseStocks: data.warehouseStocks,
-      userPermissions: data.userPermissions,
-      userId: data.userId,
-      defaultWarehouseId: data.defaultWarehouseId,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `hashem-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("تم تنزيل النسخة الاحتياطية بنجاح");
-  };
-
-  const onImport = async (file: File) => {
-    try {
-      const text = await file.text();
-      const data = JSON.parse(text) as AppData;
-      if (!Array.isArray(data.customers) || !Array.isArray(data.invoices)) throw new Error("ملف غير صالح");
-      importData(data);
-      toast.success("تم استعادة البيانات بنجاح");
-    } catch {
-      toast.error("تعذر قراءة الملف. تأكد من صحة ملف النسخة الاحتياطية.");
-    }
-  };
-
-  const syncNow = async () => {
-    if (!isOnline) {
-      toast.error("لا يمكن المزامنة قبل عودة الإنترنت");
-      return;
-    }
-    setIsSyncing(true);
-    try {
-      await useStore.getState().drainPendingOutbox();
-      forceAllowFetch();
-      await useStore.getState().fetchFromDb();
-      const pending = useStore.getState().pendingSyncCount;
-      if (pending > 0) {
-        toast.error(`تبقّى ${pending} عملية بانتظار الترحيل. راجع الاتصال أو الصلاحيات.`);
-      } else {
-        toast.success("تمت مزامنة العمليات وتحديث البيانات من السحابة");
-      }
-    } catch (error) {
-      toast.error(`${syncErrorMessage(error)} ستبقى البيانات محفوظة على هذا الجهاز.`);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const createWarehouse = () => {
-    if (!warehouseName.trim()) return toast.error("أدخل اسم المخزن");
-    addWarehouse({ name: warehouseName, location: warehouseLocation });
-    setWarehouseName("");
-    setWarehouseLocation("");
-    toast.success("تمت إضافة المخزن");
-  };
-
-  const createCategory = () => {
-    if (!categoryName.trim()) return toast.error("أدخل اسم الفئة");
-    addProductCategory(categoryName);
-    setCategoryName("");
-    toast.success("تمت إضافة الفئة");
-  };
-
-  const runResetDatabase = async () => {
-    if (resetConfirmText.trim() !== RESET_PHRASE) {
-      toast.error(`اكتب عبارة التأكيد بالضبط: ${RESET_PHRASE}`);
-      return;
-    }
-    if (!window.confirm("تأكيد أخير: سيتم حذف الفواتير والعملاء والمنتجات والقيود من قاعدة البيانات. المتابعة؟")) {
-      return;
-    }
-    setIsResetting(true);
-    const loadingId = toast.loading("جاري تصفية قاعدة البيانات على الخادم والجهاز…");
-    try {
-      await resetDatabase();
-      setShowResetConfirm(false);
-      setResetConfirmText("");
-      toast.success("تم حذف وتصفية بيانات العمل بنجاح", { id: loadingId });
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "حدث خطأ أثناء مسح قاعدة البيانات";
-      if (/Forbidden|permission|db\.reset|settings\.write/i.test(msg)) {
-        toast.error("لا تملك صلاحية تصفية قاعدة البيانات. سجّل الدخول كمدير.", { id: loadingId });
-      } else if (/Unauthorized/i.test(msg)) {
-        toast.error("انتهت الجلسة. سجّل الدخول ثم أعد المحاولة.", { id: loadingId });
-      } else {
-        toast.error(msg, { id: loadingId });
-      }
-    } finally {
-      setIsResetting(false);
-    }
-  };
+  const displayState = hydrated ? connectionState : "unknown";
+  const statusChip =
+    displayState === "unknown"
+      ? { tone: "muted" as const, icon: Cloud, label: "جارٍ التحقق…" }
+      : displayState === "offline"
+        ? { tone: "bad" as const, icon: Database, label: "غير متصل" }
+        : displayState === "syncing"
+          ? { tone: "brand" as const, icon: Cloud, label: "جارٍ المزامنة" }
+          : {
+              tone: "good" as const,
+              icon: Cloud,
+              label: initialDataLoaded ? "متصل بالسحابة" : "متصل — جارٍ جلب البيانات",
+            };
+  const pendingChip =
+    hydrated && pendingSyncCount > 0
+      ? { tone: "warn" as const, label: `${pendingSyncCount} عملية معلقة` }
+      : { tone: "muted" as const, label: "لا عمليات معلقة" };
+  const StatusIcon = statusChip.icon;
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 px-1 pb-10 sm:space-y-6 sm:px-0">
-      <div>
-        <h1 className="page-title text-xl sm:text-2xl">الإعدادات</h1>
-        <p className="page-subtitle text-sm">تخصيص النظام وإدارة بيانات المعمل — متوافق مع الهاتف والكمبيوتر.</p>
-      </div>
+      <PageHeader
+        title="الإعدادات"
+        subtitle="تخصيص النظام، البيانات، والمزامنة — متوافق مع الهاتف والكمبيوتر."
+        icon={Settings2}
+        tone="brand"
+        meta={
+          <>
+            <Chip tone={statusChip.tone} icon={StatusIcon}>
+              {statusChip.label}
+            </Chip>
+            <Chip tone={pendingChip.tone}>{pendingChip.label}</Chip>
+          </>
+        }
+      />
 
-      <section className="card overflow-hidden border-brand/15 bg-gradient-to-l from-brand-soft/70 via-paper to-paper">
-        <div className="flex flex-col gap-4 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`flex size-12 shrink-0 items-center justify-center rounded-2xl ${connectionState === "offline" ? "bg-bad-soft text-bad" : "bg-good-soft text-good"}`}>
-              {connectionState === "offline" ? <Database className="size-6" /> : <Cloud className="size-6" />}
-            </div>
-            <div>
-              <p className="font-black text-brand-dark">مركز إعدادات النظام</p>
-              <p className="mt-1 text-xs font-bold text-muted">
-                {connectionState === "offline" ? "وضع محلي — سيجري الترحيل عند عودة الإنترنت" : initialDataLoaded ? "البيانات المحلية متصلة بآخر نسخة سحابية" : "جارٍ التحقق من قاعدة البيانات السحابية"}
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
-            <span className={`chip ${connectionState === "offline" ? "bg-bad-soft text-bad" : "bg-good-soft text-good"}`}>
-              {connectionState === "syncing" ? "جارٍ المزامنة" : connectionState === "offline" ? "غير متصل" : "متصل بالسحابة"}
-            </span>
-            <span className="chip bg-canvas text-muted">{pendingSyncCount ? `${pendingSyncCount} معلقة` : "لا عمليات معلقة"}</span>
-          </div>
+      {hydrated && lastSyncMessage ? (
+        <p className="text-[11px] font-bold text-muted">آخر حالة: {lastSyncMessage}</p>
+      ) : null}
+
+      <div className="grid gap-4 sm:gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <SettingsNav active={active} onSelect={setActive} />
+
+        <div className="min-w-0" role="tabpanel" aria-label="قسم الإعدادات المفتوح">
+          {hydrated ? (
+            <>
+              {active === "overview" ? <OverviewPanel onSelect={setActive} /> : null}
+              {active === "organization" ? <OrganizationPanel /> : null}
+              {active === "account" ? <AccountPanel /> : null}
+              {active === "sync" ? <SyncPanel /> : null}
+              {active === "catalog" ? <CatalogPanel /> : null}
+              {active === "backup" ? <BackupPanel /> : null}
+              {active === "danger" ? <DangerPanel /> : null}
+            </>
+          ) : (
+            <SettingsPanelSkeleton />
+          )}
         </div>
-        <nav className="flex gap-2 overflow-x-auto border-t border-line/60 p-2" aria-label="أقسام الإعدادات">
-          {settingsSections.map((section) => {
-            const Icon = section.icon;
-            return <button key={section.id} type="button" className="flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-xs font-black text-muted transition hover:bg-brand-soft hover:text-brand" onClick={() => jumpTo(section.id)}><Icon className="size-4" />{section.label}</button>;
-          })}
-        </nav>
-        {lastSyncMessage ? <p className="border-t border-line/50 px-4 py-2 text-[11px] font-bold text-muted">آخر حالة: {lastSyncMessage}</p> : null}
-      </section>
-
-      {/* الموظفون والأدوار موقوفون مؤقتًا (FEATURES.ACCESS_CONTROL = false) */}
-      {ACCESS_CONTROL ? <AccessControlCard /> : null}
-
-      {/* شبكة متجاوبة: عمود واحد على الهاتف، عمودان على الشاشات الأوسع */}
-      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
-        {/* بيانات المعمل */}
-        <section id="organization" className="scroll-mt-24 card flex flex-col overflow-hidden">
-          <div className="flex items-center gap-3 border-b border-line bg-canvas/50 px-4 py-3 sm:px-5 sm:py-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
-              <Store className="size-5" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="font-black text-brand-dark">بيانات المعمل</h2>
-              <p className="text-xs text-muted">تظهر في الفواتير والسندات</p>
-            </div>
-          </div>
-          <div className="flex flex-1 flex-col justify-between gap-4 p-4 sm:p-5">
-            <div className="grid gap-3 sm:gap-4">
-              <label className="relative block">
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-muted">
-                  <Building2 className="size-4" />
-                </div>
-                <input
-                  className="input-field pr-10"
-                  placeholder="اسم المعمل"
-                  value={orgForm.name}
-                  onChange={(e) => setOrgForm({ ...orgForm, name: e.target.value })}
-                />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-xs font-bold text-brand-dark">شعار المؤسسة</span>
-                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-                  {orgForm.logo ? (
-                    <img src={orgForm.logo} className="size-14 rounded-xl border border-line bg-white p-1 object-contain sm:size-16" alt="Logo" />
-                  ) : (
-                    <div className="flex size-14 items-center justify-center rounded-xl border border-dashed border-line bg-canvas text-muted sm:size-16">
-                      <Store className="size-6 opacity-50" />
-                    </div>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="min-h-11 max-w-full cursor-pointer text-xs text-muted file:mr-3 file:rounded-full file:border-0 file:bg-brand-soft file:px-3 file:py-2 file:text-xs file:font-bold file:text-brand hover:file:bg-brand/20 sm:min-h-0 sm:text-sm"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (ev) => setOrgForm({ ...orgForm, logo: ev.target?.result as string });
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                </div>
-              </label>
-              <label className="relative block">
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-muted">
-                  <MapPin className="size-4" />
-                </div>
-                <input
-                  className="input-field pr-10"
-                  placeholder="العنوان"
-                  value={orgForm.address}
-                  onChange={(e) => setOrgForm({ ...orgForm, address: e.target.value })}
-                />
-              </label>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <label className="relative block">
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-muted">
-                    <Phone className="size-4" />
-                  </div>
-                  <input
-                    className="input-field pr-10"
-                    dir="ltr"
-                    placeholder="رقم الهاتف 1"
-                    value={orgForm.phone}
-                    onChange={(e) => setOrgForm({ ...orgForm, phone: e.target.value })}
-                  />
-                </label>
-                <label className="relative block">
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-muted">
-                    <Phone className="size-4" />
-                  </div>
-                  <input
-                    className="input-field pr-10"
-                    dir="ltr"
-                    placeholder="رقم الهاتف 2"
-                    value={orgForm.commercialNumber || ""}
-                    onChange={(e) => setOrgForm({ ...orgForm, commercialNumber: e.target.value })}
-                  />
-                </label>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="btn-primary mt-1 w-full py-3"
-              onClick={() => {
-                updateOrganization(orgForm);
-                toast.success("تم تحديث بيانات المعمل وحفظها بنجاح");
-              }}
-            >
-              <Save className="size-5" />
-              حفظ التعديلات
-            </button>
-          </div>
-        </section>
-
-        {/* الحساب + المزامنة جنبًا إلى جنب على الشاشات الكبيرة */}
-        <div className="grid grid-cols-1 gap-4 sm:gap-6">
-          <section id="account" className="scroll-mt-24 card overflow-hidden">
-            <div className="flex items-center gap-3 border-b border-line bg-canvas/50 px-4 py-3 sm:px-5 sm:py-4">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
-                <ShieldCheck className="size-5" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="font-black text-brand-dark">الحساب</h2>
-                <p className="text-xs text-muted">
-                  {AUTH_REQUIRED
-                    ? "الجلسة تبقى محفوظة على هذا الجهاز (حتى سنة) إلا عند تسجيل الخروج أو إيقاف الحساب"
-                    : "تسجيل الدخول موقوف مؤقتًا — النظام يفتح مباشرة على هذا الجهاز"}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-col gap-3 p-4 sm:p-5">
-              {AUTH_REQUIRED ? (
-                <>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="truncate font-bold">{user?.displayName || "المستخدم الحالي"}</p>
-                      <p className="text-xs text-muted">الحساب متصل بهذا الجهاز</p>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn-ghost shrink-0 text-bad"
-                      onClick={() => {
-                        void signOut("/").catch((error) =>
-                          toast.error(error instanceof Error ? error.message : "تعذر تسجيل الخروج"),
-                        );
-                      }}
-                    >
-                      تسجيل الخروج
-                    </button>
-                  </div>
-                  {isAlreadyAdmin ? (
-                    <div className="rounded-2xl border border-good/30 bg-good-soft px-4 py-3 text-sm text-good">
-                      <p className="font-black">أنت مدير النظام بالفعل</p>
-                      <p className="mt-1 text-xs opacity-90">
-                        الصلاحيات محفوظة مرة واحدة. يمكنك فتح «الأدوار وصلاحيات الشاشات» وضبط أدوار الموظفين دون إعادة التفعيل.
-                      </p>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn-secondary w-full"
-                      disabled={promotingAdmin}
-                      onClick={() => {
-                        void (async () => {
-                          setPromotingAdmin(true);
-                          try {
-                            const res = await ensureMyAccountIsAdmin();
-                            // حدّث صلاحيات العميل فورًا حتى يعمل كرت الأدوار والشاشات بدون إعادة تحميل
-                            forceAllowFetch();
-                            await useStore.getState().fetchFromDb();
-                            toast.success(
-                              `تم تعيين حسابك كمدير النظام مرة واحدة (${(res as any)?.permissionCount ?? "—"} صلاحية) وحُفظت الإعدادات.`,
-                            );
-                          } catch (error) {
-                            toast.error(error instanceof Error ? error.message : "تعذر تعيين المدير");
-                          } finally {
-                            setPromotingAdmin(false);
-                          }
-                        })();
-                      }}
-                    >
-                      <ShieldCheck className="size-4" />
-                      {promotingAdmin ? "جاري التفعيل والحفظ..." : "تفعيل حسابي كمدير النظام (مرة واحدة)"}
-                    </button>
-                  )}
-                </>
-              ) : (
-                <div className="rounded-2xl border border-line bg-canvas/60 px-4 py-3 text-sm">
-                  <p className="font-black text-brand-dark">لا يوجد تسجيل دخول في هذه المرحلة</p>
-                  <p className="mt-1 text-xs leading-6 text-muted">
-                    تم إيقاف الحسابات و«الموظفون والأدوار» مؤقتًا بطلب من صاحب المعمل: كل من يفتح النظام على هذا
-                    الجهاز يعمل مباشرة بكامل الشاشات، دون اسم مستخدم ولا كلمة مرور. سيُعاد تفعيلها لاحقًا كما هي،
-                    والكود محفوظ بالكامل. ⚠️ لا تشارك رابط النظام مع أي شخص غير موثوق في هذه المرحلة.
-                  </p>
-                </div>
-              )}
-              <button
-                type="button"
-                className="btn-ghost w-full text-xs"
-                onClick={() => {
-                  useStore.getState().clearStuckOutbox?.();
-                  toast.success("تم تنظيف الطابور العالق إن وُجد");
-                }}
-              >
-                تنظيف عمليات المزامنة العالقة
-              </button>
-            </div>
-          </section>
-
-          <section id="sync" className="scroll-mt-24 card overflow-hidden">
-            <div className="flex items-center gap-3 border-b border-line bg-canvas/50 px-4 py-3 sm:px-5 sm:py-4">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
-                <Cloud className="size-5" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="font-black text-brand-dark">التخزين والمزامنة</h2>
-                <p className="text-xs text-muted">مزامنة الطابور مع Supabase</p>
-              </div>
-            </div>
-            <div className="p-4 sm:p-5">
-              <div className="flex items-center justify-between gap-3 rounded-2xl bg-canvas p-3 sm:p-4">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div
-                    className={`flex size-11 shrink-0 items-center justify-center rounded-full sm:size-12 ${
-                      isOnline ? "bg-good/10 text-good" : "bg-bad/10 text-bad"
-                    }`}
-                  >
-                    {isOnline ? <Wifi className="size-5 sm:size-6" /> : <Database className="size-5 sm:size-6" />}
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-black">{isOnline ? "متصل ومزامن" : "وضع عدم الاتصال"}</h3>
-                    <p className="text-xs text-muted">
-                      {isOnline
-                        ? "التغييرات تُرحَّل عبر طابور العمليات"
-                        : "العمليات تُحفظ محليًا حتى عودة الإنترنت"}
-                    </p>
-                  </div>
-                </div>
-                {isOnline && <ShieldCheck className="size-5 shrink-0 text-good sm:size-6" />}
-              </div>
-              <button
-                type="button"
-                className="btn-primary mt-4 w-full py-3"
-                disabled={!isOnline || isSyncing}
-                onClick={() => void syncNow()}
-              >
-                <RefreshCw className={`size-5 ${isSyncing ? "animate-spin" : ""}`} />
-                {isSyncing ? "جارٍ المزامنة…" : "مزامنة الآن"}
-              </button>
-            </div>
-          </section>
-        </div>
-
-        {/* المخازن والفئات — كامل العرض */}
-        <section id="catalog" className="scroll-mt-24 card overflow-hidden lg:col-span-2">
-          <div className="border-b border-line bg-canvas/50 px-4 py-3 sm:px-5 sm:py-4">
-            <h2 className="font-black text-brand-dark">إدارة المخازن والفئات</h2>
-            <p className="text-xs text-muted">تُستخدم في المخزون والتقارير وأوامر التوريد والصرف.</p>
-          </div>
-          <div className="grid grid-cols-1 gap-6 p-4 sm:p-5 lg:grid-cols-2">
-            <div className="space-y-3">
-              <h3 className="font-black">المخازن</h3>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                <input
-                  className="input-field"
-                  placeholder="اسم المخزن"
-                  value={warehouseName}
-                  onChange={(e) => setWarehouseName(e.target.value)}
-                />
-                <input
-                  className="input-field"
-                  placeholder="الموقع (اختياري)"
-                  value={warehouseLocation}
-                  onChange={(e) => setWarehouseLocation(e.target.value)}
-                />
-                <button type="button" className="btn-primary w-full sm:w-auto" onClick={createWarehouse}>
-                  إضافة
-                </button>
-              </div>
-              <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
-                {warehouses.map((warehouse) => (
-                  <div key={warehouse.id} className="flex flex-col gap-2 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="font-bold">{warehouse.name}</p>
-                      <p className="text-xs text-muted">{warehouse.location || "بدون موقع"}</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="btn-ghost text-xs"
-                        onClick={() => {
-                          const name = window.prompt("اسم المخزن", warehouse.name);
-                          if (name?.trim()) updateWarehouse(warehouse.id, { name: name.trim() });
-                        }}
-                      >
-                        تعديل
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-ghost text-xs"
-                        onClick={() => updateWarehouse(warehouse.id, { isActive: !warehouse.isActive })}
-                      >
-                        {warehouse.isActive ? "تعطيل" : "تفعيل"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {!warehouses.length && <div className="p-4 text-center text-xs text-muted">لا توجد مخازن بعد</div>}
-              </div>
-            </div>
-            <div className="space-y-3">
-              <h3 className="font-black">فئات المنتجات</h3>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
-                <input
-                  className="input-field"
-                  placeholder="اسم الفئة"
-                  value={categoryName}
-                  onChange={(e) => setCategoryName(e.target.value)}
-                />
-                <button type="button" className="btn-primary w-full sm:w-auto" onClick={createCategory}>
-                  إضافة
-                </button>
-              </div>
-              <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line">
-                {productCategories.map((category) => (
-                  <div key={category.id} className="flex flex-col gap-2 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                    <p className={`font-bold ${category.isActive ? "" : "text-muted line-through"}`}>{category.name}</p>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="btn-ghost text-xs"
-                        onClick={() => {
-                          const name = window.prompt("اسم الفئة", category.name);
-                          if (name?.trim()) updateProductCategory(category.id, { name: name.trim() });
-                        }}
-                      >
-                        تعديل
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-ghost text-xs"
-                        onClick={() => updateProductCategory(category.id, { isActive: !category.isActive })}
-                      >
-                        {category.isActive ? "تعطيل" : "تفعيل"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {!productCategories.length && <div className="p-4 text-center text-xs text-muted">لا توجد فئات بعد</div>}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* نسخ احتياطي */}
-        <section id="backup" className="scroll-mt-24 card overflow-hidden lg:col-span-2">
-          <div className="flex items-center gap-3 border-b border-line bg-canvas/50 px-4 py-3 sm:px-5 sm:py-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-good-soft text-good">
-              <Database className="size-5" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="font-black text-brand-dark">إدارة البيانات المحلية</h2>
-              <p className="text-xs text-muted">استيراد وتصدير نسخة احتياطية</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 divide-y divide-line sm:grid-cols-2 sm:divide-x sm:divide-y-0 sm:divide-x-reverse">
-            <button type="button" className="group flex flex-col items-center justify-center gap-2 p-6 transition hover:bg-canvas sm:p-8" onClick={exportJson}>
-              <span className="flex size-12 items-center justify-center rounded-full bg-brand-soft text-brand transition-transform group-hover:scale-110 sm:size-14">
-                <Download className="size-5 sm:size-6" />
-              </span>
-              <p className="font-bold">تنزيل نسخة احتياطية</p>
-              <p className="px-2 text-center text-xs text-muted">ملف JSON بكل بيانات العمل الحالية</p>
-            </button>
-            <button
-              type="button"
-              className="group flex flex-col items-center justify-center gap-2 p-6 transition hover:bg-canvas sm:p-8"
-              onClick={() => fileRef.current?.click()}
-            >
-              <span className="flex size-12 items-center justify-center rounded-full bg-good-soft text-good transition-transform group-hover:scale-110 sm:size-14">
-                <Upload className="size-5 sm:size-6" />
-              </span>
-              <p className="font-bold">استعادة من ملف</p>
-              <p className="px-2 text-center text-xs text-muted">يرفع ملف JSON (يستبدل البيانات المحلية الحالية)</p>
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="application/json"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void onImport(f);
-                e.target.value = "";
-              }}
-            />
-          </div>
-        </section>
-
-        {/* منطقة الخطر — تصفية قاعدة البيانات */}
-        <section id="danger" className="scroll-mt-24 card overflow-hidden border-bad/30 lg:col-span-2">
-          <div className="flex items-center gap-3 border-b border-bad/20 bg-bad-soft/30 px-4 py-3 sm:px-5 sm:py-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-bad-soft text-bad">
-              <Trash2 className="size-5" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="font-black text-bad">منطقة الخطر — حذف وتصفية البيانات</h2>
-              <p className="text-xs text-muted">
-                يحذف من الخادم والجهاز: الفواتير، العملاء، الموردين، المنتجات، القيود، المخزون، والطابور. لا يحذف
-                حسابات الدخول ولا الأدوار ولا الموظفين.
-              </p>
-            </div>
-          </div>
-          <div className="space-y-4 p-4 sm:p-5">
-            {!showResetConfirm ? (
-              <button
-                type="button"
-                className="btn-primary w-full bg-bad py-3 text-white hover:bg-bad/90"
-                onClick={() => {
-                  setShowResetConfirm(true);
-                  setResetConfirmText("");
-                }}
-              >
-                <Trash2 className="size-5" />
-                بدء حذف وتصفية قاعدة البيانات
-              </button>
-            ) : (
-              <div className="space-y-3 rounded-2xl border border-bad/30 bg-bad-soft/20 p-4">
-                <div className="flex items-start gap-2 text-sm text-bad">
-                  <AlertTriangle className="mt-0.5 size-5 shrink-0" />
-                  <p>
-                    اكتب عبارة التأكيد <strong className="font-black">«{RESET_PHRASE}»</strong> ثم اضغط التأكيد.
-                    هذا الإجراء لا يمكن التراجع عنه.
-                  </p>
-                </div>
-                <input
-                  className="input-field border-bad/40"
-                  placeholder={RESET_PHRASE}
-                  value={resetConfirmText}
-                  onChange={(e) => setResetConfirmText(e.target.value)}
-                  dir="rtl"
-                  autoComplete="off"
-                />
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <button
-                    type="button"
-                    disabled={isResetting || resetConfirmText.trim() !== RESET_PHRASE}
-                    className="btn-primary w-full bg-bad py-3 text-white hover:bg-bad/90 disabled:opacity-50 sm:flex-1"
-                    onClick={() => void runResetDatabase()}
-                  >
-                    {isResetting ? "جارٍ التصفية…" : "تأكيد الحذف والتصفية الآن"}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-ghost w-full sm:w-auto"
-                    disabled={isResetting}
-                    onClick={() => {
-                      setShowResetConfirm(false);
-                      setResetConfirmText("");
-                    }}
-                  >
-                    إلغاء
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
       </div>
 
       <div className="flex flex-col items-center justify-center gap-2 pb-4 pt-6 text-muted">
@@ -710,7 +113,36 @@ function SettingsRootPage() {
           <Info className="size-4" />
           معمل هاشم · الإصدار 2.0 (متزامن سحابياً)
         </div>
-        <p className="text-[11px] uppercase tracking-widest opacity-80">Supabase · Offline-first</p>
+        <p className="text-[11px] uppercase tracking-widest opacity-80">Cloud · Offline-first</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * هيكل تحميل يظهر في اللحظة القصيرة قبل اكتمال الترطيب، بدل فراغ أبيض.
+ * الأقسام نفسها لا تُرسم إلا بعد الترطيب لأن قيمها تُقرأ من التخزين المحلي
+ * ومن `navigator.onLine`، فرسمها على الخادم كان يُفشل ترطيب React.
+ */
+function SettingsPanelSkeleton() {
+  return (
+    <div className="space-y-4" aria-hidden="true">
+      <div className="card overflow-hidden">
+        <div className="border-b border-line/70 px-4 py-3 sm:px-5">
+          <div className="h-5 w-40 animate-pulse rounded-xl bg-canvas" />
+          <div className="mt-2 h-3 w-56 animate-pulse rounded-lg bg-canvas" />
+        </div>
+        <div className="space-y-3 p-4 sm:p-5">
+          <div className="h-11 w-full animate-pulse rounded-2xl bg-canvas" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="h-11 animate-pulse rounded-2xl bg-canvas" />
+            <div className="h-11 animate-pulse rounded-2xl bg-canvas" />
+          </div>
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="h-24 animate-pulse rounded-3xl bg-paper" />
+        <div className="h-24 animate-pulse rounded-3xl bg-paper" />
       </div>
     </div>
   );

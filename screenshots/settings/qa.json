@@ -1,0 +1,157 @@
+{
+  "base": "http://127.0.0.1:8080",
+  "viewports": [
+    {
+      "name": "desktop",
+      "status": 200,
+      "tabs": [
+        {
+          "label": "نظرة عامة",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "بيانات المعمل",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "الحساب والوصول",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "التخزين والمزامنة",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "المخازن والفئات",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "النسخ الاحتياطي",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "منطقة الخطر",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "name": "mobile",
+      "status": 200,
+      "tabs": [
+        {
+          "label": "نظرة عامة",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "بيانات المعمل",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "الحساب والوصول",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "التخزين والمزامنة",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "المخازن والفئات",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "النسخ الاحتياطي",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "منطقة الخطر",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "name": "mobile-320",
+      "status": 200,
+      "tabs": [
+        {
+          "label": "نظرة عامة",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "بيانات المعمل",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "الحساب والوصول",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "التخزين والمزامنة",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "المخازن والفئات",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "النسخ الاحتياطي",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        },
+        {
+          "label": "منطقة الخطر",
+          "clicked": true,
+          "missing": [],
+          "overflow": -10
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": []
+    }
+  ],
+  "problems": [],
+  "ok": true
+}
