@@ -813,11 +813,13 @@ function Kpi({ title, value }: { title: string; value: string }) {
     </div>
   );
 }
-function Row({ k, v }: { k: string; v: string }) {
+function Row({ k, v }: { k: string; v: unknown }) {
   return (
     <div className="flex justify-between gap-3 border-b border-line pb-2">
       <span className="text-muted">{k}</span>
-      <span className="break-all text-left font-bold text-ink">{v}</span>
+      <span className="break-all text-left font-bold text-ink">
+        {v instanceof Date ? v.toLocaleString("ar-YE") : String(v ?? "—")}
+      </span>
     </div>
   );
 }

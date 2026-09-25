@@ -60,7 +60,8 @@ function SettingsRootPage() {
   const isAlreadyAdmin = canManageAccess(userPermissions);
 
   const [orgForm, setOrgForm] = useState(org);
-  const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  // Keep the first SSR render deterministic; update from the browser after mount.
+  const [isOnline, setIsOnline] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [promotingAdmin, setPromotingAdmin] = useState(false);
@@ -87,6 +88,7 @@ function SettingsRootPage() {
   }, [org]);
 
   useEffect(() => {
+    setIsOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
     const onOnline = () => setIsOnline(true);
     const onOffline = () => setIsOnline(false);
     window.addEventListener("online", onOnline);
