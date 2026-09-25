@@ -1,0 +1,65 @@
+{
+  "base": "http://127.0.0.1:8080",
+  "viewports": [
+    {
+      "name": "desktop",
+      "width": 1280,
+      "height": 800,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "seededVoucher": true,
+      "status": 200,
+      "audit": {
+        "headerTitle": "النظام الرئيسي",
+        "navHomeLabel": "النظام الرئيسي",
+        "hasWelcome": false,
+        "removedCards": {
+          "suppliersDues": false,
+          "lowStockCard": false,
+          "monthCard": false
+        },
+        "movementCardFound": true,
+        "fullWidth": 950,
+        "contentWidth": 950,
+        "spansContent": true,
+        "aboveLog": true,
+        "rightEdgeAligned": true,
+        "buttonLabel": "حركة اليوم 1 حركة الجمعة، ٢٥ سبتمبر · انقر لعرض كل حركات اليوم في النظام قبض اليوم 1,234 صرف اليوم 0 خدمات اليوم 0",
+        "overflow": -10
+      },
+      "expandedText": "فحص الشاشة الرئيسية — حركة اليوم ٢٥ سبتمبر ٢٠٢٦ · DIR-0001 +1,234 عرض الصندوق كاملًا",
+      "expandedRows": 1
+    },
+    {
+      "name": "mobile",
+      "width": 390,
+      "height": 844,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "seededVoucher": true,
+      "status": 200,
+      "audit": {
+        "headerTitle": "النظام الرئيسي",
+        "navHomeLabel": "النظام الرئيسي",
+        "hasWelcome": false,
+        "removedCards": {
+          "suppliersDues": false,
+          "lowStockCard": false,
+          "monthCard": false
+        },
+        "movementCardFound": true,
+        "fullWidth": 348,
+        "contentWidth": 348,
+        "spansContent": true,
+        "aboveLog": true,
+        "rightEdgeAligned": true,
+        "buttonLabel": "حركة اليوم 2 حركة الجمعة، ٢٥ سبتمبر · انقر لعرض كل حركات اليوم في النظام قبض اليوم 2,468 صرف اليوم 0 خدمات اليوم 0",
+        "overflow": -10
+      },
+      "expandedText": "فحص الشاشة الرئيسية — حركة اليوم ٢٥ سبتمبر ٢٠٢٦ · DIR-0001 +1,234 فحص الشاشة الرئيسية — حركة اليوم ٢٥ سبتمبر ٢٠٢٦ · DIR-0002 +1,234 عرض الصندوق كاملًا",
+      "expandedRows": 2
+    }
+  ],
+  "problems": [],
+  "ok": true
+}

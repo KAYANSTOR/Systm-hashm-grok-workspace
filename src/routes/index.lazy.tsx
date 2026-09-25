@@ -4,27 +4,39 @@ import {
   ArrowUpLeft,
   Boxes,
   Calculator,
+  ChevronDown,
   CreditCard,
   Package,
-  PieChart,
   Receipt,
-  Sparkles,
   TrendingUp,
   UserPlus,
   Users,
   Wallet,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { cashBalance } from "@/lib/accounting";
 import { PRODUCT_SALES } from "@/lib/features";
 import { useStore } from "@/lib/store";
-import { formatCurrency, formatDate, formatLongDate, formatMoney } from "@/lib/utils";
-import { Alert, Chip, Money, SectionCard, StatCard, StatGrid, toneTile } from "@/components/ui/kit";
-import { cn } from "@/lib/utils";
+import type { Transaction } from "@/lib/types";
+import { cn, formatDate, formatLongDate, formatMoney } from "@/lib/utils";
+import { Alert, Money, SectionCard, toneTile } from "@/components/ui/kit";
 
 export const Route = createLazyFileRoute("/")({ component: Dashboard });
 
-const SERVICE_LABEL = PRODUCT_SALES ? "المبيعات" : "خدمات التطريز";
+/** هل تاريخ المستند يعود لليوم الحالي؟ يقبل "YYYY-MM-DD" أو تاريخًا كاملًا. */
+function isToday(value: string) {
+  if (!value) return false;
+  const date = new Date(value);
+  return !Number.isNaN(date.getTime()) && date.toDateString() === new Date().toDateString();
+}
+
+/** الأحدث أولًا: التاريخ ثم المعرّف (المعرّفات تحمل الجزء الزمني). */
+function byNewest(a: Transaction, b: Transaction) {
+  return (
+    String(b.date).localeCompare(String(a.date)) ||
+    String(b.id || "").localeCompare(String(a.id || ""))
+  );
+}
 
 function Dashboard() {
   const customers = useStore((s) => s.customers);
@@ -32,76 +44,46 @@ function Dashboard() {
   const inventory = useStore((s) => s.inventory);
   const invoices = useStore((s) => s.invoices);
   const transactions = useStore((s) => s.transactions);
-  const settings = useStore((s) => s.settings);
+  const [todayOpen, setTodayOpen] = useState(false);
+
   const pendingReceipts = invoices.filter(
     (i) => i.type === "purchase" && i.partyId === "PENDING_RECEIPT" && !i.isApproved,
   );
 
   const stats = useMemo(() => {
-    const today = new Date().toDateString();
-    const now = new Date();
     const sales = invoices.filter((i) => i.type === "sale" && i.isApproved);
-    const todayInvs = sales.filter((i) => new Date(i.date).toDateString() === today);
-    const monthInvs = sales.filter((i) => {
-      const d = new Date(i.date);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    });
-    const product = (list: typeof sales) =>
-      list.filter((i) => i.invoiceType !== "SERVICE").reduce((s, i) => s + i.total, 0);
-    const service = (list: typeof sales) =>
-      list.filter((i) => i.invoiceType === "SERVICE").reduce((s, i) => s + i.total, 0);
+    const todayInvs = sales.filter((i) => isToday(i.date));
+    const sum = (list: typeof sales) => list.reduce((s, i) => s + i.total, 0);
     const receivables = customers.reduce((s, c) => s + Math.max(0, c.balance), 0);
-    const payables = suppliers.reduce((s, c) => s + Math.max(0, c.balance), 0);
     const low = inventory.filter((i) => i.quantity <= (i.minQuantity || 0)).length;
     const creditors = customers.filter((c) => c.balance > 0).length;
     return {
       receivables,
-      payables,
       creditors,
-      todaySales: product(todayInvs),
-      todayServices: service(todayInvs),
-      todayCount: todayInvs.length,
-      monthSales: product(monthInvs),
-      monthServices: service(monthInvs),
-      monthCount: monthInvs.length,
+      todaySales: sum(todayInvs.filter((i) => i.invoiceType !== "SERVICE")),
+      todayServices: sum(todayInvs.filter((i) => i.invoiceType === "SERVICE")),
       cash: cashBalance(transactions),
       low,
     };
-  }, [customers, suppliers, inventory, invoices, transactions]);
+  }, [customers, inventory, invoices, transactions]);
 
-  const recent = useMemo(
-    () =>
-      [...transactions]
-        .sort(
-          (a, b) =>
-            String(b.date).localeCompare(String(a.date)) ||
-            String(b.id || "").localeCompare(String(a.id || "")),
-        )
-        .slice(0, 7),
+  /**
+   * كل حركات اليوم: الدفاتر (transactions) هي سجل موحّد لكل مستند في النظام
+   * (فاتورة خدمة/مبيعات، سند قبض/صرف، مصروف)، فتظهر هنا كاملة.
+   */
+  const todayMovements = useMemo(
+    () => transactions.filter((t) => isToday(t.date)).sort(byNewest),
     [transactions],
   );
 
-  const serviceShare =
-    stats.monthSales + stats.monthServices > 0
-      ? Math.round((stats.monthServices / (stats.monthSales + stats.monthServices)) * 100)
-      : 0;
+  const todayCashIn = todayMovements.reduce((s, t) => s + (t.cashIn || 0), 0);
+  const todayCashOut = todayMovements.reduce((s, t) => s + (t.cashOut || 0), 0);
+  const todaySalesTotal = stats.todaySales + stats.todayServices;
+
+  const recent = useMemo(() => [...transactions].sort(byNewest).slice(0, 7), [transactions]);
 
   return (
     <div className="space-y-5">
-      {/* ————— الترحيب ————— */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-black tracking-wide text-brand">{formatLongDate()}</p>
-          <h1 className="page-title mt-1">أهلاً بك في {settings.name || "المعمل"}</h1>
-          <p className="page-subtitle">
-            نظرة سريعة على الحركة المالية والمخزون و{SERVICE_LABEL} اليوم.
-          </p>
-        </div>
-        <Chip tone="brand" icon={Sparkles}>
-          {stats.todayCount} مستند اليوم
-        </Chip>
-      </div>
-
       {/* ————— بطاقة الذمم ————— */}
       <Link to="/parties" className="card-hero block p-5 transition hover:shadow-lift sm:p-6">
         <div className="pointer-events-none absolute -left-10 -top-14 size-44 rounded-full bg-white/10" />
@@ -130,42 +112,6 @@ function Dashboard() {
           </div>
         </div>
       </Link>
-
-      {/* ————— مؤشرات سريعة ————— */}
-      <StatGrid>
-        <StatCard
-          label="حركة اليوم"
-          value={formatCurrency(stats.todaySales + stats.todayServices)}
-          hint={`${stats.todayCount} مستند`}
-          icon={Calculator}
-          tone="brand"
-          to="/sales"
-        />
-        <StatCard
-          label={PRODUCT_SALES ? "مبيعات الشهر" : "خدمات الشهر"}
-          value={formatCurrency(stats.monthServices + stats.monthSales)}
-          hint={`${stats.monthCount} فاتورة · ${serviceShare}% خدمات`}
-          icon={PieChart}
-          tone="navy"
-          to="/reports"
-        />
-        <StatCard
-          label="مستحقات الموردين"
-          value={formatCurrency(stats.payables)}
-          hint="آجل المشتريات"
-          icon={Users}
-          tone="accent"
-          to="/parties"
-        />
-        <StatCard
-          label="مواد تحت الحد"
-          value={stats.low}
-          hint={stats.low > 0 ? "تحتاج تزويد" : "المخزون جيد"}
-          icon={Boxes}
-          tone={stats.low > 0 ? "bad" : "good"}
-          to="/inventory"
-        />
-      </StatGrid>
 
       {/* ————— تنبيهات ————— */}
       {pendingReceipts.length > 0 ? (
@@ -212,6 +158,85 @@ function Dashboard() {
         <QuickAction to="/expenses" icon={CreditCard} title="إضافة مصروف" subtitle="تسجيل مصروف" tone="bad" />
       </div>
 
+      {/* ————— حركة اليوم: بطاقة بعرض الشاشة فوق سجل العمليات ————— */}
+      <section className="card overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setTodayOpen((open) => !open)}
+          aria-expanded={todayOpen}
+          aria-controls="today-movements"
+          className="block w-full text-right transition-colors duration-150 hover:bg-canvas/60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand/15"
+        >
+          <span className="flex items-center gap-3 p-4 sm:p-5">
+            <span className="tile-icon size-12 rounded-2xl bg-brand-soft text-brand shadow-soft">
+              <Calculator className="size-6" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="section-title">حركة اليوم</span>
+                <span className="chip bg-brand-soft text-brand-dark">
+                  {todayMovements.length} حركة
+                </span>
+              </span>
+              <span className="mt-0.5 block text-xs font-bold text-muted">
+                {formatLongDate()} · انقر لعرض كل حركات اليوم في النظام
+              </span>
+            </span>
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-canvas text-muted">
+              <ChevronDown
+                className={cn("size-5 transition-transform duration-200", todayOpen && "rotate-180")}
+              />
+            </span>
+          </span>
+
+          <span className="grid gap-3 border-t border-line/70 p-4 sm:grid-cols-3 sm:p-5">
+            <span className="card-sunken block p-3">
+              <span className="block text-[11px] font-black text-muted">قبض اليوم</span>
+              <Money value={formatMoney(todayCashIn)} tone="good" className="mt-1 block text-lg" />
+            </span>
+            <span className="card-sunken block p-3">
+              <span className="block text-[11px] font-black text-muted">صرف اليوم</span>
+              <Money value={formatMoney(todayCashOut)} tone="bad" className="mt-1 block text-lg" />
+            </span>
+            <span className="card-sunken block p-3">
+              <span className="block text-[11px] font-black text-muted">
+                {PRODUCT_SALES ? "مبيعات اليوم" : "خدمات اليوم"}
+              </span>
+              <Money value={formatMoney(todaySalesTotal)} tone="brand" className="mt-1 block text-lg" />
+            </span>
+          </span>
+        </button>
+
+        {todayOpen ? (
+          <div id="today-movements" className="border-t border-line/70 p-3 sm:p-4">
+            {todayMovements.length === 0 ? (
+              <div className="flex flex-col items-center px-4 py-8 text-center">
+                <span className="flex size-12 items-center justify-center rounded-2xl bg-canvas text-muted">
+                  <Receipt className="size-6" />
+                </span>
+                <p className="mt-3 font-black text-ink">لا توجد حركات مسجّلة اليوم</p>
+                <p className="mt-1 text-sm text-muted">
+                  سجّل فاتورة خدمة تطريز أو سند قبض وستظهر هنا فورًا.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {todayMovements.map((trx, i) => (
+                  <MovementRow key={`${trx.id}-${i}`} trx={trx} />
+                ))}
+              </div>
+            )}
+
+            <Link
+              to="/cashbox"
+              className="btn-ghost btn-sm mt-3 flex w-full items-center justify-center"
+            >
+              عرض الصندوق كاملًا
+            </Link>
+          </div>
+        ) : null}
+      </section>
+
       {/* ————— آخر العمليات ————— */}
       <SectionCard
         title="آخر العمليات"
@@ -237,41 +262,37 @@ function Dashboard() {
           </div>
         ) : (
           <div className="space-y-2">
-            {recent.map((trx, i) => {
-              const inflow = trx.cashIn > 0 || trx.credit > trx.debit;
-              const amount = trx.cashIn || trx.cashOut || trx.debit || trx.credit;
-              return (
-                <div key={`${trx.id}-${i}`} className="list-row">
-                  <span
-                    className={cn(
-                      "tile-icon",
-                      inflow ? "bg-good-soft text-good" : "bg-bad-soft text-bad",
-                    )}
-                  >
-                    {inflow ? (
-                      <ArrowDownLeft className="size-5" />
-                    ) : (
-                      <ArrowUpLeft className="size-5" />
-                    )}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-black text-ink">{trx.description}</p>
-                    <p className="mt-0.5 text-[11px] font-bold text-muted">
-                      {formatDate(trx.date)}
-                      {trx.documentNumber ? ` · ${trx.documentNumber}` : ""}
-                    </p>
-                  </div>
-                  <Money
-                    value={`${inflow ? "+" : "−"}${formatMoney(amount)}`}
-                    tone={inflow ? "good" : "bad"}
-                    className="shrink-0 text-sm"
-                  />
-                </div>
-              );
-            })}
+            {recent.map((trx, i) => (
+              <MovementRow key={`${trx.id}-${i}`} trx={trx} />
+            ))}
           </div>
         )}
       </SectionCard>
+    </div>
+  );
+}
+
+/** صف حركة واحد — يُستخدم في «حركة اليوم» وفي «آخر العمليات». */
+function MovementRow({ trx }: { trx: Transaction }) {
+  const inflow = trx.cashIn > 0 || trx.credit > trx.debit;
+  const amount = trx.cashIn || trx.cashOut || trx.debit || trx.credit;
+  return (
+    <div className="list-row">
+      <span className={cn("tile-icon", inflow ? "bg-good-soft text-good" : "bg-bad-soft text-bad")}>
+        {inflow ? <ArrowDownLeft className="size-5" /> : <ArrowUpLeft className="size-5" />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-black text-ink">{trx.description}</p>
+        <p className="mt-0.5 text-[11px] font-bold text-muted">
+          {formatDate(trx.date)}
+          {trx.documentNumber ? ` · ${trx.documentNumber}` : ""}
+        </p>
+      </div>
+      <Money
+        value={`${inflow ? "+" : "−"}${formatMoney(amount)}`}
+        tone={inflow ? "good" : "bad"}
+        className="shrink-0 text-sm"
+      />
     </div>
   );
 }

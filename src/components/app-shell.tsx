@@ -36,7 +36,7 @@ type NavItem = { to: string; label: string; icon: LucideIcon };
 const NAV_GROUPS: ReadonlyArray<{ label: string; items: ReadonlyArray<NavItem> }> = [
   {
     label: "الرئيسية",
-    items: [{ to: "/", label: "لوحة المعمل", icon: Home }],
+    items: [{ to: "/", label: "النظام الرئيسي", icon: Home }],
   },
   {
     label: "العمليات",
@@ -97,7 +97,7 @@ const QUICK = [
 ] as const;
 
 const PAGE_TITLES: Record<string, string> = {
-  "/": "لوحة المعمل",
+  "/": "النظام الرئيسي",
   "/sales": PRODUCT_SALES ? "المبيعات" : "خدمات التطريز",
   "/vouchers": "السندات",
   "/inventory": "المخزن",
