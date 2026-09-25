@@ -15,14 +15,18 @@ import { chromium } from "playwright";
 const BASE = process.env.SETTINGS_QA_BASE || "http://127.0.0.1:8080";
 const OUT_DIR = "screenshots/settings";
 
+/**
+ * `label` = تسمية قائمة الحاسوب الجانبية، و`short` = تسمية شبكة الجوال.
+ * الفحص يجرب الاثنتين حتى يعمل على المقاسين.
+ */
 const TABS = [
-  { label: "نظرة عامة", expect: ["حالة النظام", "مختصرات"] },
-  { label: "بيانات المعمل", expect: ["بيانات المعمل", "حفظ التعديلات"] },
-  { label: "الحساب والوصول", expect: ["الحساب"] },
-  { label: "التخزين والمزامنة", expect: ["مزامنة الآن"] },
-  { label: "المخازن والفئات", expect: ["المخازن", "فئات المنتجات"] },
-  { label: "النسخ الاحتياطي", expect: ["تنزيل نسخة احتياطية"] },
-  { label: "منطقة الخطر", expect: ["منطقة الخطر", "بدء حذف وتصفية قاعدة البيانات"] },
+  { label: "نظرة عامة", short: "نظرة عامة", expect: ["حالة النظام", "مختصرات"] },
+  { label: "بيانات المعمل", short: "بيانات المعمل", expect: ["بيانات المعمل", "حفظ التعديلات"] },
+  { label: "الحساب والوصول", short: "الحساب", expect: ["الحساب"] },
+  { label: "التخزين والمزامنة", short: "المزامنة", expect: ["مزامنة الآن"] },
+  { label: "المخازن والفئات", short: "المخازن والفئات", expect: ["المخازن", "فئات المنتجات"] },
+  { label: "النسخ الاحتياطي", short: "النسخ الاحتياطي", expect: ["تنزيل نسخة احتياطية"] },
+  { label: "منطقة الخطر", short: "منطقة الخطر", expect: ["منطقة الخطر", "بدء حذف وتصفية قاعدة البيانات"] },
 ];
 
 const VIEWPORTS = [
@@ -70,14 +74,30 @@ for (const viewport of VIEWPORTS) {
     )
     .catch(() => report.problems.push(`${viewport.name}: لم يظهر محتوى أي قسم خلال 15 ثانية`));
 
-  for (const tab of TABS) {
-    const button = page
-      .locator('nav[aria-label="أقسام الإعدادات"] button:visible', { hasText: tab.label })
-      .first();
+  // كل الأقسام يجب أن تكون ظاهرة بلا تمرير أفقي (خلل «الإعدادات ناقصة على الهاتف»).
+  const navLayout = await page.evaluate(() => {
+    const nav = document.querySelector('nav[aria-label="أقسام الإعدادات"]');
+    const buttons = Array.from(nav.querySelectorAll('button')).filter((b) => b.offsetParent);
+    const offscreen = buttons.filter((b) => {
+      const r = b.getBoundingClientRect();
+      return r.right > window.innerWidth + 1 || r.left < -1;
+    });
+    return { total: buttons.length, offscreen: offscreen.map((b) => b.innerText.trim()) };
+  });
+  entry.nav = navLayout;
+  if (navLayout.offscreen.length) {
+    report.problems.push(
+      `${viewport.name}: أقسام خارج الشاشة (${navLayout.offscreen.length}/${navLayout.total}) → ${navLayout.offscreen.join(" · ")}`,
+    );
+  }
 
+  for (const tab of TABS) {
     let clicked = false;
     let missing = [];
     try {
+      const locatorFor = (text) =>
+        page.locator('nav[aria-label="أقسام الإعدادات"] button:visible', { hasText: text }).first();
+      const button = (await locatorFor(tab.label).count()) ? locatorFor(tab.label) : locatorFor(tab.short);
       await button.click({ timeout: 8000 });
       clicked = true;
       await page.waitForTimeout(320);

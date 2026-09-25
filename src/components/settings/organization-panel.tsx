@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Building2, Globe, Mail, MapPin, Phone, Receipt, Save, Store, Trash2 } from "lucide-react";
+import { Building2, FileText, Globe, MapPin, Phone, Save, Store, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { Alert, Chip, SectionCard } from "@/components/ui/kit";
@@ -7,10 +7,9 @@ import { FormGrid, TextField } from "@/components/ui/form";
 
 /**
  * بيانات المعمل — المصدر الذي تُطبع منه ترويسة الفواتير والسندات والتقارير.
- * أُضيفت الحقول التي كانت موجودة في النموذج ومستخدمة في القوالب لكن بلا واجهة
- * (البريد، الموقع، الرقم الضريبي، السجل التجاري، نص التذييل)، وصار لكل حقل
- * تسمية صحيحة: `commercialNumber` كان يُعرض سابقًا كـ«رقم هاتف 2» وهو في الحقيقة
- * السجل التجاري، ويظهر في الفاتورة بجانب الرقم الضريبي.
+ * الحقول مقصورة على ما يحتاجه المعمل فعلًا (بطلب صاحب المشروع، 25 سبتمبر 2026):
+ * الاسم، الشعار، العنوان، الهاتف، الموقع الإلكتروني، ونص التذييل.
+ * أُزيلت حقول البريد الإلكتروني والسجل التجاري والرقم الضريبي.
  */
 export function OrganizationPanel() {
   const org = useStore((s) => s.organization);
@@ -112,14 +111,6 @@ export function OrganizationPanel() {
             onChange={(event) => setOrgForm((current) => ({ ...current, phone: event.target.value }))}
           />
           <TextField
-            label="البريد الإلكتروني"
-            icon={Mail}
-            dir="ltr"
-            placeholder="name@example.com"
-            value={orgForm.email || ""}
-            onChange={(event) => setOrgForm((current) => ({ ...current, email: event.target.value }))}
-          />
-          <TextField
             label="الموقع الإلكتروني"
             icon={Globe}
             dir="ltr"
@@ -128,24 +119,8 @@ export function OrganizationPanel() {
             onChange={(event) => setOrgForm((current) => ({ ...current, website: event.target.value }))}
           />
           <TextField
-            label="السجل التجاري"
-            icon={Receipt}
-            dir="ltr"
-            value={orgForm.commercialNumber || ""}
-            onChange={(event) =>
-              setOrgForm((current) => ({ ...current, commercialNumber: event.target.value }))
-            }
-          />
-          <TextField
-            label="الرقم الضريبي"
-            icon={Receipt}
-            dir="ltr"
-            value={orgForm.taxNumber || ""}
-            onChange={(event) => setOrgForm((current) => ({ ...current, taxNumber: event.target.value }))}
-          />
-          <TextField
             label="نص التذييل"
-            icon={Receipt}
+            icon={FileText}
             placeholder="يظهر أسفل الفاتورة وكشف الحساب"
             value={orgForm.footerText || ""}
             onChange={(event) =>

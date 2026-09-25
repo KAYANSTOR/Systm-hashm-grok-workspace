@@ -5,6 +5,7 @@ import { DEFAULT_WAREHOUSE_ID } from "../domain/inventory.ts";
 import { requirePermission, listUserPermissions, PERMS } from "./permissions.ts";
 import { invoiceLedgerRows } from "../domain/invoice-ledger-rows.ts";
 import { expenseAccountId, expenseAccountName } from "../domain/expense-account.ts";
+import { purgeBusinessData } from "../domain/purge.ts";
 import { requireUserId } from "../lib/auth/verify.server";
 
 function resolveWarehouseId(explicit?: string | null): string {
@@ -531,6 +532,10 @@ export const saveOrganization = createServerFn({ method: "POST" })
  * تصفية بيانات العمل التشغيلية من القاعدة (Supabase).
  * تُحذف الفواتير/الأطراف/المخزون/القيود/الطابور — مع الإبقاء على:
  * المستخدمين، الأدوار، الصلاحيات، الموظفين، وملف المؤسسة.
+ * ⚠️ **لا تُضِف `try/catch` حول أي حذف هنا.** التفصيل الكامل للعلة التي أُصلحت
+ * (25 سبتمبر 2026) في ترويسة `src/domain/purge.ts`: حذف `audit_events` كان يفشل
+ * دائمًا (مُشغِّل append-only) فيُجهِض المعاملة، و`COMMIT` يتحول إلى `ROLLBACK`
+ * صامت — فكانت الشاشة تعرض النجاح بينما لا يُحذف أي شيء.
  */
 export const resetDatabase = createServerFn({ method: "POST" }).handler(async () => {
   // DB_RESET إن وُجدت؛ وإلا SETTINGS_WRITE حتى لا يتعطل الزر إن نقصت بذرة الصلاحيات
@@ -539,54 +544,31 @@ export const resetDatabase = createServerFn({ method: "POST" }).handler(async ()
   } catch {
     await requirePermission(PERMS.SETTINGS_WRITE);
   }
+  const userId = await requireUserId();
   const sql = await getSql();
-  await sql.transaction(async (tx) => {
-    // ترتيب يحترم المفاتيح الأجنبية الشائعة
-    await tx`delete from financial_transactions`;
-    await tx`delete from inventory_movements`;
-    try {
-      await tx`delete from warehouse_stock`;
-    } catch {
-      /* الجدول قد لا يوجد في بيئات قديمة */
-    }
-    await tx`delete from invoice_items`;
-    await tx`delete from invoices`;
-    await tx`delete from vouchers`;
-    await tx`delete from expenses`;
-    await tx`delete from products`;
-    await tx`delete from parties`;
-    try {
-      await tx`delete from processed_operations`;
-    } catch {
-      /* optional */
-    }
-    try {
-      await tx`delete from sync_outbox`;
-    } catch {
-      /* optional */
-    }
-    try {
-      await tx`delete from sync_conflicts`;
-    } catch {
-      /* optional */
-    }
-    try {
-      await tx`delete from audit_events`;
-    } catch {
-      /* optional */
-    }
-    // أعد إنشاء طرف PLACEHOLDER للتوريد المخزني إن لزم
-    try {
-      await tx`
-        insert into parties (id, type, name, phone, address, created_at)
-        values ('PENDING_RECEIPT', 'supplier', 'مورد توريد مخزني - بانتظار تحديد المورد', '-', '-', now())
-        on conflict (id) do nothing
-      `;
-    } catch {
-      /* ignore */
-    }
+  const result = await sql.transaction(async (tx) => {
+    // الحذف والتحقق في وحدة مشتركة يفحصها الاختبار الآلي `npm run check:purge`
+    const purge = await purgeBusinessData(tx);
+
+    // أعد إنشاء طرف PLACEHOLDER للتوريد المخزني (يحتاجه إدخال بضاعة بلا مورد محدد)
+    await tx`
+      insert into parties (id, type, name, phone, address, created_at)
+      values ('PENDING_RECEIPT', 'supplier', 'مورد توريد مخزني - بانتظار تحديد المورد', '-', '-', now())
+      on conflict (id) do nothing
+    `;
+
+    // سجّل التصفية نفسها في سجل التدقيق: السجل غير قابل للتعديل، فيبقى فيه من نفّذ
+    // التصفية ومتى — وهذا هو سبب عدم حذف الجدول أعلاه.
+    await tx`
+      insert into audit_events (audit_id, org_id, user_id, entity_type, entity_id, action, metadata)
+      values (${`database:purge:${Date.now()}`}, 'default_org', ${userId || null}, 'database', 'all', 'purge',
+              ${JSON.stringify({ clearedTables: purge.cleared.length, purgedAt: new Date().toISOString() })}::jsonb)
+      on conflict (audit_id) do nothing
+    `;
+
+    return purge;
   });
-  return { status: "ok", cleared: true };
+  return { status: "ok", cleared: true, tables: result.cleared.length, absent: result.absent.length };
 });
 
 // ─── Outbox / Idempotent operation application ───────────────────────────────

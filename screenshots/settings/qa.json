@@ -49,7 +49,11 @@
         }
       ],
       "consoleErrors": [],
-      "pageErrors": []
+      "pageErrors": [],
+      "nav": {
+        "total": 7,
+        "offscreen": []
+      }
     },
     {
       "name": "mobile",
@@ -99,7 +103,11 @@
         }
       ],
       "consoleErrors": [],
-      "pageErrors": []
+      "pageErrors": [],
+      "nav": {
+        "total": 7,
+        "offscreen": []
+      }
     },
     {
       "name": "mobile-320",
@@ -149,7 +157,11 @@
         }
       ],
       "consoleErrors": [],
-      "pageErrors": []
+      "pageErrors": [],
+      "nav": {
+        "total": 7,
+        "offscreen": []
+      }
     }
   ],
   "problems": [],

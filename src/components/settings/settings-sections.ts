@@ -25,6 +25,8 @@ export type SettingsGroupId = "general" | "system" | "data" | "risk";
 export type SettingsSection = {
   id: SettingsSectionId;
   label: string;
+  /** تسمية مختصرة لشبكة الجوال حتى لا تُقطع الكلمات الطويلة. */
+  short: string;
   hint: string;
   icon: LucideIcon;
   tone: Tone;
@@ -42,6 +44,7 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   {
     id: "overview",
     label: "نظرة عامة",
+    short: "نظرة عامة",
     hint: "حالة النظام والمختصرات",
     icon: Info,
     tone: "brand",
@@ -50,6 +53,7 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   {
     id: "organization",
     label: "بيانات المعمل",
+    short: "بيانات المعمل",
     hint: "الاسم والشعار والترويسة",
     icon: Store,
     tone: "brand",
@@ -58,6 +62,7 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   {
     id: "account",
     label: "الحساب والوصول",
+    short: "الحساب",
     hint: "المستخدم الحالي والموظفون",
     icon: ShieldCheck,
     tone: "navy",
@@ -66,6 +71,7 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   {
     id: "sync",
     label: "التخزين والمزامنة",
+    short: "المزامنة",
     hint: "الطابور والنسخة السحابية",
     icon: Cloud,
     tone: "accent",
@@ -74,6 +80,7 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   {
     id: "catalog",
     label: "المخازن والفئات",
+    short: "المخازن والفئات",
     hint: "تقسيمات المخزون والتقارير",
     icon: Database,
     tone: "good",
@@ -82,6 +89,7 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   {
     id: "backup",
     label: "النسخ الاحتياطي",
+    short: "النسخ الاحتياطي",
     hint: "تصدير واستعادة البيانات",
     icon: Download,
     tone: "good",
@@ -90,6 +98,7 @@ export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   {
     id: "danger",
     label: "منطقة الخطر",
+    short: "منطقة الخطر",
     hint: "حذف وتصفية البيانات",
     icon: Trash2,
     tone: "bad",

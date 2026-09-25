@@ -9,9 +9,10 @@ import {
 /**
  * تنقّل الإعدادات
  * ----------------
- * على الجوال: شريط أفقي قابل للتمرير (لا يستهلك ارتفاعًا من الشاشة الصغيرة).
- * على الحاسوب: قائمة جانبية ثابتة (sticky) مجمّعة، فلا يحتاج المستخدم للتمرير
- * الطويل بين الأقسام كما كان في التصميم السابق (روابط قفز داخل صفحة واحدة).
+ * على الجوال: **شبكة تُظهر كل الأقسام السبعة معًا**. كان الشريط الأفقي السابق
+ * يُخفي ٥ من ٧ أقسام خارج الشاشة (عرض الشريط 956px داخل شاشة 390px) فلا يكتشفها
+ * المستخدم، وظهرت الشاشة عنده «ناقصة» — وهذا سبب مشكلة «الإعدادات ناقصة على الهاتف».
+ * على الحاسوب: قائمة جانبية ثابتة (sticky) مجمّعة.
  */
 export function SettingsNav({
   active,
@@ -22,12 +23,8 @@ export function SettingsNav({
 }) {
   return (
     <nav aria-label="أقسام الإعدادات" className="lg:sticky lg:top-4 lg:self-start">
-      {/* ————— الجوال ————— */}
-      <div
-        className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 lg:hidden"
-        role="tablist"
-        aria-label="أقسام الإعدادات"
-      >
+      {/* ————— الجوال: كل الأقسام ظاهرة، بلا تمرير أفقي ————— */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:hidden" role="tablist">
         {SETTINGS_SECTIONS.map((section) => {
           const Icon = section.icon;
           const isActive = section.id === active;
@@ -38,10 +35,22 @@ export function SettingsNav({
               role="tab"
               aria-selected={isActive}
               onClick={() => onSelect(section.id)}
-              className={cn("chip-filter shrink-0 gap-1.5", isActive && "chip-filter-active")}
+              className={cn(
+                "flex min-h-11 items-center gap-2 rounded-2xl border px-2.5 py-2 text-right text-xs font-black transition",
+                isActive
+                  ? "border-brand/30 bg-brand-soft text-brand-dark shadow-soft"
+                  : "border-line/70 bg-paper text-muted",
+              )}
             >
-              <Icon className="size-3.5" />
-              {section.label}
+              <span
+                className={cn(
+                  "flex size-7 shrink-0 items-center justify-center rounded-lg",
+                  isActive ? toneTile(section.tone) : "bg-canvas text-muted",
+                )}
+              >
+                <Icon className="size-4" />
+              </span>
+              <span className="min-w-0 leading-tight">{section.short}</span>
             </button>
           );
         })}
