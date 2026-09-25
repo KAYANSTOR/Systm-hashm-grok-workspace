@@ -45,9 +45,28 @@ function signInGateEnabled(): boolean {
 
 function RootDocument() {
   useEffect(() => {
-    if ("serviceWorker" in navigator && import.meta.env.PROD) {
-      void navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
-    }
+    if (!("serviceWorker" in navigator) || !import.meta.env.PROD) return;
+
+    let reloading = false;
+    const handleControllerChange = () => {
+      // A stale installed PWA can keep rendering the previous shell until the
+      // active worker changes. Reload once after the new worker takes control.
+      if (reloading) return;
+      reloading = true;
+      window.location.reload();
+    };
+
+    navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange);
+    void navigator.serviceWorker
+      .register(`/sw.js?v=${encodeURIComponent("2026-09-25-mobile-fix")}`, {
+        updateViaCache: "none",
+      })
+      .then((registration) => registration.update())
+      .catch(() => undefined);
+
+    return () => {
+      navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange);
+    };
   }, []);
 
   const pathname = useRouterState({ select: (s) => s.location.pathname });
