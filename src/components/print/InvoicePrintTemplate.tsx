@@ -16,15 +16,15 @@ function money(value: number): string {
 }
 
 function invoiceTitle(invoice: Invoice): string {
-  if (invoice.invoiceType === "SERVICE") return "فاتورة مبيعات";
   if (invoice.invoiceType === "ISSUE") return "فاتورة صرف مخزني";
   if (invoice.type === "purchase") return "فاتورة مشتريات";
   return "فاتورة مبيعات";
 }
 
 /**
- * فاتورة A4 — تصميم مطابق للنموذج الرسمي (Navy + Gold).
- * البيانات والحسابات من النظام؛ القالب طبقة عرض فقط.
+ * فاتورة A4 — مطابقة للنموذج الرسمي المرفق:
+ * أعمدة الكمية (طاقة/وار/فرشات) · مجاميع ثلاثية · شريط سفلي كحلي.
+ * الترويسة والشعار من إعدادات المنشأة فقط.
  */
 export default function InvoicePrintTemplate({
   invoice,
@@ -63,7 +63,7 @@ export default function InvoicePrintTemplate({
   const grandTotal = previousBalance + total;
 
   const isCash = invoice.paymentType === "cash";
-  const isDeferred = invoice.paymentType === "deferred";
+  const isDeferred = invoice.paymentType === "deferred" || invoice.paymentType === "credit";
   const isPartial = invoice.paymentType === "partial";
 
   const minRows = 5;
@@ -99,6 +99,7 @@ export default function InvoicePrintTemplate({
         ) : undefined
       }
     >
+      {/* ترويسة من إعدادات المنشأة */}
       <header className="doc-head">
         <div className="doc-head__copy">
           <h1 className="doc-head__name">{companyName}</h1>
@@ -112,12 +113,13 @@ export default function InvoicePrintTemplate({
 
       {stamp ? <span className={`doc-stamp ${stamp.tone}`}>{stamp.label}</span> : null}
 
+      {/* شارة العنوان + الرقم والتاريخ */}
       <div className="inv-band">
-        <div className="inv-band__title">فاتورة مبيعات</div>
+        <div className="inv-band__title">{invoiceTitle(invoice)}</div>
         <div className="inv-band__meta">
           <div className="inv-meta-row">
             <span>الرقم:</span>
-            <strong dir="ltr">{invoice.invoiceNumber}</strong>
+            <strong dir="ltr">{invoice.invoiceNumber || "................"}</strong>
           </div>
           <div className="inv-meta-row">
             <span>التاريخ:</span>
@@ -126,9 +128,10 @@ export default function InvoicePrintTemplate({
         </div>
       </div>
 
+      {/* نوع الدفع: نقداً / أجل */}
       <div className="inv-pay-row">
         <span className="inv-pay-label">فاتورة</span>
-        <span className={`inv-opt ${isCash ? "is-on" : ""}`}>
+        <span className={`inv-opt ${isCash || (!isDeferred && !isPartial) ? "is-on" : ""}`}>
           <i />
           نقداً
         </span>
@@ -144,28 +147,41 @@ export default function InvoicePrintTemplate({
         ) : null}
       </div>
 
+      {/* الطرف */}
       <div className="inv-party">
         <div className="inv-party__line">
           <span>المطلوب من الأخ :</span>
-          <strong>{partyName || "عميل نقدي"}</strong>
+          <strong>{partyName || "................................"}</strong>
         </div>
-        <div className="inv-party__line">
+        <div className="inv-party__line inv-party__line--tail">
           <span>المحترمون</span>
-          <strong />
         </div>
       </div>
 
-      <section className="doc-table-wrap">
+      {/* جدول البنود */}
+      <section className="doc-table-wrap inv-table-wrap">
         <table className="doc-table inv-table">
           <thead>
             <tr>
               <th rowSpan={2} className="col-index">
-                رقم البند
+                رقم
+                <br />
+                البند
               </th>
-              <th rowSpan={2}>البيان</th>
-              <th colSpan={3}>الكمية</th>
-              <th rowSpan={2}>سعر الوحدة</th>
-              <th rowSpan={2}>القيمة الاجمالية</th>
+              <th rowSpan={2} className="col-desc-h">
+                البيان
+                <span className="th-en">Description</span>
+              </th>
+              <th colSpan={3} className="col-qty-group">
+                الكمية
+              </th>
+              <th rowSpan={2} className="col-price-h">
+                سعر الوحدة
+              </th>
+              <th rowSpan={2} className="col-total-h">
+                القيمة الاجمالية
+                <span className="th-en">Total Amount</span>
+              </th>
             </tr>
             <tr>
               <th className="sub-qty">طاقة</th>
@@ -200,24 +216,38 @@ export default function InvoicePrintTemplate({
         </table>
       </section>
 
-      <div className="inv-totals">
-        <div className="inv-total-row">
-          <span className="inv-total-label">اجمالي الفاتورة</span>
-          <span className="inv-total-value" dir="ltr">
+      {/* المجاميع: صندوق قيم + تسميات ملونة — مطابق للصورة */}
+      <div className="inv-totals-block">
+        <div className="inv-totals-values" aria-hidden={false}>
+          <div className="inv-totals-value-line" dir="ltr">
             {money(total)}
-          </span>
-        </div>
-        <div className="inv-total-row">
-          <span className="inv-total-label">الرصيد السابق</span>
-          <span className="inv-total-value" dir="ltr">
+          </div>
+          <div className="inv-totals-value-line" dir="ltr">
             {money(previousBalance)}
-          </span>
-        </div>
-        <div className="inv-total-row inv-total-row--grand">
-          <span className="inv-total-label">الاجمالي الكلي</span>
-          <span className="inv-total-value" dir="ltr">
+          </div>
+          <div className="inv-totals-value-line inv-totals-value-line--grand" dir="ltr">
             {money(grandTotal)}
-          </span>
+          </div>
+        </div>
+        <div className="inv-totals-labels">
+          <div className="inv-totals-label">
+            <span className="inv-totals-ico" aria-hidden>
+              ▣
+            </span>
+            اجمالي الفاتورة
+          </div>
+          <div className="inv-totals-label">
+            <span className="inv-totals-ico" aria-hidden>
+              ▣
+            </span>
+            الرصيد السابق
+          </div>
+          <div className="inv-totals-label inv-totals-label--gold">
+            <span className="inv-totals-ico" aria-hidden>
+              ▣
+            </span>
+            الاجمالي الكلي
+          </div>
         </div>
       </div>
 
@@ -233,7 +263,7 @@ export default function InvoicePrintTemplate({
               المدفوع: <strong dir="ltr">{money(paid)}</strong>
             </span>
           ) : null}
-          {remaining > 0 ? (
+          {remaining > 0 && paid > 0 ? (
             <span>
               المتبقي: <strong dir="ltr">{money(remaining)}</strong>
             </span>
@@ -241,12 +271,19 @@ export default function InvoicePrintTemplate({
         </div>
       ) : null}
 
+      {/* إقرار الاستلام */}
       <div className="inv-ack">
-        إستلمت البضاعة الموضحة أعلاه كاملة ومطابقة للتفاصيل مع إلتزامي بدفع القيمة خلال فترة
-        أقصاها ( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ) من تحرير الفاتورة
+        <span className="inv-ack__icon" aria-hidden>
+          ✎
+        </span>
+        <p>
+          إستلمت البضاعة الموضحة أعلاه كاملة ومطابقة للتفاصيل مع إلتزامي بدفع القيمة خلال فترة أقصاها
+          (&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;) من تحرير الفاتورة
+        </p>
       </div>
 
-      <div className="doc-signs">
+      {/* التوقيعات */}
+      <div className="doc-signs inv-signs">
         <div className="doc-sign">
           <div className="doc-sign__title">توقيع المبيعات</div>
           <div className="doc-sign__line" />
@@ -257,9 +294,22 @@ export default function InvoicePrintTemplate({
         </div>
       </div>
 
-      <footer className="doc-foot">
-        <span>
-          ☎ {companyPhones} &nbsp;|&nbsp; 📍 {companyAddress}
+      {/* الشريط السفلي — مطابق للصورة */}
+      <footer className="doc-foot inv-foot">
+        <span className="inv-foot__item">
+          <span className="inv-foot__ico" aria-hidden>
+            ☎
+          </span>
+          {companyPhones}
+        </span>
+        <span className="inv-foot__sep" aria-hidden>
+          |
+        </span>
+        <span className="inv-foot__item">
+          <span className="inv-foot__ico" aria-hidden>
+            📍
+          </span>
+          {companyAddress}
         </span>
       </footer>
     </PrintPreview>
