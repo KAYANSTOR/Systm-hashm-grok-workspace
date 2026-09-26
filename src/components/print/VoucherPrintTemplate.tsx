@@ -13,7 +13,7 @@ interface VoucherPrintTemplateProps {
   onClose: () => void;
 }
 
-function numeric(value: number): string {
+function money(value: number): string {
   return formatMoney(Math.round((Number.isFinite(value) ? value : 0) * 100) / 100);
 }
 
@@ -31,30 +31,39 @@ interface VoucherDocumentProps {
   copyLabel?: string;
 }
 
-/**
- * نموذج السند الورقي (210×105 مم) — تصميم واحد يُستخدم للمعاينة والطباعة.
- *
- * كل النصوص بخط Cairo الحقيقي المُحمَّل في الصفحة (كان القالب القديم يشير إلى ملف
- * خط غير موجود `/fonts/Cairo-*.woff2` فيسقط إلى خط احتياطي). والطباعة الآن متجهية
- * بلا تحويل إلى صورة، فالحروف تخرج حادة بمقاسها الصحيح على الورق.
- */
 function VoucherDocument({
   voucher,
   partyName,
   partyBalanceAfter,
   copyLabel,
 }: VoucherDocumentProps) {
-  const { settings: companySettings, organization } = useStore();
+  const { settings, organization } = useStore();
   const type = voucher.type;
   const isReceipt = type === "receipt";
   const isPayment = type === "payment";
-  const partyLabel = isReceipt ? "استلمنا من الأخ /" : isPayment ? "صرفنا إلى الأخ /" : "الطرف /";
-  const purposeLabel = isReceipt ? "وذلك مقابل /" : isPayment ? "وذلك مقابل /" : "وذلك مقابل /";
-  const companyName = organization.name || companySettings.name;
-  const companyAddress = organization.address || companySettings.location;
+
+  const companyName =
+    organization.name || settings.name || "معامل هاشم الأحمدي للتصميم والتطريز";
+  const companyAddress =
+    organization.address || settings.location || "صنعاء - شارع الزبيري - مقابل وزارة الدفاع";
   const companyPhones =
     organization.phone ||
-    [companySettings.phone1, companySettings.phone2].filter(Boolean).join(" · ");
+    [settings.phone1, settings.phone2].filter(Boolean).join(" - ") ||
+    "770 447 441 - 730 447 441";
+  const logoSrc = organization.logo || "/logo-hashm.jpg";
+
+  const partyLabel = isReceipt
+    ? "استلمنا من الأخ /"
+    : isPayment
+      ? "صرفنا إلى الأخ /"
+      : "الطرف /";
+  const balanceLabel = isReceipt
+    ? "الباقي له بعد هذا السند /"
+    : isPayment
+      ? "الباقي عليه بعد هذا السند /"
+      : "الرصيد بعد السند /";
+
+  const payMethod = methodLabel[voucher.paymentMethod] || "الصندوق";
 
   return (
     <div className="vch">
@@ -64,88 +73,96 @@ function VoucherDocument({
         <div className="vch__head-copy">
           <h1 className="vch__org">{companyName}</h1>
           <div className="vch__org-meta">{companyAddress}</div>
-          <div className="vch__org-phone">{companyPhones}</div>
+          <div className="vch__org-phone">☎ {companyPhones}</div>
         </div>
         <div className="vch__logo">
-          <img src={organization.logo || "/favicon.svg"} alt="شعار المنشأة" />
+          <img src={logoSrc} alt="شعار المنشأة" />
         </div>
       </header>
 
-      <div className="vch__band">
-        <div className="vch__band-cell vch__band-cell--date">
-          <span>التاريخ</span>
-          <strong>{formatDate(voucher.date)}</strong>
-        </div>
-        <div className="vch__title">{voucherTitle(type)}</div>
-        <div className="vch__band-cell vch__band-cell--number">
-          <span>الرقم</span>
-          <strong>{voucher.voucherNumber}</strong>
+      <div className="vch-title-row">
+        <div className="vch-title-pill">{voucherTitle(type)}</div>
+        <div className="vch-meta-side">
+          <div className="vch-chip">
+            <span>الرقم :</span>
+            <strong dir="ltr">{voucher.voucherNumber}</strong>
+          </div>
+          <div className="vch-chip">
+            <span>التاريخ :</span>
+            <strong dir="ltr">{formatDate(voucher.date)}</strong>
+          </div>
         </div>
       </div>
 
       <div className="vch__body">
-        <div className="vch__row">
-          <span className="vch__label">{partyLabel}</span>
-          <span className="vch__fill">{partyName || "—"}</span>
-          <span className="vch__label">المحترم</span>
+        <div className="vch-field">
+          <span className="vch-field__label">{partyLabel}</span>
+          <span className="vch-field__value">{partyName || "—"}</span>
+          <span className="vch-field__suffix">المحترم</span>
         </div>
 
-        <div className="vch__row">
-          <span className="vch__label">مبلغ وقدره /</span>
-          <span className="vch__fill vch__amount">{numeric(voucher.amount)}</span>
-          <span className="vch__label">ريال يمني</span>
-          <span className="vch__label vch__currency">فقط لا غير</span>
-          <span className="vch__words">{amountWords(voucher.amount, "ريال يمني")}</span>
-        </div>
-
-        <div className="vch__meta-row">
-          <span className="vch__meta-label">طريقة الدفع /</span>
-          <span className="vch__meta-fill vch__meta-fill--tight">
-            {methodLabel[voucher.paymentMethod]}
+        <div className="vch-field vch-field--amount">
+          <span className="vch-field__label">مبلغ وقدره /</span>
+          <span className="vch-amount-box">
+            <span className="vch-amount-box__cur">ريال يمني فقط لا غير</span>
+            <span className="vch-amount-box__num" dir="ltr">
+              {money(voucher.amount)}
+            </span>
           </span>
-          <span className="vch__meta-label">بتاريخ /</span>
-          <span className="vch__meta-fill">{formatDate(voucher.date)}</span>
-          <span className="vch__meta-label">م</span>
         </div>
 
-        <div className="vch__row">
-          <span className="vch__label">{purposeLabel}</span>
-          <span className="vch__fill">{voucher.description || "—"}</span>
+        <div className="vch-field">
+          <span className="vch-field__label">المبلغ كتابةً /</span>
+          <span className="vch-field__value">{amountWords(voucher.amount)}</span>
         </div>
 
-        <div className="vch__meta-row">
-          <span className="vch__meta-label">
-            {partyBalanceAfter === null
-              ? "الباقي بعد هذا السند /"
-              : partyBalanceAfter >= 0
-                ? "الباقي على الطرف بعد هذا السند /"
-                : "الباقي له بعد هذا السند /"}
-          </span>
-          <span className="vch__meta-fill vch__meta-fill--tight">
-            {partyBalanceAfter === null ? "—" : `${numeric(Math.abs(partyBalanceAfter))} ر.ي`}
+        <div className="vch-field vch-field--split">
+          <div>
+            <span className="vch-field__label">طريقة الدفع /</span>
+            <span className="vch-field__value">{payMethod}</span>
+          </div>
+          <div>
+            <span className="vch-field__label">بتاريخ /</span>
+            <span className="vch-field__value" dir="ltr">
+              {formatDate(voucher.date)}
+            </span>
+          </div>
+        </div>
+
+        <div className="vch-field">
+          <span className="vch-field__label">وذلك مقابل /</span>
+          <span className="vch-field__value">{voucher.description?.trim() || "—"}</span>
+        </div>
+
+        <div className="vch-field">
+          <span className="vch-field__label">{balanceLabel}</span>
+          <span className="vch-field__value" dir="ltr">
+            {partyBalanceAfter !== null ? money(partyBalanceAfter) : "—"}
           </span>
         </div>
       </div>
 
-      <footer className="vch__foot">
-        <div className="vch__sign">
-          <div className="vch__sign-title">أمين الصندوق</div>
-          <div className="vch__sign-line">{companySettings.name}</div>
-        </div>
+      <div className="vch__signs">
         <div className="vch__sign">
           <div className="vch__sign-title">توقيع المستلم</div>
-          <div className="vch__sign-line">{partyName || "—"}</div>
+          <div className="vch__sign-line" />
         </div>
+        <div className="vch__sign">
+          <div className="vch__sign-title">أمين الصندوق</div>
+          <div className="vch__sign-line" />
+        </div>
+      </div>
+
+      <footer className="vch__foot">
+        <span>
+          ☎ {companyPhones} &nbsp;|&nbsp; 📍 {companyAddress}
+        </span>
+        <span>{companyName}</span>
       </footer>
     </div>
   );
 }
 
-/**
- * يُعرض السند بنسختين بشكل افتراضي (أصل للصندوق + صورة للعميل) على ورقة A4 —
- * وهذا ما تحتاجه دفاتر السندات فعليًا. ويمكن تبديله إلى ورقة واحدة بارتفاع
- * نصف A4 لمن يطبع على ورق مقطوع مسبقًا.
- */
 export default function VoucherPrintTemplate({
   voucher,
   partyName,
@@ -155,7 +172,6 @@ export default function VoucherPrintTemplate({
   const suppliers = useStore((s) => s.suppliers);
   const [twoCopies, setTwoCopies] = useState(true);
 
-  // الرصيد بعد أثر السند مباشرة — يظهر مطبوعًا في سطر «الباقي».
   const balance = (() => {
     if (voucher.partyType === "customer") {
       const party = customers.find((item) => item.id === voucher.partyId);
@@ -174,19 +190,21 @@ export default function VoucherPrintTemplate({
     return null;
   })();
 
+  const title = voucherTitle(voucher.type);
+
   return (
     <PrintPreview
       title="معاينة السند قبل الطباعة"
-      subtitle={`${voucherTitle(voucher.type)} · ${partyName}`}
+      subtitle={`${title} · ${partyName}`}
       paper={twoCopies ? "a4-voucher-sheet" : "receipt"}
-      fileName={`${voucherTitle(voucher.type)}_${voucher.voucherNumber}`}
-      shareText={`${voucherTitle(voucher.type)} ${voucher.voucherNumber} — ${partyName}`}
+      fileName={`${title}_${voucher.voucherNumber}`}
+      shareText={`${title} ${voucher.voucherNumber} — ${partyName}`}
       onClose={onClose}
       extraAction={
         <button
           type="button"
           className="print-btn"
-          onClick={() => setTwoCopies((value) => !value)}
+          onClick={() => setTwoCopies((v) => !v)}
           title="تبديل بين ورقة A4 بنسختين ونصف ورقة"
         >
           {twoCopies ? <FileText className="size-4" /> : <Copy className="size-4" />}
@@ -211,7 +229,11 @@ export default function VoucherPrintTemplate({
           />
         </div>
       ) : (
-        <VoucherDocument voucher={voucher} partyName={partyName} partyBalanceAfter={balance} />
+        <VoucherDocument
+          voucher={voucher}
+          partyName={partyName}
+          partyBalanceAfter={balance}
+        />
       )}
     </PrintPreview>
   );
