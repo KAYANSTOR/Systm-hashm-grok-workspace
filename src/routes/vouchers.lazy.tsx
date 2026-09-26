@@ -1,4 +1,5 @@
 import { createLazyFileRoute } from "@tanstack/react-router";
+import { useCallback, useMemo, useState } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -9,39 +10,40 @@ import {
   Receipt,
   Trash2,
   UserRound,
-  Wallet,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { EmptyState } from "@/components/empty-state";
-import { Modal } from "@/components/modal";
-import { AppSelect } from "@/components/ui/AppSelect";
+import { DocumentActionsSheet } from "@/components/DocumentActionsSheet";
 import { AppDatePicker } from "@/components/ui/AppDatePicker";
-import { FieldLabel, FormGrid, FormSection, MoneyField, TextField, TotalsBar } from "@/components/ui/form";
+import { AppSelect } from "@/components/ui/AppSelect";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Modal } from "@/components/ui/Modal";
+import { Money } from "@/components/ui/Money";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Segmented } from "@/components/ui/Segmented";
+import { StatCard } from "@/components/ui/StatCard";
 import {
-  Chip,
-  FilterChip,
-  Money,
-  PageHeader,
+  FieldLabel,
+  FormGrid,
+  FormSection,
+  MoneyField,
+  TextField,
+  TotalsBar,
+} from "@/components/ui/form";
+import {
   SearchField,
-  Segmented,
-  StatCard,
-  StatGrid,
-} from "@/components/ui/kit";
-import { amountInArabicWords } from "@/lib/numbers-ar";
+} from "@/components/ui/SearchField";
 import VoucherPrintTemplate from "@/components/print/VoucherPrintTemplate";
-import DocumentActionsSheet from "@/components/DocumentActionsSheet";
+import { amountInArabicWords } from "@/lib/numbers-ar";
 import { methodLabel, paymentMethodOptions, voucherTypeLabel } from "@/lib/labels";
+import { voucherFieldLabels } from "@/lib/voucher-fields";
 import { useStore } from "@/lib/store";
 import type { PartyKind, PaymentMethod, Voucher, VoucherType } from "@/lib/types";
 import {
   amountInputError,
-  cn,
   formatCurrency,
   formatDate,
   nextNumber,
   parseAmountStrict,
-  todayIso,
 } from "@/lib/utils";
 
 export const Route = createLazyFileRoute("/vouchers")({ component: VouchersPage });
@@ -53,8 +55,8 @@ function VouchersPage() {
   const addVoucher = useStore((s) => s.addVoucher);
   const deleteVoucher = useStore((s) => s.deleteVoucher);
 
-  const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | VoucherType>("all");
+  const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [printId, setPrintId] = useState<string | null>(null);
   const [actionsId, setActionsId] = useState<string | null>(null);
@@ -64,14 +66,14 @@ function VouchersPage() {
   const [partyType, setPartyType] = useState<PartyKind>("customer");
   const [partyId, setPartyId] = useState("");
   const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(todayIso());
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [description, setDescription] = useState("");
 
   const partyName = useCallback((v: Voucher) => {
     if (v.partyType === "customer") return customers.find((c) => c.id === v.partyId)?.name || "—";
     if (v.partyType === "supplier") return suppliers.find((s) => s.id === v.partyId)?.name || "—";
-    return "أخرى";
+    return "جهة أخرى";
   }, [customers, suppliers]);
 
   const filtered = useMemo(
@@ -80,6 +82,7 @@ function VouchersPage() {
         .filter((v) => filter === "all" || v.type === filter)
         .filter(
           (v) =>
+            !q ||
             v.voucherNumber.includes(q) ||
             v.description.includes(q) ||
             partyName(v).includes(q),
@@ -94,7 +97,7 @@ function VouchersPage() {
     setPartyType(t === "receipt" ? "customer" : t === "payment" ? "supplier" : "other");
     setPartyId("");
     setAmount("");
-    setDate(todayIso());
+    setDate(new Date().toISOString().slice(0, 10));
     setPaymentMethod("cash");
     setDescription("");
     setOpen(true);
@@ -115,11 +118,9 @@ function VouchersPage() {
           ? suppliers.find((s) => s.id === partyId)?.name
           : undefined;
     // بيان تلقائي واضح بدل سند بلا بيان (يظهر في السند المطبوع ودفتر القيود).
+    const fields = voucherFieldLabels(type);
     const finalDescription =
-      description.trim() ||
-      (type === "receipt"
-        ? `قبض من ${partyName || "جهة أخرى"}`
-        : `صرف إلى ${partyName || "جهة أخرى"}`);
+      description.trim() || fields.autoDescriptionPrefix(partyName || "");
     const id = addVoucher({
       voucherNumber,
       type,
@@ -144,11 +145,12 @@ function VouchersPage() {
     if (partyType === "supplier") return suppliers.find((s) => s.id === partyId)?.balance ?? null;
     return null;
   })();
+
   const parsedAmount = parseAmountStrict(amount);
   const voucherAmount = parsedAmount.ok ? parsedAmount.value : 0;
+
   const balanceAfter = (() => {
     if (selectedPartyBalance === null) return null;
-    // رصيد العميل: موجب = عليه. رصيد المورد: موجب = له علينا (اتفاقية العرض).
     if (partyType === "customer") {
       return type === "receipt"
         ? selectedPartyBalance - voucherAmount
@@ -158,121 +160,119 @@ function VouchersPage() {
       ? selectedPartyBalance - voucherAmount
       : selectedPartyBalance + voucherAmount;
   })();
+
   const totals = useMemo(() => {
     const receiptTotal = vouchers.filter((v) => v.type === "receipt").reduce((s, v) => s + v.amount, 0);
     const paymentTotal = vouchers.filter((v) => v.type === "payment").reduce((s, v) => s + v.amount, 0);
     return { receiptTotal, paymentTotal, net: receiptTotal - paymentTotal };
   }, [vouchers]);
 
-  const printing = vouchers.find((v) => v.id === printId);
+  const printing = printId ? vouchers.find((v) => v.id === printId) : null;
 
   return (
-    <div className="space-y-4">
+    <div className="page-shell space-y-4">
       <PageHeader
         title="السندات"
-        subtitle="قبض من العملاء وصرف للموردين — كل سند يُرحَّل على الذمة والصندوق معًا."
-        icon={Receipt}
-        tone="good"
+        description="سندات القبض والصرف — رقم تسلسلي تلقائي وطباعة رسمية"
         actions={
-          <>
+          <div className="flex flex-wrap gap-2">
             <button type="button" className="btn-success" onClick={() => openNew("receipt")}>
-              <ArrowDownRight className="size-5" />
+              <ArrowDownRight className="size-4" />
               سند قبض
             </button>
             <button type="button" className="btn-danger" onClick={() => openNew("payment")}>
-              <ArrowUpRight className="size-5" />
+              <ArrowUpRight className="size-4" />
               سند صرف
             </button>
-          </>
+          </div>
         }
       />
 
-      <StatGrid cols={3}>
+      <div className="grid gap-3 sm:grid-cols-3">
         <StatCard
           label="إجمالي القبض"
           value={formatCurrency(totals.receiptTotal)}
-          icon={ArrowDownRight}
           tone="good"
           hint={`${vouchers.filter((v) => v.type === "receipt").length} سند`}
         />
         <StatCard
           label="إجمالي الصرف"
           value={formatCurrency(totals.paymentTotal)}
-          icon={ArrowUpRight}
           tone="bad"
           hint={`${vouchers.filter((v) => v.type === "payment").length} سند`}
         />
         <StatCard
           label="صافي حركة السندات"
           value={formatCurrency(totals.net)}
-          icon={Wallet}
-          tone={totals.net >= 0 ? "brand" : "accent"}
-          hint="قبض − صرف"
+          tone="brand"
         />
-      </StatGrid>
+      </div>
 
-      <div className="card flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:p-4">
+      <div className="flex flex-wrap items-center gap-2">
         <SearchField
           value={q}
           onChange={setQ}
-          placeholder="ابحث برقم السند أو الطرف أو البيان…"
-          className="flex-1"
+          placeholder="بحث بالرقم أو الطرف أو البيان…"
         />
-        <div className="flex flex-wrap gap-2">
-          {(["all", "receipt", "payment"] as const).map((f) => (
-            <FilterChip key={f} active={filter === f} onClick={() => setFilter(f)}>
-              {f === "all" ? "الكل" : voucherTypeLabel[f]}
-            </FilterChip>
-          ))}
-        </div>
+        <Segmented
+          value={filter}
+          onChange={setFilter}
+          options={
+            ([
+              { value: "all" as const, label: "الكل" },
+              { value: "receipt" as const, label: "قبض" },
+              { value: "payment" as const, label: "صرف" },
+            ]).map((f) => ({
+              value: f.value,
+              label: f.label,
+            }))
+          }
+        />
       </div>
 
       {filtered.length === 0 ? (
-        <div className="card">
-          <EmptyState icon={Receipt} title="لا توجد سندات" />
-        </div>
+        <EmptyState
+          title="لا توجد سندات"
+          description="أنشئ سند قبض أو صرف من الأزرار أعلاه"
+        />
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-2">
           {filtered.map((v) => {
             const inn = v.type === "receipt";
             return (
-              <article key={v.id} className="list-row group">
-                <span className={cn("tile-icon", inn ? "bg-good-soft text-good" : "bg-bad-soft text-bad")}>
-                  {inn ? <ArrowDownRight className="size-5" /> : <ArrowUpRight className="size-5" />}
-                </span>
+              <article key={v.id} className="card-surface flex flex-wrap items-center gap-3 p-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="truncate text-sm font-black text-ink">{partyName(v)}</h3>
-                    <Chip tone={inn ? "good" : "bad"}>{voucherTypeLabel[v.type]}</Chip>
-                  </div>
-                  <p className="mt-0.5 truncate text-[11px] font-bold text-muted">
+                    <span
+                      className={`badge ${inn ? "badge-success" : "badge-danger"}`}
+                    >
+                      {voucherTypeLabel[v.type]}
+                    </span>
                     <span className="num">{v.voucherNumber}</span> · {formatDate(v.date)} ·{" "}
                     {methodLabel[v.paymentMethod]} · {v.description}
-                  </p>
+                  </div>
+                  <p className="mt-1 text-sm font-bold text-ink">{partyName(v)}</p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Money
-                    value={formatCurrency(v.amount)}
-                    tone={inn ? "good" : "bad"}
-                    className="text-sm"
-                  />
+                <Money
+                  value={formatCurrency(v.amount)}
+                  tone={inn ? "good" : "bad"}
+                  className="text-base"
+                />
+                <div className="flex gap-1">
                   <button
                     type="button"
-                    className="btn-icon size-8"
-                    onClick={() => setPrintId(v.id)}
+                    className="btn-ghost"
                     aria-label="طباعة السند"
+                    onClick={() => setPrintId(v.id)}
                   >
                     <Printer className="size-4" />
                   </button>
                   <button
                     type="button"
-                    className="btn-icon size-8 text-bad hover:bg-bad-soft hover:text-bad"
+                    className="btn-ghost text-danger"
                     aria-label="حذف السند"
                     onClick={() => {
-                      if (confirm("حذف السند وعكس أثره؟")) {
-                        deleteVoucher(v.id);
-                        toast.success("تم الحذف");
-                      }
+                      if (confirm("حذف هذا السند؟")) deleteVoucher(v.id);
                     }}
                   >
                     <Trash2 className="size-4" />
@@ -350,7 +350,7 @@ function VouchersPage() {
             {partyType !== "other" ? (
               <div>
                 <FieldLabel icon={UserRound} required>
-                  الطرف
+                  {voucherFieldLabels(type).partyFieldLabel}
                 </FieldLabel>
                 <AppSelect
                   value={partyId}
@@ -388,12 +388,12 @@ function VouchersPage() {
           </FormSection>
 
           <FormSection
-            title={type === "receipt" ? "المبلغ المقبوض" : "المبلغ المصروف"}
+            title={voucherFieldLabels(type).amountSectionTitle}
             description="اكتب رقمًا واحدًا فقط — ولن يُقبل أي نص مخلوط"
             icon={Calculator}
           >
             <MoneyField
-              label="المبلغ"
+              label={voucherFieldLabels(type).amountFieldLabel}
               required
               value={amount}
               onChange={setAmount}
@@ -407,7 +407,7 @@ function VouchersPage() {
               </span>
             ) : null}
             <div>
-              <FieldLabel>طريقة الدفع</FieldLabel>
+              <FieldLabel>{voucherFieldLabels(type).paymentMethodLabel.replace(/\s*\/\s*$/, "")}</FieldLabel>
               <AppSelect
                 value={paymentMethod}
                 onChange={(v) => setPaymentMethod(v as PaymentMethod)}
@@ -418,18 +418,16 @@ function VouchersPage() {
           </FormSection>
 
           <FormSection
-            title="البيان"
+            title={voucherFieldLabels(type).descriptionLabel.replace(/\s*\/\s*$/, "")}
             description="سبب السند — يظهر مطبوعًا وفي دفتر القيود"
             icon={NotebookPen}
             tone="warn"
           >
             <TextField
-              label="البيان"
+              label={voucherFieldLabels(type).descriptionLabel.replace(/\s*\/\s*$/, "")}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder={
-                type === "receipt" ? "مثال: دفعة على حساب تطريز 200 قطعة" : "مثال: سداد دفعة لمورد الخيوط"
-              }
+              placeholder={voucherFieldLabels(type).descriptionPlaceholder}
               hint="اتركه فارغًا وسيُكتب بيان تلقائي واضح بدل سند بلا بيان."
             />
           </FormSection>
@@ -438,15 +436,18 @@ function VouchersPage() {
             title="ملخص السند"
             lines={[
               { label: "نوع السند", value: voucherTypeLabel[type] },
-              { label: "الطرف", value: partyType === "other" ? "أخرى" : partyId ? "محدد" : "لم يُحدد" },
               {
-                label: "المبلغ",
+                label: voucherFieldLabels(type).partyFieldLabel,
+                value: partyType === "other" ? "أخرى" : partyId ? "محدد" : "لم يُحدد",
+              },
+              {
+                label: voucherFieldLabels(type).amountFieldLabel,
                 value: formatCurrency(voucherAmount),
                 tone: type === "receipt" ? "good" : "bad",
                 strong: true,
               },
               {
-                label: balanceAfter === null ? "الرصيد بعد السند" : "رصيد الطرف بعد السند",
+                label: voucherFieldLabels(type).balanceAfterLabel.replace(/\s*\/\s*$/, ""),
                 value: balanceAfter === null ? "—" : formatCurrency(balanceAfter),
               },
             ]}
