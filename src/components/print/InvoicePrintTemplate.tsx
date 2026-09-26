@@ -2,8 +2,6 @@ import { CheckCircle2 } from "lucide-react";
 import type { Invoice } from "@/lib/types";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { useStore } from "@/lib/store";
-import { amountInArabicWords } from "@/lib/numbers-ar";
-import { methodLabel, paymentTypeLabel, statusLabel } from "@/lib/labels";
 import PrintPreview from "./PrintPreview";
 
 interface InvoicePrintTemplateProps {
@@ -12,47 +10,42 @@ interface InvoicePrintTemplateProps {
   onClose: () => void;
 }
 
-function numeric(value: number): string {
+function money(value: number): string {
   return formatMoney(Math.round((Number.isFinite(value) ? value : 0) * 100) / 100);
 }
 
-function invoiceKindLabel(invoice: Invoice): string {
-  if (invoice.invoiceType === "SERVICE") return "فاتورة خدمة تطريز";
+function invoiceTitle(invoice: Invoice): string {
+  if (invoice.invoiceType === "SERVICE") return "فاتورة مبيعات";
   if (invoice.invoiceType === "ISSUE") return "فاتورة صرف مخزني";
   if (invoice.type === "purchase") return "فاتورة مشتريات";
   return "فاتورة مبيعات";
 }
 
-function invoiceStatusStamp(invoice: Invoice): { label: string; tone: string } | null {
-  if (invoice.isCancelled) return { label: "ملغاة", tone: "doc-stamp--cancelled" };
-  if (!invoice.isApproved) return { label: "مسودة — غير معتمدة", tone: "doc-stamp--draft" };
-  return { label: "معتمدة", tone: "doc-stamp--approved" };
-}
-
 /**
- * فاتورة A4 احترافية.
- *
- * المعادلة الحسابية المعروضة مطابقة لما يُرحَّل فعليًا على الذمم:
- * إجمالي الفاتورة − المدفوع = المتبقي، ثم الرصيد السابق ± المتبقي = الرصيد بعد الفاتورة.
- * لا يُعرض أي رقم لا يطابق بنود الفاتورة (المجاميع تُحسب من البنود لا تُقرأ جاهزة).
+ * فاتورة A4 — تصميم مطابق للنموذج الرسمي (Navy + Gold).
+ * البيانات والحسابات من النظام؛ القالب طبقة عرض فقط.
  */
 export default function InvoicePrintTemplate({
   invoice,
   partyName,
   onClose,
 }: InvoicePrintTemplateProps) {
-  const {
-    customers,
-    suppliers,
-    approveInvoice,
-    settings: companySettings,
-    organization,
-  } = useStore();
+  const { customers, suppliers, approveInvoice, settings, organization } = useStore();
 
   const party =
     invoice.type === "sale"
-      ? customers.find((customer) => customer.id === invoice.partyId)
-      : suppliers.find((supplier) => supplier.id === invoice.partyId);
+      ? customers.find((c) => c.id === invoice.partyId)
+      : suppliers.find((s) => s.id === invoice.partyId);
+
+  const companyName =
+    organization.name || settings.name || "معامل هاشم الأحمدي للتصميم والتطريز الإلكتروني";
+  const companyAddress =
+    organization.address || settings.location || "صنعاء - شارع الزبيري - مقابل وزارة الدفاع";
+  const companyPhones =
+    organization.phone ||
+    [settings.phone1, settings.phone2].filter(Boolean).join(" - ") ||
+    "770 447 441 - 730 447 441";
+  const logoSrc = organization.logo || "/logo-hashm.jpg";
 
   const subTotal = invoice.items.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
   const discount = Math.max(0, Number(invoice.discount) || 0);
@@ -60,43 +53,41 @@ export default function InvoicePrintTemplate({
   const paid = Math.max(0, Number(invoice.paidAmount) || 0);
   const remaining = Math.max(0, total - paid);
 
-  // الرصيد السابق: إذا كانت الفاتورة معتمدة فالرصيد الحالي يتضمن أثرها، فنطرحه.
   const currentBalance = Number(party?.balance) || 0;
   const previousBalance = invoice.isApproved
     ? invoice.type === "sale"
       ? currentBalance - remaining
       : currentBalance + remaining
     : currentBalance;
-  const balanceAfter =
-    invoice.type === "sale" ? previousBalance + remaining : previousBalance - remaining;
+  const grandTotal = previousBalance + total;
 
-  const stamp = invoiceStatusStamp(invoice);
-  const companyName = organization.name || companySettings.name;
-  const companyAddress = organization.address || companySettings.location;
-  const companyPhones =
-    organization.phone ||
-    [companySettings.phone1, companySettings.phone2].filter(Boolean).join(" · ");
-  // صفوف فارغة لتظهر الفاتورة القصيرة كصفحة كاملة مرتبة (لا تتجاوز 6 صفوف).
-  const emptyRows = Math.max(0, Math.min(6, 6 - invoice.items.length));
+  const isCash = invoice.paymentType === "cash";
+  const isDeferred = invoice.paymentType === "deferred";
+  const isPartial = invoice.paymentType === "partial";
+
+  const minRows = 5;
+  const emptyRows = Math.max(0, minRows - invoice.items.length);
+
+  const stamp = invoice.isCancelled
+    ? { label: "ملغاة", tone: "doc-stamp--cancelled" }
+    : !invoice.isApproved
+      ? { label: "مسودة", tone: "doc-stamp--draft" }
+      : null;
 
   return (
     <PrintPreview
       title="معاينة الفاتورة قبل الطباعة"
-      subtitle={invoiceKindLabel(invoice)}
+      subtitle={`${invoiceTitle(invoice)} · ${partyName}`}
       paper="a4"
-      fileName={`فاتورة_${invoice.invoiceNumber}_${partyName || "نقدي"}`}
-      shareText={`فاتورة ${invoice.invoiceNumber} — ${companyName}`}
+      fileName={`فاتورة_${invoice.invoiceNumber}`}
+      shareText={`فاتورة ${invoice.invoiceNumber} — ${partyName}`}
       onClose={onClose}
       extraAction={
-        invoice.isApproved ? null : (
+        !invoice.isApproved && !invoice.isCancelled ? (
           <button
             type="button"
-            className="print-btn"
+            className="print-btn print-btn--primary"
             onClick={async () => {
-              if (
-                !confirm("هل أنت متأكد من اعتماد هذه الفاتورة؟ سيتم ترحيلها إلى الحسابات والمخزون.")
-              )
-                return;
               const ok = await approveInvoice(invoice.id);
               if (ok) onClose();
             }}
@@ -104,85 +95,98 @@ export default function InvoicePrintTemplate({
             <CheckCircle2 className="size-4" />
             <span>اعتماد الفاتورة</span>
           </button>
-        )
+        ) : undefined
       }
     >
       <header className="doc-head">
         <div className="doc-head__copy">
           <h1 className="doc-head__name">{companyName}</h1>
           <div className="doc-head__meta">{companyAddress}</div>
-          <div className="doc-head__phones">{companyPhones}</div>
-          {(organization.commercialNumber || organization.taxNumber) && (
-            <div className="doc-head__extra">
-              {organization.commercialNumber ? `س.ت: ${organization.commercialNumber}` : ""}
-              {organization.commercialNumber && organization.taxNumber ? " · " : ""}
-              {organization.taxNumber ? `الرقم الضريبي: ${organization.taxNumber}` : ""}
-            </div>
-          )}
+          <div className="doc-head__phones">☎ {companyPhones}</div>
         </div>
         <div className="doc-head__logo">
-          <img src={organization.logo || "/favicon.svg"} alt="شعار المنشأة" />
+          <img src={logoSrc} alt="شعار المنشأة" />
         </div>
       </header>
 
       {stamp ? <span className={`doc-stamp ${stamp.tone}`}>{stamp.label}</span> : null}
 
-      <section className="doc-band" aria-label="بيانات الفاتورة">
-        <div className="doc-band__cell doc-band__cell--number">
-          <span>رقم الفاتورة</span>
-          <strong>{invoice.invoiceNumber}</strong>
+      <div className="inv-band">
+        <div className="inv-band__title">فاتورة مبيعات</div>
+        <div className="inv-band__meta">
+          <div className="inv-meta-row">
+            <span>الرقم:</span>
+            <strong dir="ltr">{invoice.invoiceNumber}</strong>
+          </div>
+          <div className="inv-meta-row">
+            <span>التاريخ:</span>
+            <strong dir="ltr">{formatDate(invoice.date)}</strong>
+          </div>
         </div>
-        <div className="doc-band__title">
-          <h1>{invoiceKindLabel(invoice)}</h1>
-          <span>Invoice</span>
-        </div>
-        <div className="doc-band__cell">
-          <span>التاريخ</span>
-          <strong>{formatDate(invoice.date)}</strong>
-        </div>
-      </section>
+      </div>
 
-      <section className="doc-party">
-        <span className="doc-party__label">{invoice.type === "sale" ? "السيد /" : "المورد /"}</span>
-        <strong className="doc-party__name">{partyName || "عميل نقدي"}</strong>
-        <span className="doc-party__tail">
-          {party?.phone ? `هاتف: ${party.phone}` : ""}
-          {party?.phone && paymentTypeLabel[invoice.paymentType] ? " · " : ""}
-          {paymentTypeLabel[invoice.paymentType]}
-          {invoice.paymentMethod ? ` · ${methodLabel[invoice.paymentMethod]}` : ""}
+      <div className="inv-pay-row">
+        <span className="inv-pay-label">فاتورة</span>
+        <span className={`inv-opt ${isCash ? "is-on" : ""}`}>
+          <i />
+          نقداً
         </span>
-      </section>
+        <span className={`inv-opt ${isDeferred ? "is-on" : ""}`}>
+          <i />
+          أجل
+        </span>
+        {isPartial ? (
+          <span className="inv-opt is-on">
+            <i />
+            جزئي
+          </span>
+        ) : null}
+      </div>
+
+      <div className="inv-party">
+        <div className="inv-party__line">
+          <span>المطلوب من الأخ :</span>
+          <strong>{partyName || "عميل نقدي"}</strong>
+        </div>
+        <div className="inv-party__line">
+          <span>المحترمون</span>
+          <strong />
+        </div>
+      </div>
 
       <section className="doc-table-wrap">
-        <table className="doc-table">
+        <table className="doc-table inv-table">
           <thead>
             <tr>
-              <th className="col-index">م</th>
-              <th className="col-desc">البيان</th>
-              <th className="col-number">الكمية</th>
-              <th className="col-number">الوحدة</th>
-              <th className="col-number">سعر الوحدة</th>
-              <th className="col-number">الإجمالي</th>
+              <th rowSpan={2} className="col-index">
+                رقم البند
+              </th>
+              <th rowSpan={2}>البيان</th>
+              <th colSpan={3}>الكمية</th>
+              <th rowSpan={2}>سعر الوحدة</th>
+              <th rowSpan={2}>القيمة الاجمالية</th>
+            </tr>
+            <tr>
+              <th className="sub-qty">طاقة</th>
+              <th className="sub-qty">وار</th>
+              <th className="sub-qty">فرشات</th>
             </tr>
           </thead>
           <tbody>
             {invoice.items.map((item, index) => (
               <tr key={item.id || index}>
-                <td className="col-index">{index + 1}</td>
-                <td className="col-desc">
-                  {item.name}
-                  {item.description ? (
-                    <span className="doc-table__item-desc">{item.description}</span>
-                  ) : null}
-                </td>
-                <td className="col-number">{item.quantity}</td>
-                <td className="col-number">{item.unit || "—"}</td>
-                <td className="col-number">{numeric(item.unitPrice)}</td>
-                <td className="col-number">{numeric(item.total)}</td>
+                <td className="col-index">{String(index + 1).padStart(2, "0")}</td>
+                <td className="col-desc">{item.name || "—"}</td>
+                <td className="col-number">—</td>
+                <td className="col-number">—</td>
+                <td className="col-number">—</td>
+                <td className="col-number">{money(item.unitPrice)}</td>
+                <td className="col-number">{money(item.total)}</td>
               </tr>
             ))}
-            {Array.from({ length: emptyRows }).map((_, index) => (
-              <tr key={`empty-${index}`} className="doc-table__empty" aria-hidden="true">
+            {Array.from({ length: emptyRows }).map((_, i) => (
+              <tr key={`e-${i}`} className="doc-table__empty">
+                <td className="col-index">{String(invoice.items.length + i + 1).padStart(2, "0")}</td>
                 <td>&nbsp;</td>
                 <td>&nbsp;</td>
                 <td>&nbsp;</td>
@@ -192,83 +196,69 @@ export default function InvoicePrintTemplate({
               </tr>
             ))}
           </tbody>
-          <tfoot>
-            <tr>
-              <td colSpan={3}>الإجمالي قبل الخصم</td>
-              <td colSpan={3}>{numeric(subTotal)} ر.ي</td>
-            </tr>
-          </tfoot>
         </table>
       </section>
 
-      <section className="doc-summary">
-        <div className="doc-note-box">
-          <span className="doc-label">البيان / ملاحظات</span>
-          <div className="doc-note-text">{invoice.notes?.trim() || "—"}</div>
-          <span className="doc-label" style={{ marginTop: "5mm" }}>
-            حالة السداد
+      <div className="inv-totals">
+        <div className="inv-total-row">
+          <span className="inv-total-label">اجمالي الفاتورة</span>
+          <span className="inv-total-value" dir="ltr">
+            {money(total)}
           </span>
-          <div className="doc-note-text" style={{ minHeight: "auto" }}>
-            {statusLabel[invoice.status]}
-            {remaining > 0 ? ` — المتبقي ${numeric(remaining)} ر.ي` : " — لا يوجد متبقٍ"}
-          </div>
         </div>
+        <div className="inv-total-row">
+          <span className="inv-total-label">الرصيد السابق</span>
+          <span className="inv-total-value" dir="ltr">
+            {money(previousBalance)}
+          </span>
+        </div>
+        <div className="inv-total-row inv-total-row--grand">
+          <span className="inv-total-label">الاجمالي الكلي</span>
+          <span className="inv-total-value" dir="ltr">
+            {money(grandTotal)}
+          </span>
+        </div>
+      </div>
 
-        <div className="doc-totals">
-          <div className="doc-total-line">
-            <span>الإجمالي قبل الخصم</span>
-            <strong>{numeric(subTotal)}</strong>
-          </div>
-          <div className="doc-total-line">
-            <span>الخصم</span>
-            <strong>{numeric(discount)}</strong>
-          </div>
-          <div className="doc-total-line doc-total-line--grand">
-            <span>إجمالي الفاتورة</span>
-            <strong>{numeric(total)}</strong>
-          </div>
-          <div className="doc-total-line">
-            <span>المدفوع</span>
-            <strong>{numeric(paid)}</strong>
-          </div>
-          <div className="doc-total-line doc-total-line--accent">
-            <span>المتبقي</span>
-            <strong>{numeric(remaining)}</strong>
-          </div>
-          <div className="doc-total-line">
-            <span>الرصيد السابق</span>
-            <strong>{numeric(previousBalance)}</strong>
-          </div>
-          <div className="doc-total-line doc-total-line--accent">
-            <span>الرصيد بعد الفاتورة</span>
-            <strong>{numeric(balanceAfter)}</strong>
-          </div>
-          <div className="doc-words">
-            <span className="doc-label">المبلغ كتابةً</span>
-            <p>{amountInArabicWords(total)}</p>
-          </div>
+      {discount > 0 || paid > 0 ? (
+        <div className="inv-extra-totals">
+          {discount > 0 ? (
+            <span>
+              الخصم: <strong dir="ltr">{money(discount)}</strong>
+            </span>
+          ) : null}
+          {paid > 0 ? (
+            <span>
+              المدفوع: <strong dir="ltr">{money(paid)}</strong>
+            </span>
+          ) : null}
+          {remaining > 0 ? (
+            <span>
+              المتبقي: <strong dir="ltr">{money(remaining)}</strong>
+            </span>
+          ) : null}
         </div>
-      </section>
+      ) : null}
+
+      <div className="inv-ack">
+        إستلمت البضاعة الموضحة أعلاه كاملة ومطابقة للتفاصيل مع إلتزامي بدفع القيمة خلال فترة
+        أقصاها ( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ) من تحرير الفاتورة
+      </div>
 
       <div className="doc-signs">
         <div className="doc-sign">
-          <div className="doc-sign__title">توقيع المستلم</div>
-          <div className="doc-sign__name">{partyName || "عميل نقدي"}</div>
+          <div className="doc-sign__title">توقيع المبيعات</div>
           <div className="doc-sign__line" />
         </div>
         <div className="doc-sign">
-          <div className="doc-sign__title">توقيع المسؤول</div>
-          <div className="doc-sign__name">{companySettings.name}</div>
+          <div className="doc-sign__title">توقيع المستلم</div>
           <div className="doc-sign__line" />
         </div>
       </div>
 
       <footer className="doc-foot">
         <span>
-          {organization.footerText || "شكرًا لتعاملكم معنا — نرجو مراجعة الفاتورة عند الاستلام."}
-        </span>
-        <span className="doc-foot__note" dir="ltr">
-          {invoice.invoiceNumber}
+          ☎ {companyPhones} &nbsp;|&nbsp; 📍 {companyAddress}
         </span>
       </footer>
     </PrintPreview>
