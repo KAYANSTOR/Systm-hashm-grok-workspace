@@ -1,1 +1,21 @@
-PLACEHOLDER
+/**
+ * نظام الطباعة الموحّد — مصدر واحد لكل القوالب (فاتورة · سند · كشف حساب · تقرير)
+ * هوية Navy + Gold
+ */
+
+:root {
+  --print-font: "Cairo", "Noto Naskh Arabic", "Tahoma", system-ui, sans-serif;
+  --print-ink: #182230;
+  --print-line: #d9dde5;
+  --print-navy: #10233f;
+  --print-navy-deep: #0b1a2e;
+  --print-gold: #c6a35a;
+  --print-gold-soft: #e8d9b0;
+  --print-teal: #10233f;
+  --print-teal-strong: #0b1a2e;
+  --print-teal-soft: #f5f7fa;
+  --print-muted: #667085;
+  --print-soft: #f5f7fa;
+  --print-white: #ffffff;
+  --print-danger: #b3261e;
+}
