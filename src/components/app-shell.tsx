@@ -63,6 +63,28 @@ const NAV_GROUPS: ReadonlyArray<{ label: string; items: ReadonlyArray<NavItem> }
 
 const ALL_NAV = NAV_GROUPS.flatMap((g) => g.items);
 
+// Route files are code-split for the initial load, but loading them only after
+// the first click makes touch navigation feel slow. Warm the chunks after the
+// browser has an idle slice so the first paint and first interaction stay free.
+const SCREEN_MODULES = [
+  () => import("../routes/index.lazy"),
+  () => import("../routes/sales.lazy"),
+  () => import("../routes/vouchers.lazy"),
+  () => import("../routes/inventory.lazy"),
+  () => import("../routes/cashbox.lazy"),
+  () => import("../routes/expenses.lazy"),
+  () => import("../routes/parties.lazy"),
+  () => import("../routes/reports.lazy"),
+] as const;
+
+let navigationWarmupStarted = false;
+
+function warmNavigationModules() {
+  if (navigationWarmupStarted || typeof window === "undefined") return;
+  navigationWarmupStarted = true;
+  for (const load of SCREEN_MODULES) void load().catch(() => undefined);
+}
+
 const MOBILE_NAV = [
   { to: "/", label: "الرئيسية", icon: Home },
   { to: "/cashbox", label: "الصندوق", icon: Wallet },
@@ -198,8 +220,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    // Always start a new app session on the dashboard. This runs once when the
-    // shell mounts, so normal in-app navigation remains fully unrestricted.
+    // The first app view is always the dashboard. This is intentionally a
+    // one-time bootstrap redirect; internal navigation must never enter here.
     if (initialRouteChecked.current) return;
     initialRouteChecked.current = true;
     if (pathname !== "/") void router.navigate({ to: "/" });
@@ -239,6 +261,19 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    let timer: number | undefined;
+    const warm = () => warmNavigationModules();
+    if (typeof window.requestIdleCallback === "function") {
+      window.requestIdleCallback(warm, { timeout: 1800 });
+    } else {
+      timer = window.setTimeout(warm, 900);
+    }
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {

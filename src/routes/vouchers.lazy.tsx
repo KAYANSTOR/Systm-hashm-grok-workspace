@@ -12,15 +12,11 @@ import {
   UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
-import { DocumentActionsSheet } from "@/components/DocumentActionsSheet";
+import DocumentActionsSheet from "@/components/DocumentActionsSheet";
 import { AppDatePicker } from "@/components/ui/AppDatePicker";
 import { AppSelect } from "@/components/ui/AppSelect";
-import { EmptyState } from "@/components/ui/EmptyState";
-import { Modal } from "@/components/ui/Modal";
-import { Money } from "@/components/ui/Money";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { Segmented } from "@/components/ui/Segmented";
-import { StatCard } from "@/components/ui/StatCard";
+import { EmptyState } from "@/components/empty-state";
+import { Modal } from "@/components/modal";
 import {
   FieldLabel,
   FormGrid,
@@ -29,9 +25,7 @@ import {
   TextField,
   TotalsBar,
 } from "@/components/ui/form";
-import {
-  SearchField,
-} from "@/components/ui/SearchField";
+import { Money, PageHeader, SearchField, Segmented, StatCard } from "@/components/ui/kit";
 import VoucherPrintTemplate from "@/components/print/VoucherPrintTemplate";
 import { amountInArabicWords } from "@/lib/numbers-ar";
 import { methodLabel, paymentMethodOptions, voucherTypeLabel } from "@/lib/labels";
@@ -173,7 +167,7 @@ function VouchersPage() {
     <div className="page-shell space-y-4">
       <PageHeader
         title="السندات"
-        description="سندات القبض والصرف — رقم تسلسلي تلقائي وطباعة رسمية"
+        subtitle="سندات القبض والصرف — رقم تسلسلي تلقائي وطباعة رسمية"
         actions={
           <div className="flex flex-wrap gap-2">
             <button type="button" className="btn-success" onClick={() => openNew("receipt")}>
@@ -232,8 +226,9 @@ function VouchersPage() {
 
       {filtered.length === 0 ? (
         <EmptyState
+          icon={Receipt}
           title="لا توجد سندات"
-          description="أنشئ سند قبض أو صرف من الأزرار أعلاه"
+          hint="أنشئ سند قبض أو صرف من الأزرار أعلاه"
         />
       ) : (
         <div className="grid gap-2">

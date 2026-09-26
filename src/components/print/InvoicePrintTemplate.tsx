@@ -59,7 +59,7 @@ export default function InvoicePrintTemplate({
   const grandTotal = previousBalance + total;
 
   const isCash = invoice.paymentType === "cash";
-  const isDeferred = invoice.paymentType === "deferred" || invoice.paymentType === "credit";
+  const isDeferred = invoice.paymentType === "deferred";
   const isPartial = invoice.paymentType === "partial";
 
   const minRows = 5;

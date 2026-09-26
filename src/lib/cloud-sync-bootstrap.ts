@@ -3,9 +3,9 @@ import { useStore } from "./store";
 /**
  * Client-side cloud synchronization bootstrap.
  *
- * Local state is the fast offline projection. Every online entry refreshes the
- * shared snapshot in the background without blocking the first paint; pending
- * local mutations are drained before the refresh.
+ * Local state is the fast offline projection. The shared snapshot is refreshed
+ * on an idle bootstrap and on a slow interval; navigation must never trigger a
+ * network request just because the window received focus or became visible.
  */
 let started = false;
 let timer: ReturnType<typeof setInterval> | undefined;
@@ -61,9 +61,5 @@ export function startCloudSync() {
     start();
   }
 
-  window.addEventListener("online", () => void syncNow());
-  window.addEventListener("focus", () => void syncNow());
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") void syncNow();
-  });
+  window.addEventListener("online", () => void syncNow(), { passive: true });
 }

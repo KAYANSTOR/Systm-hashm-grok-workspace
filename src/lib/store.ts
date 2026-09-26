@@ -24,7 +24,6 @@ import type { OutboxItem } from "../domain/outbox.ts";
 import { pruneSettledOutbox } from "../domain/outbox.ts";
 import { drainOutbox, outboxPendingCount } from "../application/sync-engine.ts";
 import { applyOutboxOperation } from "../server/repository";
-import { getDeviceId } from "../domain/device.ts";
 import { EMPTY_DATA } from "./types";
 import type { AppData, Customer, Expense, InventoryItem, Invoice, Supplier, Voucher, WorkshopSettings, OrganizationProfile } from "./types";
 import { uid } from "./utils";
@@ -498,78 +497,78 @@ export const useStore = create<Store>()(
 
       addCustomer: (c) => {
         const id = uid("c");
-        const result = mutateUpsertCustomer(get(), { ...c, id, createdAt: new Date().toISOString() } as Customer, getDeviceId());
+        const result = mutateUpsertCustomer(get(), { ...c, id, createdAt: new Date().toISOString() } as Customer, true);
         applyBundle(get, set, result, "تعذر حفظ العميل");
         return id;
       },
       updateCustomer: (id, data) => {
         const current = get().customers.find((x) => x.id === id);
         if (!current) return;
-        const result = mutateUpsertCustomer(get(), { ...current, ...data }, getDeviceId());
+        const result = mutateUpsertCustomer(get(), { ...current, ...data }, false);
         applyBundle(get, set, result, "تعذر تحديث العميل");
       },
       deleteCustomer: (id) => {
-        const result = mutateDeleteParty(get(), id, getDeviceId());
+        const result = mutateDeleteParty(get(), id, "customer");
         applyBundle(get, set, result, "تعذر حذف العميل");
       },
 
       addSupplier: (s) => {
         const id = uid("s");
-        const result = mutateUpsertSupplier(get(), { ...s, id, createdAt: new Date().toISOString() } as Supplier, getDeviceId());
+        const result = mutateUpsertSupplier(get(), { ...s, id, createdAt: new Date().toISOString() } as Supplier, true);
         applyBundle(get, set, result, "تعذر حفظ المورد");
         return id;
       },
       updateSupplier: (id, data) => {
         const current = get().suppliers.find((x) => x.id === id);
         if (!current) return;
-        const result = mutateUpsertSupplier(get(), { ...current, ...data }, getDeviceId());
+        const result = mutateUpsertSupplier(get(), { ...current, ...data }, false);
         applyBundle(get, set, result, "تعذر تحديث المورد");
       },
       deleteSupplier: (id) => {
-        const result = mutateDeleteParty(get(), id, getDeviceId());
+        const result = mutateDeleteParty(get(), id, "supplier");
         applyBundle(get, set, result, "تعذر حذف المورد");
       },
 
       addInventoryItem: (i) => {
         const id = uid("p");
-        const result = mutateUpsertProduct(get(), { ...i, id, lastUpdated: new Date().toISOString() } as InventoryItem, getDeviceId());
+        const result = mutateUpsertProduct(get(), { ...i, id, lastUpdated: new Date().toISOString() } as InventoryItem, true);
         applyBundle(get, set, result, "تعذر حفظ الصنف");
         return id;
       },
       updateInventoryItem: (id, data) => {
         const current = get().inventory.find((x) => x.id === id);
         if (!current) return;
-        const result = mutateUpsertProduct(get(), { ...current, ...data, lastUpdated: new Date().toISOString() }, getDeviceId());
+        const result = mutateUpsertProduct(get(), { ...current, ...data, lastUpdated: new Date().toISOString() }, false);
         applyBundle(get, set, result, "تعذر تحديث الصنف");
       },
       deleteInventoryItem: (id) => {
-        const result = mutateDeleteProduct(get(), id, getDeviceId());
+        const result = mutateDeleteProduct(get(), id);
         applyBundle(get, set, result, "تعذر حذف الصنف");
       },
 
       addInvoice: (i) => {
         const id = uid("inv");
         const inv = { ...i, id, createdAt: new Date().toISOString() } as Invoice;
-        const result = mutateSaveInvoice(get(), inv, getDeviceId());
+        const result = mutateSaveInvoice(get(), inv);
         if (!applyBundle(get, set, result, "تعذر حفظ الفاتورة")) return "";
         return id;
       },
       updateInvoice: (id, data) => {
         const current = get().invoices.find((x) => x.id === id);
         if (!current) return;
-        const result = mutateSaveInvoice(get(), { ...current, ...data }, getDeviceId());
+        const result = mutateSaveInvoice(get(), { ...current, ...data }, current);
         applyBundle(get, set, result, "تعذر تحديث الفاتورة");
       },
       deleteInvoice: (id) => {
-        const result = mutateDeleteInvoice(get(), id, getDeviceId());
+        const result = mutateDeleteInvoice(get(), id);
         applyBundle(get, set, result, "تعذر حذف الفاتورة");
       },
       approveInvoice: (id) => {
-        const result = mutateApproveInvoice(get(), id, getDeviceId());
+        const result = mutateApproveInvoice(get(), id);
         return applyBundle(get, set, result, "تعذر اعتماد الفاتورة");
       },
       cancelInvoice: (id) => {
-        const result = mutateCancelInvoice(get(), id, getDeviceId());
+        const result = mutateCancelInvoice(get(), id);
         return applyBundle(get, set, result, "تعذر إلغاء الفاتورة");
       },
 
@@ -603,23 +602,23 @@ export const useStore = create<Store>()(
 
       addVoucher: (v) => {
         const id = uid("v");
-        const result = mutateSaveVoucher(get(), { ...v, id, createdAt: new Date().toISOString() } as Voucher, getDeviceId());
+        const result = mutateSaveVoucher(get(), { ...v, id, createdAt: new Date().toISOString() } as Voucher);
         if (!applyBundle(get, set, result, "تعذر حفظ السند")) return "";
         return id;
       },
       deleteVoucher: (id) => {
-        const result = mutateDeleteVoucher(get(), id, getDeviceId());
+        const result = mutateDeleteVoucher(get(), id);
         applyBundle(get, set, result, "تعذر حذف السند");
       },
 
       addExpense: (e) => {
         const id = uid("e");
-        const result = mutateSaveExpense(get(), { ...e, id, createdAt: new Date().toISOString() } as Expense, getDeviceId());
+        const result = mutateSaveExpense(get(), { ...e, id, createdAt: new Date().toISOString() } as Expense);
         if (!applyBundle(get, set, result, "تعذر حفظ المصروف")) return "";
         return id;
       },
       deleteExpense: (id) => {
-        const result = mutateDeleteExpense(get(), id, getDeviceId());
+        const result = mutateDeleteExpense(get(), id);
         applyBundle(get, set, result, "تعذر حذف المصروف");
       },
     }),
@@ -649,10 +648,4 @@ if (typeof window !== "undefined") {
   window.addEventListener("offline", () => {
     useStore.setState({ connectionState: "offline", lastSyncMessage: "انقطع الاتصال — العمل محليًا" });
   });
-  if (navigator.onLine) {
-    setTimeout(() => {
-      useStore.getState().fetchFromDb().catch(console.error);
-      useStore.getState().drainPendingOutbox().catch(console.error);
-    }, 500);
-  }
 }
