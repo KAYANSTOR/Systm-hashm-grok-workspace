@@ -31,6 +31,10 @@ interface VoucherDocumentProps {
   copyLabel?: string;
 }
 
+/**
+ * سند قبض/صرف — مطابق للنموذج الرسمي.
+ * الترويسة والشعار من إعدادات المنشأة.
+ */
 function VoucherDocument({
   voucher,
   partyName,
@@ -69,6 +73,7 @@ function VoucherDocument({
     <div className="vch">
       {copyLabel ? <span className="vch__copy-tag">{copyLabel}</span> : null}
 
+      {/* ترويسة من إعدادات المنشأة */}
       <header className="vch__head">
         <div className="vch__head-copy">
           <h1 className="vch__org">{companyName}</h1>
@@ -80,42 +85,49 @@ function VoucherDocument({
         </div>
       </header>
 
-      <div className="vch-title-row">
+      {/* الرقم + شارة العنوان + التاريخ */}
+      <div className="vch-title-bar">
+        <div className="vch-title-side">
+          <span>الرقم :</span>
+          <strong dir="ltr">{voucher.voucherNumber || "............"}</strong>
+        </div>
         <div className="vch-title-pill">{voucherTitle(type)}</div>
-        <div className="vch-meta-side">
-          <div className="vch-chip">
-            <span>الرقم :</span>
-            <strong dir="ltr">{voucher.voucherNumber}</strong>
-          </div>
-          <div className="vch-chip">
-            <span>التاريخ :</span>
-            <strong dir="ltr">{formatDate(voucher.date)}</strong>
-          </div>
+        <div className="vch-title-side vch-title-side--date">
+          <span>التاريخ :</span>
+          <strong dir="ltr">{formatDate(voucher.date)}</strong>
         </div>
       </div>
 
       <div className="vch__body">
+        {/* الطرف */}
         <div className="vch-field">
           <span className="vch-field__label">{partyLabel}</span>
-          <span className="vch-field__value">{partyName || "—"}</span>
+          <span className="vch-field__value">{partyName || ""}</span>
           <span className="vch-field__suffix">المحترم</span>
         </div>
 
+        {/* المبلغ */}
         <div className="vch-field vch-field--amount">
           <span className="vch-field__label">مبلغ وقدره /</span>
           <span className="vch-amount-box">
-            <span className="vch-amount-box__cur">ريال يمني فقط لا غير</span>
+            <span className="vch-amount-box__ico" aria-hidden>
+              🪙
+            </span>
             <span className="vch-amount-box__num" dir="ltr">
               {money(voucher.amount)}
             </span>
+            <span className="vch-amount-box__cur">ريال يمني فقط لا غير</span>
           </span>
         </div>
 
-        <div className="vch-field">
-          <span className="vch-field__label">المبلغ كتابةً /</span>
-          <span className="vch-field__value">{amountWords(voucher.amount)}</span>
+        {/* المبلغ كتابةً — إن وُجد */}
+        <div className="vch-field vch-field--words">
+          <span className="vch-field__value vch-field__value--words">
+            {amountWords(voucher.amount)}
+          </span>
         </div>
 
+        {/* طريقة الدفع + التاريخ */}
         <div className="vch-field vch-field--split">
           <div>
             <span className="vch-field__label">طريقة الدفع /</span>
@@ -129,19 +141,22 @@ function VoucherDocument({
           </div>
         </div>
 
+        {/* وذلك مقابل */}
         <div className="vch-field">
           <span className="vch-field__label">وذلك مقابل /</span>
-          <span className="vch-field__value">{voucher.description?.trim() || "—"}</span>
+          <span className="vch-field__value">{voucher.description?.trim() || ""}</span>
         </div>
 
+        {/* الباقي */}
         <div className="vch-field">
           <span className="vch-field__label">{balanceLabel}</span>
           <span className="vch-field__value" dir="ltr">
-            {partyBalanceAfter !== null ? money(partyBalanceAfter) : "—"}
+            {partyBalanceAfter !== null ? money(partyBalanceAfter) : ""}
           </span>
         </div>
       </div>
 
+      {/* التوقيعات */}
       <div className="vch__signs">
         <div className="vch__sign">
           <div className="vch__sign-title">توقيع المستلم</div>
@@ -153,11 +168,26 @@ function VoucherDocument({
         </div>
       </div>
 
+      {/* الشريط السفلي */}
       <footer className="vch__foot">
-        <span>
-          ☎ {companyPhones} &nbsp;|&nbsp; 📍 {companyAddress}
-        </span>
-        <span>{companyName}</span>
+        <div className="vch__foot-main">
+          <span className="inv-foot__item">
+            <span className="inv-foot__ico" aria-hidden>
+              ☎
+            </span>
+            {companyPhones}
+          </span>
+          <span className="inv-foot__sep" aria-hidden>
+            |
+          </span>
+          <span className="inv-foot__item">
+            <span className="inv-foot__ico" aria-hidden>
+              📍
+            </span>
+            {companyAddress}
+          </span>
+        </div>
+        <div className="vch__foot-name">{companyName}</div>
       </footer>
     </div>
   );
