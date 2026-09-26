@@ -92,3 +92,9 @@ export const expenseCategories = [
   "ضيافة",
   "أخرى",
 ] as const;
+
+export {
+  embroideryUnitLabel,
+  embroideryUnitOptions,
+  embroideryFieldLabels,
+} from "./embroidery";
