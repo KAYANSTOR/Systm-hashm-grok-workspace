@@ -2,21 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { createPortal } from "react-dom";
 import { CheckCircle2, Download, Minus, Plus, Printer, RotateCcw, Share2, X } from "lucide-react";
 import "./print.css";
+import "./print-design.css";
 
 export type PaperKind = "a4" | "receipt" | "a4-voucher-sheet";
 
 export interface PrintPreviewProps {
-  /** عنوان المعاينة أعلى الشاشة (مثال: «معاينة الفاتورة»). */
   title: string;
-  /** سطر توضيحي أسفل العنوان (نوع الورق وما سيحدث عند الطباعة). */
   subtitle?: string;
-  /** مقاس الورق — يحدد `@page` والأبعاد الفعلية للمستند. */
   paper: PaperKind;
-  /** اسم ملف PDF عند التنزيل/المشاركة بلا امتداد. */
   fileName: string;
-  /** نص مصاحب عند مشاركة الملف عبر واتساب/المشاركة النظامية. */
   shareText?: string;
-  /** زر إضافي في الشريط (مثال: اعتماد المستند). */
   extraAction?: ReactNode;
   onClose: () => void;
   children: ReactNode;
@@ -30,10 +25,6 @@ interface PaperMetrics {
   screenClass: string;
 }
 
-/**
- * مقاسات الورق الفعلية. العرض ثابت 210mm في الحالتين لأنه عرض ورقة A4،
- * والسند يُطبع على نفس العرض بارتفاع نصف A4 (نظام دفاتر السندات الشائع).
- */
 const PAPERS: Record<PaperKind, PaperMetrics> = {
   a4: {
     widthPx: 793.7,
@@ -66,16 +57,6 @@ function nextZoom(current: number, direction: 1 | -1): number {
   return [...ZOOM_STEPS].reverse().find((step) => step < current - 0.001) ?? ZOOM_STEPS[0];
 }
 
-/**
- * معاينة وطباعة موحّدة لكل المستندات (فاتورة · سند · كشف حساب · تقرير).
- *
- * لماذا هذا المكوّن؟
- *  - **طباعة حقيقية**: المستند يُطبع كنص متجهي من نفس الصفحة، فلا صور باهتة
- *    ولا خطوط مفقودة، ولا يلزم فتح نافذة منبثقة (كانت تُحجب فيفشل الأمر).
- *  - **معاينة قبل الطباعة**: المستخدم يرى الورقة بمقاسها الحقيقي ويقرّب/يبعد
- *    ويتأكد من الأرقام قبل أن يستهلك ورقة.
- *  - **تنزيل PDF ومشاركة** بنفس الشكل الظاهر في المعاينة.
- */
 export default function PrintPreview({
   title,
   subtitle,
@@ -101,7 +82,6 @@ export default function PrintPreview({
     setMounted(true);
   }, []);
 
-  // ملاءمة العرض: نقيس المساحة المتاحة فلا تخرج الورقة عن الشاشة على الجوال.
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
@@ -117,8 +97,6 @@ export default function PrintPreview({
   }, [metrics.widthPx]);
 
   const effectiveZoom = fitMode ? fitScale : zoom;
-  // أعلى الورقة في المعاينة قد يكون أطول من الشاشة (الفواتير الطويلة)، فنحجز
-  // الارتفاع بعد التقريب حتى يبقى شريط التمرير منطقيًا.
   const stageHeight = useMemo(
     () => (paper === "receipt" ? metrics.heightPx : metrics.heightPx) * effectiveZoom,
     [effectiveZoom, metrics.heightPx, paper],
@@ -127,10 +105,9 @@ export default function PrintPreview({
   const handlePrint = useCallback(async () => {
     setMessage("");
     try {
-      // انتظر تحميل الخط قبل الطباعة: بدونه يُطبع السند بخط احتياطي.
       await document.fonts?.ready;
     } catch {
-      /* لا نُفشل الطباعة بسبب الخط */
+      /* ignore */
     }
     document.documentElement.classList.add("printing");
     const cleanup = () => {
@@ -139,7 +116,6 @@ export default function PrintPreview({
     };
     window.addEventListener("afterprint", cleanup);
     window.print();
-    // بعض المتصفحات (وخاصة الجوال) لا تُطلق afterprint دائمًا.
     window.setTimeout(cleanup, 4000);
   }, []);
 
@@ -302,7 +278,6 @@ export default function PrintPreview({
                 onClick={() => setFitMode(true)}
                 aria-label="ملاءمة العرض"
                 title="ملاءمة العرض"
-                className={fitMode ? "bg-brand-soft" : ""}
               >
                 <RotateCcw className="size-4" />
               </button>
