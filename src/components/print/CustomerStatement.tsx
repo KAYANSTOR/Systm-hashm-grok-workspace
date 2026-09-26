@@ -49,8 +49,8 @@ const sum = (entries: StatementEntry[], field: "debit" | "credit") =>
   entries.reduce((total, entry) => total + (Number(entry[field]) || 0), 0);
 
 /**
- * كشف حساب A4 — مطابق للنموذج الرسمي (Navy + Gold).
- * الرصيد المتراكم من حركات النظام الحقيقية.
+ * كشف حساب A4 — مطابق للنموذج الرسمي المرفق.
+ * الترويسة والشعار من إعدادات المنشأة؛ الأعمدة والمجاميع والشريط السفلي كما في التصميم.
  */
 export const CustomerStatement = forwardRef<HTMLDivElement, Props>(
   ({ statement, company, className = "" }, ref) => {
@@ -65,6 +65,9 @@ export const CustomerStatement = forwardRef<HTMLDivElement, Props>(
       return { entry, running };
     });
 
+    const minRows = 5;
+    const emptyRows = Math.max(0, minRows - rows.length);
+
     const companyName =
       company.name || "معامل هاشم الأحمدي للتصميم والتطريز الإلكتروني";
     const companyAddress =
@@ -76,6 +79,7 @@ export const CustomerStatement = forwardRef<HTMLDivElement, Props>(
 
     return (
       <div ref={ref} className={`statement-page ${className}`}>
+        {/* ترويسة من إعدادات المنشأة */}
         <header className="doc-head">
           <div className="doc-head__copy">
             <h1 className="doc-head__name">{companyName}</h1>
@@ -87,30 +91,35 @@ export const CustomerStatement = forwardRef<HTMLDivElement, Props>(
           </div>
         </header>
 
-        <div className="stmt-band">
+        {/* شارة العنوان + رقم الحساب والعميل */}
+        <div className="stmt-band-row">
           <div className="stmt-band__title">كشف حساب</div>
-        </div>
-
-        <div className="stmt-meta">
-          <div className="stmt-meta__item">
-            <span>رقم الحساب :</span>
-            <strong dir="ltr">{statement.customerNumber || "—"}</strong>
-          </div>
-          <div className="stmt-meta__item">
-            <span>العميل / المورد :</span>
-            <strong>{statement.customerName || "—"}</strong>
-          </div>
-          <div className="stmt-meta__item">
-            <span>من تاريخ :</span>
-            <strong dir="ltr">{statement.periodFrom}</strong>
-          </div>
-          <div className="stmt-meta__item">
-            <span>إلى تاريخ :</span>
-            <strong dir="ltr">{statement.periodTo}</strong>
+          <div className="stmt-party-box">
+            <div className="stmt-party-line">
+              <span>رقم الحساب :</span>
+              <strong dir="ltr">{statement.customerNumber || "................"}</strong>
+            </div>
+            <div className="stmt-party-line">
+              <span>العميل / المورد :</span>
+              <strong>{statement.customerName || "................"}</strong>
+            </div>
           </div>
         </div>
 
-        <section className="doc-table-wrap">
+        {/* فترة التاريخ */}
+        <div className="stmt-dates">
+          <div className="stmt-date-field">
+            <span>تاريخ :</span>
+            <strong dir="ltr">{statement.periodFrom || "—"}</strong>
+          </div>
+          <div className="stmt-date-field">
+            <span>التاريخ :</span>
+            <strong dir="ltr">{statement.periodTo || "—"}</strong>
+          </div>
+        </div>
+
+        {/* جدول الحركات */}
+        <section className="doc-table-wrap stmt-table-wrap">
           <table className="doc-table stmt-table">
             <thead>
               <tr>
@@ -131,15 +140,26 @@ export const CustomerStatement = forwardRef<HTMLDivElement, Props>(
                   <td className="col-number">{entry.documentNumber || "—"}</td>
                   <td className="col-desc">{entry.description || "—"}</td>
                   <td className="col-number">
-                    {entry.debit ? money(entry.debit) : "—"}
+                    {entry.debit ? money(entry.debit) : ""}
                   </td>
                   <td className="col-number">
-                    {entry.credit ? money(entry.credit) : "—"}
+                    {entry.credit ? money(entry.credit) : ""}
                   </td>
                   <td className="col-number">{money(lineBalance)}</td>
                 </tr>
               ))}
-              {!rows.length && (
+              {Array.from({ length: emptyRows }).map((_, i) => (
+                <tr key={`e-${i}`} className="doc-table__empty">
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                </tr>
+              ))}
+              {!rows.length && emptyRows === 0 ? (
                 <tr>
                   <td
                     colSpan={7}
@@ -152,41 +172,37 @@ export const CustomerStatement = forwardRef<HTMLDivElement, Props>(
                     لا توجد حركات خلال الفترة المحددة
                   </td>
                 </tr>
-              )}
+              ) : null}
             </tbody>
             <tfoot>
-              <tr>
-                <td colSpan={4} style={{ textAlign: "center" }}>
+              <tr className="stmt-tfoot-row">
+                <td colSpan={4} className="stmt-tfoot-label">
                   الإجمالي
                 </td>
-                <td className="col-number">{money(totalDebit)}</td>
-                <td className="col-number">{money(totalCredit)}</td>
-                <td className="col-number">{money(closing)}</td>
+                <td className="col-number">
+                  <span className="stmt-tfoot-cap">مجموع المدين</span>
+                  {money(totalDebit)}
+                </td>
+                <td className="col-number">
+                  <span className="stmt-tfoot-cap">مجموع الدائن</span>
+                  {money(totalCredit)}
+                </td>
+                <td className="col-number">
+                  <span className="stmt-tfoot-cap">الرصيد النهائي</span>
+                  {money(closing)}
+                </td>
               </tr>
             </tfoot>
           </table>
         </section>
 
-        <div className="stmt-summary">
-          <div className="stmt-summary__cell">
-            <span>مجموع المدين</span>
-            <strong dir="ltr">{money(totalDebit)}</strong>
-          </div>
-          <div className="stmt-summary__cell">
-            <span>مجموع الدائن</span>
-            <strong dir="ltr">{money(totalCredit)}</strong>
-          </div>
-          <div className="stmt-summary__cell stmt-summary__cell--final">
-            <span>الرصيد النهائي</span>
-            <strong dir="ltr">{money(closing)}</strong>
-          </div>
-        </div>
-
+        {/* ملاحظات */}
         <div className="stmt-notes">
           <span>ملاحظات :</span>
           <div className="stmt-notes__line" />
         </div>
 
+        {/* توقيع المحاسب */}
         <div className="statement-signs">
           <div className="doc-sign">
             <div className="doc-sign__title">توقيع المحاسب</div>
@@ -194,11 +210,23 @@ export const CustomerStatement = forwardRef<HTMLDivElement, Props>(
           </div>
         </div>
 
-        <footer className="doc-foot">
-          <span>
-            ☎ {companyPhones} &nbsp;|&nbsp; 📍 {companyAddress}
+        {/* الشريط السفلي */}
+        <footer className="doc-foot inv-foot">
+          <span className="inv-foot__item">
+            <span className="inv-foot__ico" aria-hidden>
+              ☎
+            </span>
+            {companyPhones}
           </span>
-          <span className="doc-foot__note">{statement.customerName}</span>
+          <span className="inv-foot__sep" aria-hidden>
+            |
+          </span>
+          <span className="inv-foot__item">
+            <span className="inv-foot__ico" aria-hidden>
+              📍
+            </span>
+            {companyAddress}
+          </span>
         </footer>
       </div>
     );
