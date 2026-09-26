@@ -1,6 +1,7 @@
 import { CheckCircle2 } from "lucide-react";
 import type { Invoice } from "@/lib/types";
 import { printQtyForUnit } from "@/lib/embroidery";
+import { invoiceFieldLabelsFromInvoice } from "@/lib/invoice-fields";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import PrintPreview from "./PrintPreview";
@@ -15,15 +16,9 @@ function money(value: number): string {
   return formatMoney(Math.round((Number.isFinite(value) ? value : 0) * 100) / 100);
 }
 
-function invoiceTitle(invoice: Invoice): string {
-  if (invoice.invoiceType === "ISSUE") return "فاتورة صرف مخزني";
-  if (invoice.type === "purchase") return "فاتورة مشتريات";
-  return "فاتورة مبيعات";
-}
-
 /**
- * فاتورة A4 — مطابقة للنموذج الرسمي المرفق:
- * أعمدة الكمية (طاقة/وار/فرشات) · مجاميع ثلاثية · شريط سفلي كحلي.
+ * فاتورة A4 — مطابقة للنموذج الرسمي المرفق.
+ * التسميات ديناميكية حسب نوع الفاتورة عبر invoiceFieldLabels.
  * الترويسة والشعار من إعدادات المنشأة فقط.
  */
 export default function InvoicePrintTemplate({
@@ -32,6 +27,7 @@ export default function InvoicePrintTemplate({
   onClose,
 }: InvoicePrintTemplateProps) {
   const { customers, suppliers, approveInvoice, settings, organization } = useStore();
+  const fields = invoiceFieldLabelsFromInvoice(invoice);
 
   const party =
     invoice.type === "sale"
@@ -78,10 +74,10 @@ export default function InvoicePrintTemplate({
   return (
     <PrintPreview
       title="معاينة الفاتورة قبل الطباعة"
-      subtitle={`${invoiceTitle(invoice)} · ${partyName}`}
+      subtitle={`${fields.title} · ${partyName}`}
       paper="a4"
       fileName={`فاتورة_${invoice.invoiceNumber}`}
-      shareText={`فاتورة ${invoice.invoiceNumber} — ${partyName}`}
+      shareText={`${fields.title} ${invoice.invoiceNumber} — ${partyName}`}
       onClose={onClose}
       extraAction={
         !invoice.isApproved && !invoice.isCancelled ? (
@@ -115,7 +111,7 @@ export default function InvoicePrintTemplate({
 
       {/* شارة العنوان + الرقم والتاريخ */}
       <div className="inv-band">
-        <div className="inv-band__title">{invoiceTitle(invoice)}</div>
+        <div className="inv-band__title">{fields.title}</div>
         <div className="inv-band__meta">
           <div className="inv-meta-row">
             <span>الرقم:</span>
@@ -150,11 +146,11 @@ export default function InvoicePrintTemplate({
       {/* الطرف */}
       <div className="inv-party">
         <div className="inv-party__line">
-          <span>المطلوب من الأخ :</span>
+          <span>{fields.partyPrintLabel}</span>
           <strong>{partyName || "................................"}</strong>
         </div>
         <div className="inv-party__line inv-party__line--tail">
-          <span>المحترمون</span>
+          <span>{fields.partySuffix}</span>
         </div>
       </div>
 
@@ -169,7 +165,7 @@ export default function InvoicePrintTemplate({
                 البند
               </th>
               <th rowSpan={2} className="col-desc-h">
-                البيان
+                {fields.descriptionColumn}
                 <span className="th-en">Description</span>
               </th>
               <th colSpan={3} className="col-qty-group">
@@ -216,7 +212,7 @@ export default function InvoicePrintTemplate({
         </table>
       </section>
 
-      {/* المجاميع: صندوق قيم + تسميات ملونة — مطابق للصورة */}
+      {/* المجاميع */}
       <div className="inv-totals-block">
         <div className="inv-totals-values" aria-hidden={false}>
           <div className="inv-totals-value-line" dir="ltr">
@@ -234,19 +230,19 @@ export default function InvoicePrintTemplate({
             <span className="inv-totals-ico" aria-hidden>
               ▣
             </span>
-            اجمالي الفاتورة
+            {fields.totalInvoiceLabel}
           </div>
           <div className="inv-totals-label">
             <span className="inv-totals-ico" aria-hidden>
               ▣
             </span>
-            الرصيد السابق
+            {fields.previousBalanceLabel}
           </div>
           <div className="inv-totals-label inv-totals-label--gold">
             <span className="inv-totals-ico" aria-hidden>
               ▣
             </span>
-            الاجمالي الكلي
+            {fields.grandTotalLabel}
           </div>
         </div>
       </div>
@@ -276,25 +272,22 @@ export default function InvoicePrintTemplate({
         <span className="inv-ack__icon" aria-hidden>
           ✎
         </span>
-        <p>
-          إستلمت البضاعة الموضحة أعلاه كاملة ومطابقة للتفاصيل مع إلتزامي بدفع القيمة خلال فترة أقصاها
-          (&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;) من تحرير الفاتورة
-        </p>
+        <p>{fields.acknowledgment}</p>
       </div>
 
       {/* التوقيعات */}
       <div className="doc-signs inv-signs">
         <div className="doc-sign">
-          <div className="doc-sign__title">توقيع المبيعات</div>
+          <div className="doc-sign__title">{fields.signRight}</div>
           <div className="doc-sign__line" />
         </div>
         <div className="doc-sign">
-          <div className="doc-sign__title">توقيع المستلم</div>
+          <div className="doc-sign__title">{fields.signLeft}</div>
           <div className="doc-sign__line" />
         </div>
       </div>
 
-      {/* الشريط السفلي — مطابق للصورة */}
+      {/* الشريط السفلي */}
       <footer className="doc-foot inv-foot">
         <span className="inv-foot__item">
           <span className="inv-foot__ico" aria-hidden>
