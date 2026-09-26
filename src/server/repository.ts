@@ -169,9 +169,30 @@ export const syncLegacyData = createServerFn({ method: "POST" })
 
         await tx`delete from invoice_items where invoice_id=${inv.id}`;
         for (const item of inv.items) {
-          await tx`insert into invoice_items (id, invoice_id, product_id, name, quantity, unit, unit_price, total, description, service_unit, service_quantity, service_unit_price)
-                   values (${item.id}, ${inv.id}, ${item.inventoryItemId === 'SERVICE' ? null : (item.inventoryItemId || null)}, ${item.name}, ${item.quantity}, ${item.unit || null}, ${item.unitPrice}, ${item.total}, ${item.description || null}, ${item.serviceUnit || null}, ${item.serviceQuantity ?? null}, ${item.serviceUnitPrice ?? null})
-                   on conflict (id) do update set quantity=EXCLUDED.quantity, unit_price=EXCLUDED.unit_price, total=EXCLUDED.total, description=EXCLUDED.description, service_unit=EXCLUDED.service_unit, service_quantity=EXCLUDED.service_quantity, service_unit_price=EXCLUDED.service_unit_price`;
+          await tx`insert into invoice_items (
+                     id, invoice_id, product_id, name, description,
+                     quantity, unit, unit_price, total,
+                     service_unit, service_quantity, service_unit_price
+                   )
+                   values (
+                     ${item.id}, ${inv.id},
+                     ${item.inventoryItemId === 'SERVICE' ? null : (item.inventoryItemId || null)},
+                     ${item.name}, ${item.description || null},
+                     ${item.quantity}, ${item.unit || null}, ${item.unitPrice}, ${item.total},
+                     ${item.serviceUnit || null},
+                     ${item.serviceQuantity != null ? item.serviceQuantity : null},
+                     ${item.serviceUnitPrice != null ? item.serviceUnitPrice : null}
+                   )
+                   on conflict (id) do update set
+                     name=EXCLUDED.name,
+                     description=EXCLUDED.description,
+                     quantity=EXCLUDED.quantity,
+                     unit=EXCLUDED.unit,
+                     unit_price=EXCLUDED.unit_price,
+                     total=EXCLUDED.total,
+                     service_unit=EXCLUDED.service_unit,
+                     service_quantity=EXCLUDED.service_quantity,
+                     service_unit_price=EXCLUDED.service_unit_price`;
         }
         await tx`delete from financial_transactions where reference_id=${inv.id}`;
         await tx`delete from inventory_movements where reference_id=${inv.id}`;
@@ -336,8 +357,20 @@ export const saveInvoice = createServerFn({ method: "POST" })
       }
       await tx`delete from inventory_movements where reference_id=${inv.id}`;
       for (const item of inv.items) {
-          await tx`insert into invoice_items (id, invoice_id, product_id, name, quantity, unit, unit_price, total, description, service_unit, service_quantity, service_unit_price)
-                 values (${item.id}, ${inv.id}, ${item.inventoryItemId === 'SERVICE' ? null : (item.inventoryItemId || null)}, ${item.name}, ${item.quantity}, ${item.unit || null}, ${item.unitPrice}, ${item.total}, ${item.description || null}, ${item.serviceUnit || null}, ${item.serviceQuantity ?? null}, ${item.serviceUnitPrice ?? null})`;
+          await tx`insert into invoice_items (
+                     id, invoice_id, product_id, name, description,
+                     quantity, unit, unit_price, total,
+                     service_unit, service_quantity, service_unit_price
+                   )
+                 values (
+                     ${item.id}, ${inv.id},
+                     ${item.inventoryItemId === 'SERVICE' ? null : (item.inventoryItemId || null)},
+                     ${item.name}, ${item.description || null},
+                     ${item.quantity}, ${item.unit || null}, ${item.unitPrice}, ${item.total},
+                     ${item.serviceUnit || null},
+                     ${item.serviceQuantity != null ? item.serviceQuantity : null},
+                     ${item.serviceUnitPrice != null ? item.serviceUnitPrice : null}
+                 )`;
       }
 
       if (inv.isApproved) {
