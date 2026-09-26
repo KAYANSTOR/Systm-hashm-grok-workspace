@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Copy, FileText } from "lucide-react";
-import type { Voucher, VoucherType } from "@/lib/types";
+import type { Voucher } from "@/lib/types";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { methodLabel } from "@/lib/labels";
 import { amountWords } from "@/lib/numbers-ar";
+import { voucherFieldLabels } from "@/lib/voucher-fields";
 import { useStore } from "@/lib/store";
 import PrintPreview from "./PrintPreview";
 
@@ -17,13 +18,6 @@ function money(value: number): string {
   return formatMoney(Math.round((Number.isFinite(value) ? value : 0) * 100) / 100);
 }
 
-function voucherTitle(type: VoucherType): string {
-  if (type === "receipt") return "سند قبض";
-  if (type === "payment") return "سند صرف";
-  if (type === "deferred") return "سند آجل";
-  return "سند قيد";
-}
-
 interface VoucherDocumentProps {
   voucher: Voucher;
   partyName: string;
@@ -33,6 +27,7 @@ interface VoucherDocumentProps {
 
 /**
  * سند قبض/صرف — مطابق للنموذج الرسمي.
+ * التسميات ديناميكية حسب نوع السند عبر voucherFieldLabels.
  * الترويسة والشعار من إعدادات المنشأة.
  */
 function VoucherDocument({
@@ -42,9 +37,7 @@ function VoucherDocument({
   copyLabel,
 }: VoucherDocumentProps) {
   const { settings, organization } = useStore();
-  const type = voucher.type;
-  const isReceipt = type === "receipt";
-  const isPayment = type === "payment";
+  const fields = voucherFieldLabels(voucher.type);
 
   const companyName =
     organization.name || settings.name || "معامل هاشم الأحمدي للتصميم والتطريز";
@@ -55,17 +48,6 @@ function VoucherDocument({
     [settings.phone1, settings.phone2].filter(Boolean).join(" - ") ||
     "770 447 441 - 730 447 441";
   const logoSrc = organization.logo || "/logo-hashm.jpg";
-
-  const partyLabel = isReceipt
-    ? "استلمنا من الأخ /"
-    : isPayment
-      ? "صرفنا إلى الأخ /"
-      : "الطرف /";
-  const balanceLabel = isReceipt
-    ? "الباقي له بعد هذا السند /"
-    : isPayment
-      ? "الباقي عليه بعد هذا السند /"
-      : "الرصيد بعد السند /";
 
   const payMethod = methodLabel[voucher.paymentMethod] || "الصندوق";
 
@@ -91,7 +73,7 @@ function VoucherDocument({
           <span>الرقم :</span>
           <strong dir="ltr">{voucher.voucherNumber || "............"}</strong>
         </div>
-        <div className="vch-title-pill">{voucherTitle(type)}</div>
+        <div className="vch-title-pill">{fields.title}</div>
         <div className="vch-title-side vch-title-side--date">
           <span>التاريخ :</span>
           <strong dir="ltr">{formatDate(voucher.date)}</strong>
@@ -101,14 +83,16 @@ function VoucherDocument({
       <div className="vch__body">
         {/* الطرف */}
         <div className="vch-field">
-          <span className="vch-field__label">{partyLabel}</span>
+          <span className="vch-field__label">{fields.partyPrintLabel}</span>
           <span className="vch-field__value">{partyName || ""}</span>
-          <span className="vch-field__suffix">المحترم</span>
+          {fields.partySuffix ? (
+            <span className="vch-field__suffix">{fields.partySuffix}</span>
+          ) : null}
         </div>
 
         {/* المبلغ */}
         <div className="vch-field vch-field--amount">
-          <span className="vch-field__label">مبلغ وقدره /</span>
+          <span className="vch-field__label">{fields.amountPrintLabel}</span>
           <span className="vch-amount-box">
             <span className="vch-amount-box__ico" aria-hidden>
               🪙
@@ -120,7 +104,7 @@ function VoucherDocument({
           </span>
         </div>
 
-        {/* المبلغ كتابةً — إن وُجد */}
+        {/* المبلغ كتابةً */}
         <div className="vch-field vch-field--words">
           <span className="vch-field__value vch-field__value--words">
             {amountWords(voucher.amount)}
@@ -130,11 +114,11 @@ function VoucherDocument({
         {/* طريقة الدفع + التاريخ */}
         <div className="vch-field vch-field--split">
           <div>
-            <span className="vch-field__label">طريقة الدفع /</span>
+            <span className="vch-field__label">{fields.paymentMethodLabel}</span>
             <span className="vch-field__value">{payMethod}</span>
           </div>
           <div>
-            <span className="vch-field__label">بتاريخ /</span>
+            <span className="vch-field__label">{fields.paymentDateLabel}</span>
             <span className="vch-field__value" dir="ltr">
               {formatDate(voucher.date)}
             </span>
@@ -143,13 +127,13 @@ function VoucherDocument({
 
         {/* وذلك مقابل */}
         <div className="vch-field">
-          <span className="vch-field__label">وذلك مقابل /</span>
+          <span className="vch-field__label">{fields.descriptionLabel}</span>
           <span className="vch-field__value">{voucher.description?.trim() || ""}</span>
         </div>
 
         {/* الباقي */}
         <div className="vch-field">
-          <span className="vch-field__label">{balanceLabel}</span>
+          <span className="vch-field__label">{fields.balanceAfterLabel}</span>
           <span className="vch-field__value" dir="ltr">
             {partyBalanceAfter !== null ? money(partyBalanceAfter) : ""}
           </span>
@@ -159,11 +143,11 @@ function VoucherDocument({
       {/* التوقيعات */}
       <div className="vch__signs">
         <div className="vch__sign">
-          <div className="vch__sign-title">توقيع المستلم</div>
+          <div className="vch__sign-title">{fields.signLeft}</div>
           <div className="vch__sign-line" />
         </div>
         <div className="vch__sign">
-          <div className="vch__sign-title">أمين الصندوق</div>
+          <div className="vch__sign-title">{fields.signRight}</div>
           <div className="vch__sign-line" />
         </div>
       </div>
@@ -220,7 +204,7 @@ export default function VoucherPrintTemplate({
     return null;
   })();
 
-  const title = voucherTitle(voucher.type);
+  const title = voucherFieldLabels(voucher.type).title;
 
   return (
     <PrintPreview
