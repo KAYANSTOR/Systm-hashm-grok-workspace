@@ -483,99 +483,236 @@
   gap: 1.5mm;
 }
 
-/* —— كشف حساب —— */
-.stmt-band {
-  margin: 3mm 6mm 0;
+/* —— كشف حساب — مطابق للنموذج الرسمي —— */
+.stmt-band-row {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 4mm;
+  margin: 3.5mm 7mm 0;
 }
 .stmt-band__title {
-  display: inline-block;
+  display: flex;
+  align-items: center;
   background: var(--print-teal);
   color: #fff;
-  padding: 2mm 10mm;
-  border-radius: 0 10mm 0 10mm;
-  font-size: 5.2mm;
+  padding: 2.6mm 14mm;
+  border-radius: 0 12mm 0 12mm;
+  font-size: 5.8mm;
   font-weight: 900;
-  box-shadow: 0 1mm 0 var(--print-gold);
+  line-height: 1.2;
+  box-shadow: 0 1.1mm 0 var(--print-gold);
+  white-space: nowrap;
+  align-self: flex-start;
 }
-.stmt-meta {
+.stmt-party-box {
+  flex: 1;
+  max-width: 120mm;
+  border: 0.4mm solid var(--print-teal);
+  border-radius: 4mm;
+  padding: 2mm 4mm;
+  background: #fff;
   display: flex;
-  flex-wrap: wrap;
-  gap: 2mm 6mm;
-  margin: 3mm 8mm 2mm;
-  font-size: 3.2mm;
-}
-.stmt-meta__item {
-  display: inline-flex;
-  align-items: baseline;
+  flex-direction: column;
   gap: 1.5mm;
 }
-.stmt-meta__item span {
-  color: var(--print-muted);
-  font-weight: 700;
-}
-.stmt-meta__item strong {
-  color: var(--print-teal-strong);
-  font-weight: 900;
-}
-.stmt-summary {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+.stmt-party-line {
+  display: flex;
+  align-items: baseline;
   gap: 2mm;
-  margin: 3mm 6mm 0;
+  font-size: 3.4mm;
+  min-height: 5.5mm;
+  border-bottom: 0.3mm dotted #b8c0cc;
+  padding-bottom: 1mm;
 }
-.stmt-summary__cell {
-  border: 0.3mm solid var(--print-line);
-  border-radius: 2mm;
-  padding: 2mm 2.5mm;
-  text-align: center;
-  background: var(--print-teal-soft);
+.stmt-party-line:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
 }
-.stmt-summary__cell span {
-  display: block;
-  font-size: 2.7mm;
-  font-weight: 700;
+.stmt-party-line span {
   color: var(--print-muted);
-  margin-bottom: 1mm;
+  font-weight: 700;
+  white-space: nowrap;
 }
-.stmt-summary__cell strong {
-  font-size: 3.8mm;
+.stmt-party-line strong {
+  flex: 1;
   font-weight: 900;
   color: var(--print-teal-strong);
+}
+
+.stmt-dates {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8mm;
+  margin: 3.5mm 9mm 3mm;
+  flex-wrap: wrap;
+}
+.stmt-date-field {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2mm;
+  font-size: 3.4mm;
+  font-weight: 800;
+  border: 0.35mm solid #c8d0dc;
+  border-radius: 3mm;
+  padding: 1.5mm 4mm;
+  background: #f7f9fc;
+  min-width: 42mm;
+}
+.stmt-date-field span {
+  color: var(--print-muted);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.stmt-date-field strong {
+  color: var(--print-teal-strong);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+  unicode-bidi: plaintext;
+}
+
+.stmt-table-wrap {
+  margin: 2mm 6mm 0;
+  border: 0.55mm solid var(--print-teal);
+  border-radius: 3.5mm;
+  overflow: hidden;
+}
+.stmt-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.stmt-table thead th {
+  background: var(--print-teal);
+  color: #fff;
+  font-weight: 900;
+  text-align: center;
+  vertical-align: middle;
+  padding: 2.4mm 1.2mm;
+  font-size: 3.2mm;
+  border-left: 0.3mm solid rgba(255, 255, 255, 0.35);
+}
+.stmt-table thead th:last-child {
+  border-left: 0;
+}
+.stmt-table tbody td {
+  padding: 2.2mm 1.4mm;
+  border-top: 0.3mm solid #c8d0dc;
+  border-left: 0.3mm solid #dfe4ec;
+  font-size: 3.2mm;
+  font-weight: 700;
+  vertical-align: middle;
+  text-align: center;
+}
+.stmt-table tbody td:last-child {
+  border-left: 0;
+}
+.stmt-table tbody td.col-desc {
+  text-align: right;
+  font-weight: 800;
+}
+.stmt-table tbody tr:nth-child(even) td {
+  background: #f7f9fc;
+}
+.stmt-table tbody tr.doc-table__empty td {
+  height: 9mm;
+  color: transparent;
+  background: #fff;
+}
+.stmt-table .col-number {
+  text-align: center;
+  direction: ltr;
+  unicode-bidi: plaintext;
+  font-weight: 900;
   font-variant-numeric: tabular-nums;
 }
-.stmt-summary__cell--final {
+
+/* صف الإجمالي في أسفل الجدول — مطابق للصورة */
+.stmt-table tfoot .stmt-tfoot-row td {
   background: var(--print-teal);
-  border-color: var(--print-teal);
-}
-.stmt-summary__cell--final span,
-.stmt-summary__cell--final strong {
   color: #fff;
+  font-weight: 900;
+  padding: 2.6mm 1.5mm;
+  text-align: center;
+  border-top: 0.4mm solid var(--print-teal);
+  border-left: 0.3mm solid rgba(255, 255, 255, 0.3);
+  vertical-align: middle;
+  font-size: 3.2mm;
 }
+.stmt-table tfoot .stmt-tfoot-row td:last-child {
+  border-left: 0;
+}
+.stmt-tfoot-label {
+  font-size: 3.8mm !important;
+  letter-spacing: 0.3mm;
+}
+.stmt-tfoot-cap {
+  display: block;
+  font-size: 2.4mm;
+  font-weight: 700;
+  opacity: 0.9;
+  margin-bottom: 0.8mm;
+}
+
 .stmt-notes {
-  margin: 4mm 8mm 0;
-  font-size: 3.1mm;
+  display: flex;
+  align-items: baseline;
+  gap: 2mm;
+  margin: 5mm 9mm 0;
+  font-size: 3.3mm;
   font-weight: 800;
   color: var(--print-muted);
 }
-.stmt-notes__line {
-  border-bottom: 0.3mm dotted var(--print-line);
-  min-height: 6mm;
-  margin-top: 1mm;
+.stmt-notes > span {
+  white-space: nowrap;
 }
+.stmt-notes__line {
+  flex: 1;
+  border-bottom: 0.35mm dotted #b8c0cc;
+  min-height: 5mm;
+}
+
 .statement-signs {
   display: flex;
   justify-content: flex-start;
-  margin: 10mm 12mm 6mm;
+  margin: 12mm 16mm 6mm;
 }
 .statement-signs .doc-sign {
-  min-width: 50mm;
+  min-width: 48mm;
+  text-align: center;
+}
+.statement-signs .doc-sign__title {
+  font-size: 3.4mm;
+  font-weight: 900;
+  color: var(--print-teal);
+  margin-bottom: 8mm;
+}
+.statement-signs .doc-sign__line {
+  border-bottom: 0.4mm solid var(--print-teal);
+  margin: 0 3mm;
+}
+
+/* توافق مع الأسماء القديمة إن وُجدت */
+.stmt-band {
+  margin: 3mm 6mm 0;
+}
+.stmt-meta {
+  display: none;
+}
+.stmt-summary {
+  display: none;
 }
 
 @media print {
   .inv-totals-label,
   .inv-band__title,
   .inv-foot,
-  .doc-table thead th {
+  .doc-table thead th,
+  .stmt-band__title,
+  .stmt-table thead th,
+  .stmt-table tfoot .stmt-tfoot-row td {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
