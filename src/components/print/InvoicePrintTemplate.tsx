@@ -1,5 +1,6 @@
 import { CheckCircle2 } from "lucide-react";
 import type { Invoice } from "@/lib/types";
+import { printQtyForUnit } from "@/lib/embroidery";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import PrintPreview from "./PrintPreview";
@@ -177,9 +178,9 @@ export default function InvoicePrintTemplate({
               <tr key={item.id || index}>
                 <td className="col-index">{String(index + 1).padStart(2, "0")}</td>
                 <td className="col-desc">{item.name || "—"}</td>
-                <td className="col-number">—</td>
-                <td className="col-number">—</td>
-                <td className="col-number">—</td>
+                <td className="col-number">{printQtyForUnit(item, "taqa")}</td>
+                <td className="col-number">{printQtyForUnit(item, "war")}</td>
+                <td className="col-number">{printQtyForUnit(item, "brush")}</td>
                 <td className="col-number">{money(item.unitPrice)}</td>
                 <td className="col-number">{money(item.total)}</td>
               </tr>
