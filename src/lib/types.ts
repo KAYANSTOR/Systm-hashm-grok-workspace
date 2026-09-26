@@ -52,15 +52,26 @@ export interface WarehouseStockRow {
   quantity: number;
 }
 
+/** وحدة تسعير خدمة التطريز في المعمل */
+export type EmbroideryUnit = "taqa" | "war" | "brush";
+
 export interface InvoiceLine {
   id: string;
   inventoryItemId?: string;
   name: string;
   description?: string;
+  /** الكمية العامة (متوافقة مع البنود القديمة والمنتجات) */
   quantity: number;
   unit?: string;
   unitPrice: number;
   total: number;
+  /**
+   * حقول خدمة التطريز المنظمة (عند invoiceType = SERVICE).
+   * تُحفظ أيضًا في quantity / unit / unitPrice للتوافق مع قاعدة البيانات والبيانات القديمة.
+   */
+  serviceUnit?: EmbroideryUnit;
+  serviceQuantity?: number;
+  serviceUnitPrice?: number;
 }
 
 export interface Invoice {
@@ -200,14 +211,14 @@ export interface AppData {
 
 export const DEFAULT_ORGANIZATION: OrganizationProfile = {
   id: 'default_org',
-  name: "معامل هاشم الأحمدي للتصميم والتطريز",
-  address: "صنعاء — شارع الزبيري — مقابل وزارة الدفاع",
+  name: "معامل هاشم الأحمدي للتصميم والتطريز الإلكتروني",
+  address: "صنعاء - شارع الزبيري - مقابل وزارة الدفاع",
   phone: "770 447 441 - 730 447 441",
 };
 
 export const DEFAULT_SETTINGS: WorkshopSettings = {
-  name: "معامل هاشم الأحمدي للتصميم والتطريز",
-  location: "صنعاء — شارع الزبيري — مقابل وزارة الدفاع",
+  name: "معامل هاشم الأحمدي للتصميم والتطريز الإلكتروني",
+  location: "صنعاء - شارع الزبيري - مقابل وزارة الدفاع",
   phone1: "770 447 441",
   phone2: "730 447 441",
 };
